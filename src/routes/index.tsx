@@ -14,6 +14,7 @@ import seteQuedas2Img from "@/assets/cachoeira-sete-quedas-2.jpg";
 import seteQuedas3Img from "@/assets/cachoeira-sete-quedas-3.jpg";
 import toboga1Img from "@/assets/cachoeira-toboga-1.jpg";
 import toboga2Img from "@/assets/cachoeira-toboga-2.jpg";
+import cenaInicialVideo from "@/assets/cena-inicial.mp4.asset.json";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
