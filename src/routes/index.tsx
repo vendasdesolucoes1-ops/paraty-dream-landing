@@ -277,13 +277,16 @@ function Maquete() {
 
       <Reveal delay={200}>
         <div className="mt-14 relative aspect-video bg-primary overflow-hidden rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.45_0.07_152/0.6),transparent_60%)]" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-ivory/90 gap-6">
-            <div className="w-20 h-20 rounded-full border border-ivory/40 flex items-center justify-center">
-              <span className="ml-1 text-2xl">▶</span>
-            </div>
-            <p className="eyebrow text-ivory/70">Tour visual em breve</p>
-          </div>
+          <video
+            src={cenaInicialVideo.url}
+            className="w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            preload="metadata"
+          />
         </div>
       </Reveal>
     </section>
