@@ -1,9 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import heroImg from "@/assets/hero-paraty.jpg";
-import waterfallImg from "@/assets/lifestyle-waterfall.jpg";
+import heroImg from "@/assets/hero-aerial-paraty.jpg";
 import locationImg from "@/assets/location-paraty.jpg";
+import igrejaImg from "@/assets/centro-igreja-santa-rita.png";
+import canhoesImg from "@/assets/centro-canhoes-orla.jpg";
+import vistaAereaImg from "@/assets/centro-vista-aerea.png";
+import ruaNoiteImg from "@/assets/centro-rua-noite.png";
+import cheiaCanoasImg from "@/assets/centro-cheia-canoas.png";
+import telhadosImg from "@/assets/centro-telhados-aerea.jpg";
+import waterfallImg from "@/assets/lifestyle-waterfall.jpg";
+import pedraBrancaImg from "@/assets/cachoeira-pedra-branca.jpg";
+import seteQuedasImg from "@/assets/cachoeira-sete-quedas.jpg";
+import seteQuedas2Img from "@/assets/cachoeira-sete-quedas-2.jpg";
+import seteQuedas3Img from "@/assets/cachoeira-sete-quedas-3.jpg";
+import toboga1Img from "@/assets/cachoeira-toboga-1.jpg";
+import toboga2Img from "@/assets/cachoeira-toboga-2.jpg";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
+import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -22,6 +35,26 @@ export const Route = createFileRoute("/")({
   }),
   component: Landing,
 });
+
+const centroSlides: CarouselSlide[] = [
+  { src: igrejaImg, alt: "Igreja de Santa Rita de Cássia no Centro Histórico de Paraty", titulo: "Igreja de Santa Rita", descricao: "Construída em 1722, a mais antiga da cidade — hoje Museu de Arte Sacra." },
+  { src: locationImg, alt: "Centro Histórico de Paraty", titulo: "Centro Histórico", descricao: "Ruas de pedra e casario colonial, a nove minutos do empreendimento." },
+  { src: canhoesImg, alt: "Canhões coloniais na orla histórica de Paraty", titulo: "Orla Histórica", descricao: "Canhões coloniais à beira do cais, marca da herança marítima da cidade." },
+  { src: vistaAereaImg, alt: "Vista aérea do Centro Histórico de Paraty", titulo: "Vista do Centro Histórico", descricao: "O casario colonial entre o mar e a Serra do Mar, visto do alto." },
+  { src: ruaNoiteImg, alt: "Rua de pedra do Centro Histórico ao entardecer", titulo: "Vida ao Entardecer", descricao: "Ruas de pedra, restaurantes e flores ao cair da noite no centro." },
+  { src: cheiaCanoasImg, alt: "Ruas alagadas do Centro Histórico de Paraty com canoas", titulo: "Maré das Ruas", descricao: "Na maré cheia, as ruas viram canais — cena típica e única de Paraty." },
+  { src: telhadosImg, alt: "Telhados coloniais do Centro Histórico vistos do alto", titulo: "Telhados Coloniais", descricao: "O conjunto de telhas e quintais preservados, patrimônio tombado." },
+];
+
+const lifeSlides: CarouselSlide[] = [
+  { src: pedraBrancaImg, alt: "Cachoeira da Pedra Branca em Paraty", titulo: "Cachoeira da Pedra Branca", descricao: "Poços de água cristalina e tobogã natural, a poucos minutos do loteamento." },
+  { src: seteQuedasImg, alt: "Cachoeira das Sete Quedas em Paraty", titulo: "Cachoeira das Sete Quedas", descricao: "Quedas em série e piscinas naturais em meio à floresta, ideais para um dia de mergulho." },
+  { src: seteQuedas2Img, alt: "Poço da Cachoeira das Sete Quedas", titulo: "Cachoeira das Sete Quedas", descricao: "Poço de águas calmas ao pé da queda, perfeito para banho em meio à mata." },
+  { src: seteQuedas3Img, alt: "Queda d'água entre rochas da Cachoeira das Sete Quedas", titulo: "Cachoeira das Sete Quedas", descricao: "Cortina de água entre rochas musgo, um espetáculo natural." },
+  { src: toboga1Img, alt: "Cachoeira do Tobogã com tobogã natural de rocha", titulo: "Cachoeira do Tobogã", descricao: "Tobogã natural de rocha polida — diversão e adrenalina em meio à mata." },
+  { src: toboga2Img, alt: "Poço e tobogã da Cachoeira do Tobogã em Paraty", titulo: "Cachoeira do Tobogã", descricao: "Poço cristalino ao pé do tobogã, perfeito para banho e lazer em família." },
+  { src: waterfallImg, alt: "Cachoeira em meio à Mata Atlântica de Paraty", titulo: "Mata Atlântica", descricao: "Trilhas, quedas d'água e floresta preservada cercando o empreendimento." },
+];
 
 function Landing() {
   return (
@@ -47,7 +80,7 @@ function Nav() {
         </a>
         <Link
           to="/login"
-          className="eyebrow text-ivory/90 hover:text-ivory border border-ivory/40 hover:border-ivory px-4 py-2 backdrop-blur-sm transition-colors"
+          className="eyebrow text-ivory/90 hover:text-primary hover:bg-ivory/90 border border-ivory/40 hover:border-ivory px-4 py-2 rounded-[3px] backdrop-blur-sm transition-colors"
         >
           Entrar no sistema
         </Link>
@@ -59,24 +92,24 @@ function Nav() {
 function Hero() {
   return (
     <section id="top" className="relative min-h-screen w-full overflow-hidden">
-      {/* Placeholder de vídeo — substituir <img> por <video src="..." autoPlay muted loop playsInline> */}
       <div className="absolute inset-0">
         <img
           src={heroImg}
-          alt="Mata Atlântica em Paraty ao amanhecer"
+          alt="Vista aérea do loteamento Moradas de Paraty entre a Serra do Mar e a Mata Atlântica"
           className="w-full h-full object-cover"
           width={1920}
           height={1280}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/75" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/15 to-transparent" />
       </div>
 
-      <div className="relative container-x min-h-screen flex flex-col justify-end pb-20 pt-32 sm:pb-28">
+      <div className="relative container-x min-h-screen flex flex-col justify-end pb-20 pt-32">
         <Reveal>
           <p className="eyebrow text-ivory/85 mb-6">Loteamento Residencial Sophia Saíde · Paraty / RJ</p>
         </Reveal>
         <Reveal delay={150}>
-          <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl">
+          <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
             Invista em Paraty
             <br />
             <em className="not-italic text-sand">com tranquilidade.</em>
@@ -89,20 +122,14 @@ function Hero() {
           </p>
         </Reveal>
         <Reveal delay={450}>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 sm:items-center">
+          <div className="mt-10 flex flex-wrap gap-4 items-center">
             <a
               href="#formulario"
-              className="group inline-flex items-center justify-center gap-3 bg-ivory text-primary px-8 py-4 eyebrow hover:bg-sand transition-colors"
+              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
             >
               Quero mais informações
               <span className="transition-transform group-hover:translate-x-1">→</span>
             </a>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center gap-3 text-ivory border border-ivory/50 hover:border-ivory px-8 py-4 eyebrow hover:bg-ivory/10 transition-colors"
-            >
-              Entrar no sistema
-            </Link>
           </div>
         </Reveal>
 
@@ -130,11 +157,11 @@ function Stat({ n, l }: { n: string; l: string }) {
 function Localizacao() {
   return (
     <section className="py-24 sm:py-36 container-x">
-      <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+      <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
         <div className="lg:col-span-5">
           <Reveal>
             <p className="eyebrow text-accent mb-6">Localização</p>
-            <h2 className="text-4xl sm:text-5xl text-primary leading-tight">
+            <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
               A nove minutos do <em className="not-italic text-forest">coração colonial</em> de Paraty.
             </h2>
             <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
@@ -153,28 +180,35 @@ function Localizacao() {
                 </li>
               ))}
             </ul>
+            <div className="mt-10 h-[200px] bg-muted border border-border rounded-[4px] overflow-hidden shadow-[0_18px_44px_-30px_rgba(20,40,30,0.4)]">
+              <iframe
+                title="Mapa Moradas de Paraty"
+                src="https://www.google.com/maps?q=Rod.+Paraty-Cunha,+489+-+Pantanal,+Paraty+-+RJ&output=embed"
+                className="w-full h-full border-0"
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <span className="eyebrow text-accent text-[0.65rem]">Endereço</span>
+              <span className="text-[0.95rem] text-forest">Rod. Paraty–Cunha, 489 · Pantanal · Paraty / RJ</span>
+            </div>
           </Reveal>
         </div>
 
         <div className="lg:col-span-7">
           <Reveal delay={150}>
-            <div className="relative aspect-[4/5] sm:aspect-[16/11] overflow-hidden">
-              <img
-                src={locationImg}
-                alt="Centro Histórico de Paraty"
-                loading="lazy"
-                width={1600}
-                height={1200}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="mt-6 aspect-[16/9] bg-muted border border-border flex items-center justify-center">
-              <iframe
-                title="Mapa Moradas de Paraty"
-                src="https://www.google.com/maps?q=Rod.+Paraty-Cunha,+489+-+Pantanal,+Paraty+-+RJ&output=embed"
-                className="w-full h-full"
-                loading="lazy"
-              />
+            <Carousel slides={centroSlides} />
+            <div className="mt-10">
+              <p className="eyebrow text-accent mb-4">A cidade histórica</p>
+              <h3 className="font-display text-2xl sm:text-[2rem] text-primary leading-[1.15]">
+                Paraty, patrimônio vivo entre a serra e o mar.
+              </h3>
+              <p className="mt-5 text-muted-foreground text-[1.0625rem] font-light leading-[1.75]">
+                Fundada no século XVII, Paraty preserva um dos conjuntos coloniais mais íntegros do Brasil — ruas de pedra, casario branco e igrejas centenárias que hoje compõem um Patrimônio Mundial reconhecido pela UNESCO.
+              </p>
+              <p className="mt-4 text-muted-foreground text-[1.0625rem] font-light leading-[1.75]">
+                Entre festivais literários, gastronomia premiada e o encontro da Mata Atlântica com a Baía da Ilha Grande, a cidade reúne história, cultura e natureza em um mesmo endereço.
+              </p>
             </div>
           </Reveal>
         </div>
@@ -189,23 +223,14 @@ function EstiloDeVida() {
       <div className="container-x grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
         <div className="lg:col-span-6 order-2 lg:order-1">
           <Reveal>
-            <div className="relative aspect-[3/4] overflow-hidden">
-              <img
-                src={waterfallImg}
-                alt="Cachoeira em Paraty"
-                loading="lazy"
-                width={1024}
-                height={1600}
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <Carousel slides={lifeSlides} aspect="aspect-[3/4]" maxCaptionWidth="30rem" />
           </Reveal>
         </div>
 
         <div className="lg:col-span-6 order-1 lg:order-2">
           <Reveal delay={150}>
             <p className="eyebrow text-accent mb-6">Estilo de vida</p>
-            <h2 className="text-4xl sm:text-5xl text-primary leading-tight">
+            <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
               Onde o cotidiano se reencontra com a natureza.
             </h2>
             <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
@@ -221,8 +246,8 @@ function EstiloDeVida() {
                 ["Investimento sólido", "Paraty entre os destinos mais valorizados do litoral."],
                 ["Curadoria arquitetônica", "Diretrizes para preservar a paisagem e a harmonia."],
               ].map(([t, d]) => (
-                <div key={t}>
-                  <h3 className="font-display text-xl text-primary">{t}</h3>
+                <div key={t} className="transition-transform duration-500 hover:-translate-y-1">
+                  <h3 className="font-display text-xl text-primary tracking-tight">{t}</h3>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{d}</p>
                 </div>
               ))}
@@ -240,8 +265,8 @@ function Maquete() {
       <Reveal>
         <div className="max-w-2xl">
           <p className="eyebrow text-accent mb-6">O empreendimento</p>
-          <h2 className="text-4xl sm:text-5xl text-primary leading-tight">
-            Conheça o Moradas de Paraty em 3D.
+          <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
+            Conheça o Moradas de Paraty.
           </h2>
           <p className="mt-6 text-muted-foreground text-lg font-light">
             Uma visão imersiva sobre o desenho do loteamento, suas vias, áreas comuns e a integração com o relevo natural.
@@ -250,15 +275,14 @@ function Maquete() {
       </Reveal>
 
       <Reveal delay={200}>
-        <div className="mt-14 relative aspect-video bg-primary overflow-hidden">
-          {/* Placeholder de vídeo / render 3D — substituir por <video> ou <iframe> */}
+        <div className="mt-14 relative aspect-video bg-primary overflow-hidden rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.45_0.07_152/0.6),transparent_60%)]" />
           <div className="absolute inset-0 flex flex-col items-center justify-center text-ivory/90 gap-6">
             <div className="w-20 h-20 rounded-full border border-ivory/40 flex items-center justify-center">
               <span className="ml-1 text-2xl">▶</span>
             </div>
-            <p className="eyebrow text-ivory/70">Vídeo / Render 3D em breve</p>
+            <p className="eyebrow text-ivory/70">Tour visual em breve</p>
           </div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.45_0.07_152/0.6),transparent_60%)]" />
         </div>
       </Reveal>
     </section>
@@ -272,10 +296,10 @@ function Formulario() {
         <div className="lg:col-span-5">
           <Reveal>
             <p className="eyebrow text-sand mb-6">Receba a apresentação</p>
-            <h2 className="font-display text-4xl sm:text-5xl text-ivory leading-tight">
-              Reserve seu lote
+            <h2 className="font-display text-4xl sm:text-5xl text-ivory leading-tight tracking-tight">
+              Receba a apresentação
               <br />
-              <em className="not-italic text-sand">no Moradas de Paraty.</em>
+              <em className="not-italic text-sand">completa.</em>
             </h2>
             <p className="mt-8 text-ivory/75 font-light text-lg leading-relaxed">
               Preencha o formulário e nossa equipe entrará em contato com a tabela de valores,
@@ -291,7 +315,7 @@ function Formulario() {
 
         <div className="lg:col-span-7">
           <Reveal delay={150}>
-            <div className="bg-ivory text-foreground p-8 sm:p-12">
+            <div className="bg-ivory text-foreground p-9 sm:p-13 rounded-[5px] shadow-[0_40px_90px_-45px_rgba(0,0,0,0.5)]">
               <LeadForm />
             </div>
           </Reveal>
@@ -303,7 +327,7 @@ function Formulario() {
 
 function Rodape() {
   return (
-    <footer className="bg-forest-deep text-ivory/80">
+    <footer className="bg-primary text-ivory/80">
       <div className="container-x py-16 grid md:grid-cols-3 gap-10 text-sm">
         <div>
           <div className="font-display text-2xl text-ivory">Moradas de Paraty</div>
