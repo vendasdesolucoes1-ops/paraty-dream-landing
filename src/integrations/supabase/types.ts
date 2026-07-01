@@ -14,6 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agent_conversations: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          session_id: string
+          status: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          session_id: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_human_takeover: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          human_takeover_at: string
+          id: string
+          resolved_at: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          human_takeover_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          human_takeover_at?: string
+          id?: string
+          resolved_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_human_takeover_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents: {
+        Row: {
+          created_at: string
+          id: string
+          instance_id: string | null
+          is_active: boolean
+          name: string
+          system_prompt: string | null
+          transfer_keywords: string[] | null
+          transfer_to_human_enabled: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          is_active?: boolean
+          name: string
+          system_prompt?: string | null
+          transfer_keywords?: string[] | null
+          transfer_to_human_enabled?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          is_active?: boolean
+          name?: string
+          system_prompt?: string | null
+          transfer_keywords?: string[] | null
+          transfer_to_human_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracoes: {
         Row: {
           chave: string
@@ -178,6 +283,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          link: string | null
+          read: boolean
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       vendedores: {
         Row: {
           ativo: boolean
@@ -208,12 +346,150 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string | null
+          lead_id: string | null
+          name: string | null
+          phone: string
+          remote_jid: string | null
+          unread_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          phone: string
+          remote_jid?: string | null
+          unread_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          phone?: string
+          remote_jid?: string | null
+          unread_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_instances: {
+        Row: {
+          api_key: string
+          api_url: string
+          created_at: string
+          id: string
+          instance_name: string
+          qr_code: string | null
+          qr_code_expires_at: string | null
+          status: string
+        }
+        Insert: {
+          api_key: string
+          api_url: string
+          created_at?: string
+          id?: string
+          instance_name: string
+          qr_code?: string | null
+          qr_code_expires_at?: string | null
+          status?: string
+        }
+        Update: {
+          api_key?: string
+          api_url?: string
+          created_at?: string
+          id?: string
+          instance_name?: string
+          qr_code?: string | null
+          qr_code_expires_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          contact_id: string | null
+          content: string | null
+          created_at: string
+          from_me: boolean
+          id: string
+          instance_id: string | null
+          lead_id: string | null
+          message_id: string | null
+          message_type: string | null
+          remote_jid: string | null
+          status: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          content?: string | null
+          created_at?: string
+          from_me?: boolean
+          id?: string
+          instance_id?: string | null
+          lead_id?: string | null
+          message_id?: string | null
+          message_type?: string | null
+          remote_jid?: string | null
+          status?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          content?: string | null
+          created_at?: string
+          from_me?: boolean
+          id?: string
+          instance_id?: string | null
+          lead_id?: string | null
+          message_id?: string | null
+          message_type?: string | null
+          remote_jid?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_next_round_robin_salesperson: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
