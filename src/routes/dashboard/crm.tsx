@@ -43,6 +43,28 @@ function CrmPage() {
     };
   }, [queryClient]);
 
+  const { data: activeTakeoverPhones } = useQuery({
+    queryKey: ["active-takeover-phones"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_agent_human_takeover")
+        .select("conversation_id, ai_agent_conversations(session_id)")
+        .is("resolved_at", null);
+      if (error) throw error;
+      const phones = (data ?? []).flatMap((row) => {
+        const conversations = row.ai_agent_conversations as
+          | { session_id: string }
+          | { session_id: string }[]
+          | null;
+        if (!conversations) return [];
+        return Array.isArray(conversations)
+          ? conversations.map((c) => c.session_id)
+          : [conversations.session_id];
+      });
+      return new Set(phones);
+    },
+  });
+
   const columns = useMemo(() => {
     const grouped = new Map<string, Lead[]>();
     for (const column of LEAD_STATUS_COLUMNS) grouped.set(column.value, []);
@@ -78,7 +100,11 @@ function CrmPage() {
                 </div>
                 <div className="space-y-3 min-h-24 rounded-lg bg-muted/40 p-2">
                   {columnLeads.map((lead) => (
-                    <LeadCard key={lead.id} lead={lead} />
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      hasHumanTakeover={!!lead.telefone && activeTakeoverPhones?.has(lead.telefone)}
+                    />
                   ))}
                   {columnLeads.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-6">Sem leads</p>

@@ -79,3 +79,28 @@ export const LOTE_STATUS_OPTIONS: { value: LoteStatus; label: string }[] = [
   { value: "reservado", label: "Reservado" },
   { value: "vendido", label: "Vendido" },
 ];
+
+export interface WhatsappInstance {
+  id: string;
+  instance_name: string;
+  api_url: string;
+  api_key: string;
+  status: string;
+  qr_code: string | null;
+  qr_code_expires_at: string | null;
+  created_at: string;
+}
+
+export interface WhatsappMessage {
+  id: string;
+  instance_id: string | null;
+  contact_id: string | null;
+  lead_id: string | null;
+  remote_jid: string | null;
+  message_id: string | null;
+  from_me: boolean;
+  message_type: string | null;
+  content: string | null;
+  status: string | null;
+  created_at: string;
+}
