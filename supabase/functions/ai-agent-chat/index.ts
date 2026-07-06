@@ -1,4 +1,4 @@
-// Supabase Edge Function — AI sales agent chat completion (Claude Haiku).
+// Supabase Edge Function — AI sales agent chat completion (OpenAI gpt-4o-mini).
 // Qualifies leads and drives toward scheduling a site visit, never closing the sale in-chat.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -6,11 +6,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const CLAUDE_MODEL = "claude-haiku-4-5";
+const OPENAI_MODEL = "gpt-4o-mini";
 const VISITA_AGENDADA_TAG = "[VISITA_AGENDADA]";
 const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 
@@ -85,30 +85,30 @@ Deno.serve(async (req) => {
 
     const systemPrompt = agent.system_prompt || buildSystemPrompt(knowledgeBase);
 
-    const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [...history, { role: "user", content: message }],
+        model: OPENAI_MODEL,
+        max_tokens: 1000,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...history,
+          { role: "user", content: message },
+        ],
       }),
     });
 
-    if (!anthropicResponse.ok) {
-      const errText = await anthropicResponse.text();
-      throw new Error(`Anthropic API error: ${errText}`);
+    if (!openaiResponse.ok) {
+      const errText = await openaiResponse.text();
+      throw new Error(`OpenAI API error: ${errText}`);
     }
 
-    const anthropicResult = await anthropicResponse.json();
-    const rawText: string = (anthropicResult.content ?? [])
-      .map((block: { text?: string }) => block.text ?? "")
-      .join("");
+    const openaiResult = await openaiResponse.json();
+    const rawText: string = openaiResult.choices?.[0]?.message?.content ?? "";
 
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
