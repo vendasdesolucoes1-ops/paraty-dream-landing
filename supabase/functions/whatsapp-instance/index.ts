@@ -112,6 +112,74 @@ async function checkStatus(body: { instance_name: string }) {
   return updated;
 }
 
+async function logoutInstance(body: { instance_name: string }) {
+  const { instance_name } = body;
+
+  const { data: instance, error } = await supabase
+    .from("whatsapp_instances")
+    .select("*")
+    .eq("instance_name", instance_name)
+    .single();
+  if (error || !instance) throw new Error("instance not found");
+
+  const evolutionResponse = await fetch(`${instance.api_url}/instance/logout/${instance_name}`, {
+    method: "DELETE",
+    headers: { apikey: instance.api_key },
+  });
+
+  if (!evolutionResponse.ok) {
+    const errText = await evolutionResponse.text();
+    throw new Error(`Evolution API logout error: ${errText}`);
+  }
+
+  const { data: updated } = await supabase
+    .from("whatsapp_instances")
+    .update({ status: "disconnected", qr_code: null, qr_code_expires_at: null })
+    .eq("id", instance.id)
+    .select()
+    .single();
+
+  return updated;
+}
+
+async function fetchProfile(body: { instance_name: string }) {
+  const { instance_name } = body;
+
+  const { data: instance, error } = await supabase
+    .from("whatsapp_instances")
+    .select("*")
+    .eq("instance_name", instance_name)
+    .single();
+  if (error || !instance) throw new Error("instance not found");
+
+  const evolutionResponse = await fetch(
+    `${instance.api_url}/instance/fetchInstances?instanceName=${encodeURIComponent(instance_name)}`,
+    { method: "GET", headers: { apikey: instance.api_key } },
+  );
+
+  if (!evolutionResponse.ok) {
+    const errText = await evolutionResponse.text();
+    throw new Error(`Evolution API fetchInstances error: ${errText}`);
+  }
+
+  const result = await evolutionResponse.json();
+  // fetchInstances returns an array (v2) or { instance } objects (v1) — normalize both
+  const raw = Array.isArray(result)
+    ? (result.find(
+        (item: Record<string, any>) =>
+          item.name === instance_name || item.instance?.instanceName === instance_name,
+      ) ?? result[0])
+    : result;
+  const info = raw?.instance ?? raw ?? {};
+
+  return {
+    profile_name: info.profileName ?? info.profile_name ?? null,
+    profile_pic_url: info.profilePicUrl ?? info.profile_pic_url ?? null,
+    number: info.ownerJid?.replace(/@s\.whatsapp\.net$/, "") ?? info.owner ?? info.number ?? null,
+    status: info.connectionStatus ?? info.state ?? instance.status,
+  };
+}
+
 async function deleteInstance(body: { instance_name: string }) {
   const { instance_name } = body;
 
@@ -149,6 +217,10 @@ Deno.serve(async (req) => {
       result = await connectInstance(body);
     } else if (req.method === "POST" && route === "status") {
       result = await checkStatus(body);
+    } else if (req.method === "POST" && route === "logout") {
+      result = await logoutInstance(body);
+    } else if (req.method === "POST" && route === "profile") {
+      result = await fetchProfile(body);
     } else if (req.method === "DELETE" && route === "delete") {
       result = await deleteInstance(body);
     } else {

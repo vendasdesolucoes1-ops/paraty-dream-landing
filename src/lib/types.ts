@@ -91,6 +91,17 @@ export interface WhatsappInstance {
   created_at: string;
 }
 
+export interface AiAgent {
+  id: string;
+  name: string;
+  instance_id: string | null;
+  is_active: boolean;
+  system_prompt: string | null;
+  transfer_keywords: string[] | null;
+  transfer_to_human_enabled: boolean;
+  created_at: string;
+}
+
 export interface WhatsappMessage {
   id: string;
   instance_id: string | null;
