@@ -52,10 +52,10 @@ async function connectInstance(body: { instance_name: string }) {
     .single();
   if (error || !instance) throw new Error("instance not found");
 
-  const evolutionResponse = await fetch(
-    `${instance.api_url}/instance/connect/${instance_name}`,
-    { method: "GET", headers: { apikey: instance.api_key } },
-  );
+  const evolutionResponse = await fetch(`${instance.api_url}/instance/connect/${instance_name}`, {
+    method: "GET",
+    headers: { apikey: instance.api_key },
+  });
 
   if (!evolutionResponse.ok) {
     const errText = await evolutionResponse.text();
@@ -210,17 +210,20 @@ Deno.serve(async (req) => {
     const route = url.pathname.split("/").filter(Boolean).pop();
     const body = req.method !== "GET" ? await req.json().catch(() => ({})) : {};
 
+    // GET variants read instance_name from the query string.
+    const getBody = { instance_name: url.searchParams.get("instance_name") ?? "" };
+
     let result;
     if (req.method === "POST" && route === "create") {
       result = await createInstance(body);
-    } else if (req.method === "POST" && route === "connect") {
-      result = await connectInstance(body);
-    } else if (req.method === "POST" && route === "status") {
-      result = await checkStatus(body);
-    } else if (req.method === "POST" && route === "logout") {
-      result = await logoutInstance(body);
-    } else if (req.method === "POST" && route === "profile") {
-      result = await fetchProfile(body);
+    } else if (route === "connect" || route === "qrcode") {
+      result = await connectInstance(req.method === "GET" ? getBody : body);
+    } else if (route === "status") {
+      result = await checkStatus(req.method === "GET" ? getBody : body);
+    } else if (route === "logout" || route === "disconnect") {
+      result = await logoutInstance(req.method === "GET" ? getBody : body);
+    } else if (route === "profile") {
+      result = await fetchProfile(req.method === "GET" ? getBody : body);
     } else if (req.method === "DELETE" && route === "delete") {
       result = await deleteInstance(body);
     } else {

@@ -10,9 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-export function WhatsappCreateInstanceCard() {
+export function WhatsappCreateInstanceCard({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ instance_name: "", api_url: "", api_key: "" });
 
   const createMutation = useMutation({
@@ -24,8 +29,9 @@ export function WhatsappCreateInstanceCard() {
     },
     onSuccess: () => {
       toast.success("Instância criada. Escaneie o QR code para conectar.");
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-instance"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
       setForm({ instance_name: "", api_url: "", api_key: "" });
+      onOpenChange(false);
     },
     onError: () => toast.error("Erro ao criar a instância. Verifique os dados."),
   });
@@ -37,7 +43,7 @@ export function WhatsappCreateInstanceCard() {
 
   return (
     <Card className="shadow-sm">
-      <Collapsible open={open} onOpenChange={setOpen}>
+      <Collapsible open={open} onOpenChange={onOpenChange}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer select-none flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xl font-display text-primary">

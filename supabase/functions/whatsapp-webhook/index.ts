@@ -148,7 +148,12 @@ async function pauseAIForHumanTakeover(agentId: string | null, sessionId: string
   });
 }
 
-async function sendPresence(apiUrl: string, apiKey: string, instanceName: string, remoteJid: string) {
+async function sendPresence(
+  apiUrl: string,
+  apiKey: string,
+  instanceName: string,
+  remoteJid: string,
+) {
   try {
     await fetch(`${apiUrl}/chat/sendPresence/${instanceName}`, {
       method: "POST",
@@ -175,10 +180,7 @@ async function sendWhatsAppText(
   return response.json().catch(() => null);
 }
 
-async function handleIncomingMessage(
-  instance: Record<string, any>,
-  data: Record<string, any>,
-) {
+async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
   const remoteJid: string = data.key?.remoteJid;
   if (!messageId || !remoteJid) return;
