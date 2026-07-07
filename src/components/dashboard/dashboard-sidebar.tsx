@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutGrid, Map, Megaphone, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Map, Megaphone, Settings, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
   { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
@@ -32,7 +33,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 px-3 py-6 space-y-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname.startsWith(item.to);
+          const isActive =
+            item.to === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.to);
           return (
             <Link
               key={item.to}
