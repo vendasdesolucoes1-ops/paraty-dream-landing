@@ -4,14 +4,15 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/dashboard")({
+  ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
+    const { data } = await supabase.auth.getUser();
 
-    if (!data.session) {
+    if (!data.user) {
       throw redirect({ to: "/login" });
     }
 
-    return { session: data.session };
+    return { user: data.user };
   },
   component: DashboardLayout,
 });
