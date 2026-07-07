@@ -1,3 +1,7 @@
+/**
+ * Componente de navegação lateral do dashboard.
+ * Exibe o menu de seções do sistema em uma sidebar fixa no desktop e em um drawer no mobile.
+ */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, LayoutGrid, Map, Megaphone, Settings, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
