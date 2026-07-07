@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import {
   LOTE_TIPO_OPTIONS,
   LOTE_STATUS_OPTIONS,
+  type Lote,
   type LoteTipo,
   type LoteStatus,
 } from "@/lib/types";
@@ -37,14 +38,44 @@ const emptyForm = {
   observacoes: "",
 };
 
-export function LoteFormDialog() {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+function formFromLote(lote: Lote) {
+  return {
+    numero_lote: lote.numero_lote,
+    quadra: lote.quadra ?? "",
+    metragem: lote.metragem?.toString() ?? "",
+    tipo: (lote.tipo ?? "residencial") as LoteTipo,
+    valor: lote.valor?.toString() ?? "",
+    status: lote.status,
+    observacoes: lote.observacoes ?? "",
+  };
+}
+
+interface LoteFormDialogProps {
+  lote?: Lote;
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function LoteFormDialog({ lote, trigger, open, onOpenChange }: LoteFormDialogProps) {
+  const isEdit = Boolean(lote);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const actualOpen = open ?? internalOpen;
+  const setActualOpen = onOpenChange ?? setInternalOpen;
+
+  const [form, setForm] = useState(lote ? formFromLote(lote) : emptyForm);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (actualOpen) {
+      setForm(lote ? formFromLote(lote) : emptyForm);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actualOpen, lote?.id]);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("lotes").insert({
+      const payload = {
         numero_lote: form.numero_lote,
         quadra: form.quadra || null,
         metragem: form.metragem ? Number(form.metragem) : null,
@@ -52,13 +83,20 @@ export function LoteFormDialog() {
         valor: form.valor ? Number(form.valor) : null,
         status: form.status,
         observacoes: form.observacoes || null,
-      });
-      if (error) throw error;
+      };
+
+      if (isEdit && lote) {
+        const { error } = await supabase.from("lotes").update(payload).eq("id", lote.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("lotes").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lotes"] });
-      setForm(emptyForm);
-      setOpen(false);
+      setActualOpen(false);
+      if (!isEdit) setForm(emptyForm);
     },
   });
 
@@ -68,32 +106,33 @@ export function LoteFormDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Novo Lote</Button>
-      </DialogTrigger>
+    <Dialog open={actualOpen} onOpenChange={setActualOpen}>
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Novo lote</DialogTitle>
+          <DialogTitle>{isEdit ? "Editar lote" : "Novo lote"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="numero_lote">Número do lote</Label>
-              <Input
-                id="numero_lote"
-                required
-                value={form.numero_lote}
-                onChange={(e) => setForm((f) => ({ ...f, numero_lote: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="quadra">Quadra</Label>
               <Input
                 id="quadra"
+                type="number"
+                required
                 value={form.quadra}
                 onChange={(e) => setForm((f) => ({ ...f, quadra: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="numero_lote">Número do lote</Label>
+              <Input
+                id="numero_lote"
+                type="number"
+                required
+                value={form.numero_lote}
+                onChange={(e) => setForm((f) => ({ ...f, numero_lote: e.target.value }))}
               />
             </div>
           </div>
@@ -174,8 +213,11 @@ export function LoteFormDialog() {
           ) : null}
 
           <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setActualOpen(false)}>
+              Cancelar
+            </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Salvando..." : "Salvar"}
+              {mutation.isPending ? "Salvando..." : isEdit ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
         </form>
