@@ -36,7 +36,15 @@ export const Route = createFileRoute("/dashboard/lotes")({
 const QUADRA_OPTIONS = Array.from({ length: 10 }, (_, i) => String(i + 1));
 const PAGE_SIZE = 20;
 
-type MetragemFilter = "todas" | "ate200" | "200-300" | "300-400" | "acima400";
+// Empty string means "no filter applied" for every field below.
+type MetragemFilter = "" | "ate200" | "200-300" | "300-400" | "acima400";
+
+// Sentinel values for the Radix Select items, which cannot use an empty string.
+// They map to/from the real (empty-string) filter state at the UI boundary only.
+const ALL_QUADRAS = "todas";
+const ALL_STATUS = "todos";
+const ALL_TIPOS = "todos";
+const ALL_METRAGENS = "todas";
 
 const TIPO_BADGE_STYLES: Record<LoteTipo, string> = {
   residencial: "bg-sky-100 text-sky-800 hover:bg-sky-100",
@@ -58,21 +66,14 @@ function formatMetragem(value: number | null) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
 }
 
-function matchesMetragemFilter(metragem: number | null, filter: MetragemFilter) {
-  if (filter === "todas") return true;
-  if (metragem == null) return false;
-  if (filter === "ate200") return metragem <= 200;
-  if (filter === "200-300") return metragem > 200 && metragem <= 300;
-  if (filter === "300-400") return metragem > 300 && metragem <= 400;
-  return metragem > 400;
-}
-
 function LotesPage() {
   const queryClient = useQueryClient();
-  const [quadraFilter, setQuadraFilter] = useState("todas");
-  const [statusFilter, setStatusFilter] = useState<LoteStatus | "todos">("todos");
-  const [tipoFilter, setTipoFilter] = useState<LoteTipo | "todos">("todos");
-  const [metragemFilter, setMetragemFilter] = useState<MetragemFilter>("todas");
+
+  // Initial state: no filter active.
+  const [quadraFilter, setQuadraFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<LoteStatus | "">("");
+  const [tipoFilter, setTipoFilter] = useState<LoteTipo | "">("");
+  const [metragemFilter, setMetragemFilter] = useState<MetragemFilter>("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editingLote, setEditingLote] = useState<Lote | null>(null);
@@ -82,15 +83,57 @@ function LotesPage() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["lotes"],
+    queryKey: ["lotes", quadraFilter, statusFilter, tipoFilter, metragemFilter, search],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("lotes")
         .select("*")
         .order("quadra", { ascending: true })
         .order("numero_lote", { ascending: true });
+
+      // Only apply a filter clause when the corresponding value is non-empty.
+      if (quadraFilter) query = query.eq("quadra", quadraFilter);
+      if (statusFilter) query = query.eq("status", statusFilter);
+      if (tipoFilter) query = query.eq("tipo", tipoFilter);
+      if (search.trim()) query = query.ilike("numero_lote", `%${search.trim()}%`);
+
+      if (metragemFilter === "ate200") {
+        query = query.lte("metragem", 200);
+      } else if (metragemFilter === "200-300") {
+        query = query.gt("metragem", 200).lte("metragem", 300);
+      } else if (metragemFilter === "300-400") {
+        query = query.gt("metragem", 300).lte("metragem", 400);
+      } else if (metragemFilter === "acima400") {
+        query = query.gt("metragem", 400);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Lote[];
+    },
+  });
+
+  const { data: summary } = useQuery({
+    queryKey: ["lotes-summary"],
+    queryFn: async () => {
+      const [disponiveis, reservados, vendidos] = await Promise.all([
+        supabase
+          .from("lotes")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "disponivel"),
+        supabase
+          .from("lotes")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "reservado"),
+        supabase.from("lotes").select("id", { count: "exact", head: true }).eq("status", "vendido"),
+      ]);
+      const firstError = disponiveis.error ?? reservados.error ?? vendidos.error;
+      if (firstError) throw firstError;
+      return {
+        disponiveis: disponiveis.count ?? 0,
+        reservados: reservados.count ?? 0,
+        vendidos: vendidos.count ?? 0,
+      };
     },
   });
 
@@ -102,33 +145,12 @@ function LotesPage() {
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["lotes"] });
+      queryClient.invalidateQueries({ queryKey: ["lotes-summary"] });
     },
     [queryClient],
   );
 
-  const summary = useMemo(() => {
-    const list = lotes ?? [];
-    return {
-      disponiveis: list.filter((l) => l.status === "disponivel").length,
-      reservados: list.filter((l) => l.status === "reservado").length,
-      vendidos: list.filter((l) => l.status === "vendido").length,
-    };
-  }, [lotes]);
-
-  const filtered = useMemo(() => {
-    if (!lotes) return [];
-    return lotes.filter((lote) => {
-      if (quadraFilter !== "todas" && lote.quadra !== quadraFilter) return false;
-      if (statusFilter !== "todos" && lote.status !== statusFilter) return false;
-      if (tipoFilter !== "todos" && lote.tipo !== tipoFilter) return false;
-      if (!matchesMetragemFilter(lote.metragem, metragemFilter)) return false;
-      if (search.trim() && !lote.numero_lote.toLowerCase().includes(search.trim().toLowerCase())) {
-        return false;
-      }
-      return true;
-    });
-  }, [lotes, quadraFilter, statusFilter, tipoFilter, metragemFilter, search]);
-
+  const filtered = lotes ?? [];
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -143,19 +165,19 @@ function LotesPage() {
   }
 
   function clearFilters() {
-    setQuadraFilter("todas");
-    setStatusFilter("todos");
-    setTipoFilter("todos");
-    setMetragemFilter("todas");
+    setQuadraFilter("");
+    setStatusFilter("");
+    setTipoFilter("");
+    setMetragemFilter("");
     setSearch("");
     setPage(1);
   }
 
   const hasActiveFilters =
-    quadraFilter !== "todas" ||
-    statusFilter !== "todos" ||
-    tipoFilter !== "todos" ||
-    metragemFilter !== "todas" ||
+    quadraFilter !== "" ||
+    statusFilter !== "" ||
+    tipoFilter !== "" ||
+    metragemFilter !== "" ||
     search.trim() !== "";
 
   return (
@@ -176,7 +198,7 @@ function LotesPage() {
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lotes disponíveis</p>
-                {isLoading ? (
+                {!summary ? (
                   <Skeleton className="h-8 w-12 mt-1" />
                 ) : (
                   <p className="text-2xl font-semibold">{summary.disponiveis}</p>
@@ -191,7 +213,7 @@ function LotesPage() {
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lotes reservados</p>
-                {isLoading ? (
+                {!summary ? (
                   <Skeleton className="h-8 w-12 mt-1" />
                 ) : (
                   <p className="text-2xl font-semibold">{summary.reservados}</p>
@@ -206,7 +228,7 @@ function LotesPage() {
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lotes vendidos</p>
-                {isLoading ? (
+                {!summary ? (
                   <Skeleton className="h-8 w-12 mt-1" />
                 ) : (
                   <p className="text-2xl font-semibold">{summary.vendidos}</p>
@@ -220,12 +242,15 @@ function LotesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={quadraFilter} onValueChange={updateFilter(setQuadraFilter)}>
+          <Select
+            value={quadraFilter || ALL_QUADRAS}
+            onValueChange={updateFilter((v: string) => setQuadraFilter(v === ALL_QUADRAS ? "" : v))}
+          >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Quadra" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas as quadras</SelectItem>
+              <SelectItem value={ALL_QUADRAS}>Todas as quadras</SelectItem>
               {QUADRA_OPTIONS.map((q) => (
                 <SelectItem key={q} value={q}>
                   Quadra {q}
@@ -235,14 +260,16 @@ function LotesPage() {
           </Select>
 
           <Select
-            value={statusFilter}
-            onValueChange={updateFilter((v: LoteStatus | "todos") => setStatusFilter(v))}
+            value={statusFilter || ALL_STATUS}
+            onValueChange={updateFilter((v: string) =>
+              setStatusFilter(v === ALL_STATUS ? "" : (v as LoteStatus)),
+            )}
           >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value={ALL_STATUS}>Todos os status</SelectItem>
               <SelectItem value="disponivel">Disponível</SelectItem>
               <SelectItem value="reservado">Reservado</SelectItem>
               <SelectItem value="vendido">Vendido</SelectItem>
@@ -250,28 +277,32 @@ function LotesPage() {
           </Select>
 
           <Select
-            value={tipoFilter}
-            onValueChange={updateFilter((v: LoteTipo | "todos") => setTipoFilter(v))}
+            value={tipoFilter || ALL_TIPOS}
+            onValueChange={updateFilter((v: string) =>
+              setTipoFilter(v === ALL_TIPOS ? "" : (v as LoteTipo)),
+            )}
           >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os tipos</SelectItem>
+              <SelectItem value={ALL_TIPOS}>Todos os tipos</SelectItem>
               <SelectItem value="residencial">Residencial</SelectItem>
               <SelectItem value="comercial">Comercial</SelectItem>
             </SelectContent>
           </Select>
 
           <Select
-            value={metragemFilter}
-            onValueChange={updateFilter((v: MetragemFilter) => setMetragemFilter(v))}
+            value={metragemFilter || ALL_METRAGENS}
+            onValueChange={updateFilter((v: string) =>
+              setMetragemFilter(v === ALL_METRAGENS ? "" : (v as MetragemFilter)),
+            )}
           >
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Metragem" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas as metragens</SelectItem>
+              <SelectItem value={ALL_METRAGENS}>Todas as metragens</SelectItem>
               <SelectItem value="ate200">Até 200m²</SelectItem>
               <SelectItem value="200-300">200–300m²</SelectItem>
               <SelectItem value="300-400">300–400m²</SelectItem>
