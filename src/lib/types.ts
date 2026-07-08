@@ -15,7 +15,7 @@ export interface Lote {
   created_at: string;
 }
 
-export type LeadOrigem = "lp" | "whatsapp" | "indicacao" | "instagram";
+export type LeadOrigem = "lp" | "whatsapp" | "indicacao" | "instagram" | "google_maps";
 export type LeadStatus =
   | "novo"
   | "qualificado"

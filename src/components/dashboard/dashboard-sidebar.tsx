@@ -3,7 +3,16 @@
  * Exibe o menu de seções do sistema em uma sidebar fixa no desktop e em um drawer no mobile.
  */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, LayoutGrid, Map, Megaphone, Settings, LogOut, Menu } from "lucide-react";
+import {
+  LayoutDashboard,
+  LayoutGrid,
+  Map,
+  Wrench,
+  Megaphone,
+  Settings,
+  LogOut,
+  Menu,
+} from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -14,6 +23,7 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
+  { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
   { to: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
 ] as const;

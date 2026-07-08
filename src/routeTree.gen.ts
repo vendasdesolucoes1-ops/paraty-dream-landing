@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
 import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
+import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/ferramentas'
 import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
 import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
 
@@ -48,6 +49,11 @@ const DashboardLotesRoute = DashboardLotesRouteImport.update({
   path: '/lotes',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardFerramentasRoute = DashboardFerramentasRouteImport.update({
+  id: '/ferramentas',
+  path: '/ferramentas',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardCrmRoute = DashboardCrmRouteImport.update({
   id: '/crm',
   path: '/crm',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard/'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard/'
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardLotesRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/ferramentas': {
+      id: '/dashboard/ferramentas'
+      path: '/ferramentas'
+      fullPath: '/dashboard/ferramentas'
+      preLoaderRoute: typeof DashboardFerramentasRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/crm': {
       id: '/dashboard/crm'
       path: '/crm'
@@ -191,6 +210,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteRouteChildren {
   DashboardConfiguracoesRoute: typeof DashboardConfiguracoesRoute
   DashboardCrmRoute: typeof DashboardCrmRoute
+  DashboardFerramentasRoute: typeof DashboardFerramentasRoute
   DashboardLotesRoute: typeof DashboardLotesRoute
   DashboardMarketingRoute: typeof DashboardMarketingRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -199,6 +219,7 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardConfiguracoesRoute: DashboardConfiguracoesRoute,
   DashboardCrmRoute: DashboardCrmRoute,
+  DashboardFerramentasRoute: DashboardFerramentasRoute,
   DashboardLotesRoute: DashboardLotesRoute,
   DashboardMarketingRoute: DashboardMarketingRoute,
   DashboardIndexRoute: DashboardIndexRoute,
@@ -216,3 +237,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
