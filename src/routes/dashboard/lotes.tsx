@@ -82,6 +82,7 @@ function LotesPage() {
     data: lotes,
     isLoading,
     isError,
+    error: lotesError,
   } = useQuery({
     queryKey: ["lotes", quadraFilter, statusFilter, tipoFilter, metragemFilter, search],
     queryFn: async () => {
@@ -192,6 +193,12 @@ function LotesPage() {
           </div>
           <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
         </div>
+
+        {/* TEMPORARY DEBUG — remove once the "Nenhum lote encontrado" investigation is closed */}
+        <p className="text-xs text-muted-foreground">
+          debug: {lotesError instanceof Error ? `erro: ${lotesError.message}` : "sem erro"} ·{" "}
+          {lotes ? `${lotes.length} lote(s) retornados` : "carregando..."}
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-sm">
