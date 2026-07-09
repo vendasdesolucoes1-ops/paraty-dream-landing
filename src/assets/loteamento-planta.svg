@@ -4,13 +4,10 @@
 .lote-numero { font-family: Inter, sans-serif; }
 .lote-poligono {
   filter: drop-shadow(0 1px 2px rgba(47,59,47,0.18));
-  transition: filter 0.15s ease, transform 0.15s ease;
-  transform-box: fill-box;
-  transform-origin: center;
+  transition: filter 0.15s ease;
 }
 .lote-poligono:hover {
-  filter: drop-shadow(0 3px 7px rgba(47,59,47,0.32)) brightness(1.06);
-  transform: scale(1.08);
+  filter: drop-shadow(0 2px 4px rgba(47,59,47,0.28)) brightness(1.05);
 }
 </style>
 <rect x="0" y="0" width="1100" height="1590" fill="var(--planta-bg, #FAF7F0)" />
