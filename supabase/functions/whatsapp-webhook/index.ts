@@ -376,15 +376,12 @@ async function handleQrCodeUpdate(instance: Record<string, any>, data: Record<st
     .eq("id", instance.id);
 }
 
-Deno.serve(async (req) => {
-  console.log("=== WEBHOOK RECEIVED ===", JSON.stringify({ method: req.method, url: req.url }));
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+// All the actual webhook handling runs here, in the background via
+// EdgeRuntime.waitUntil() below — the AI agent flow alone takes 30s+
+// (humanized delay), far longer than Evolution API's webhook timeout, so
+// the handler must return 200 immediately and let this promise keep running.
+async function processWebhook(payload: Record<string, any>) {
   try {
-    const payload = await req.json();
     console.log("=== BODY ===", JSON.stringify(payload).substring(0, 500));
 
     const event: string = payload.event;
@@ -396,9 +393,7 @@ Deno.serve(async (req) => {
     const instance = await findInstance(instanceName);
     if (!instance) {
       console.log("=== DONE ===");
-      return new Response(JSON.stringify({ ok: true, ignored: "unknown instance" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return;
     }
 
     switch (event) {
@@ -427,7 +422,28 @@ Deno.serve(async (req) => {
     }
 
     console.log("=== DONE ===");
-    return new Response(JSON.stringify({ ok: true }), {
+  } catch (error) {
+    console.error("=== PROCESSING ERROR ===", (error as Error)?.message, (error as Error)?.stack);
+  }
+}
+
+Deno.serve(async (req) => {
+  console.log("=== WEBHOOK RECEIVED ===", JSON.stringify({ method: req.method, url: req.url }));
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const payload = await req.json();
+
+    // Fire and forget: don't await this, so the response below returns
+    // immediately while processing keeps running in the background.
+    const processingPromise = processWebhook(payload);
+    EdgeRuntime.waitUntil(processingPromise);
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
