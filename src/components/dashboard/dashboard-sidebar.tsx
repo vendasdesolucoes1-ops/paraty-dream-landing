@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/use-profile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
@@ -25,19 +26,30 @@ const NAV_ITEMS = [
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
   { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
-  { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench },
-  { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
-  { to: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
+  { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench, hideFor: ["vendedor"] },
+  { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone, hideFor: ["vendedor"] },
+  {
+    to: "/dashboard/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    hideFor: ["gestor", "vendedor"],
+  },
 ] as const;
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { profile } = useProfile();
 
   async function handleLogout() {
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
+
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (!("hideFor" in item) || !profile) return true;
+    return !(item.hideFor as readonly string[]).includes(profile.role);
+  });
 
   return (
     <div className="flex flex-col h-full bg-forest-deep text-ivory">
@@ -47,7 +59,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
             item.to === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.to);

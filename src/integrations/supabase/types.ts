@@ -361,6 +361,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles: {
+        Row: {
+          ativo: boolean;
+          created_at: string;
+          email: string | null;
+          id: string;
+          nome: string | null;
+          role: string;
+          updated_at: string;
+          vendedor_id: string | null;
+        };
+        Insert: {
+          ativo?: boolean;
+          created_at?: string;
+          email?: string | null;
+          id: string;
+          nome?: string | null;
+          role?: string;
+          updated_at?: string;
+          vendedor_id?: string | null;
+        };
+        Update: {
+          ativo?: boolean;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          nome?: string | null;
+          role?: string;
+          updated_at?: string;
+          vendedor_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profiles_vendedor_id_fkey";
+            columns: ["vendedor_id"];
+            isOneToOne: false;
+            referencedRelation: "vendedores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       vendedores: {
         Row: {
           ativo: boolean;

@@ -42,6 +42,25 @@ export interface Lead {
   updated_at: string;
 }
 
+export type ProfileRole = "admin" | "gestor" | "vendedor";
+
+export interface Profile {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  role: ProfileRole;
+  vendedor_id: string | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const PROFILE_ROLE_OPTIONS: { value: ProfileRole; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "gestor", label: "Gestor" },
+  { value: "vendedor", label: "Vendedor" },
+];
+
 export interface Vendedor {
   id: string;
   nome: string;

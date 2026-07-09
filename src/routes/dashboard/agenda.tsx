@@ -16,6 +16,7 @@ import {
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
 import type { VisitaWithRelations } from "@/lib/types";
+import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/agenda")({
   head: () => ({ meta: [{ title: "Agenda — Moradas de Paraty" }] }),
@@ -47,9 +48,11 @@ function formatDayHeader(date: Date) {
 
 function AgendaPage() {
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
+  const { profile } = useProfile();
+  const isVendedor = profile?.role === "vendedor";
 
   const { data: visitas, isLoading } = useQuery({
-    queryKey: ["visitas", periodo],
+    queryKey: ["visitas", periodo, isVendedor ? profile?.vendedor_id : "all"],
     queryFn: async () => {
       let query = supabase
         .from("visitas")
@@ -69,10 +72,15 @@ function AgendaPage() {
           .lte("data_hora", endOfDay(end).toISOString());
       }
 
+      if (isVendedor && profile?.vendedor_id) {
+        query = query.eq("vendedor_id", profile.vendedor_id);
+      }
+
       const { data, error } = await query;
       if (error) throw error;
       return data as unknown as VisitaWithRelations[];
     },
+    enabled: !isVendedor || !!profile?.vendedor_id,
   });
 
   const groups = useMemo(() => {

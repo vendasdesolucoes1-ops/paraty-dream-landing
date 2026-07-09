@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { LEAD_STATUS_COLUMNS, type Lead } from "@/lib/types";
 import { LeadCard } from "@/components/dashboard/lead-card";
 import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
+import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/crm")({
   head: () => ({ meta: [{ title: "CRM — Moradas de Paraty" }] }),
@@ -13,21 +14,25 @@ export const Route = createFileRoute("/dashboard/crm")({
 
 function CrmPage() {
   const queryClient = useQueryClient();
+  const { profile } = useProfile();
+  const isVendedor = profile?.role === "vendedor";
 
   const {
     data: leads,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["leads"],
+    queryKey: ["leads", isVendedor ? profile?.vendedor_id : "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
+      if (isVendedor && profile?.vendedor_id) {
+        query = query.eq("vendedor_id", profile.vendedor_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Lead[];
     },
+    enabled: !isVendedor || !!profile?.vendedor_id,
   });
 
   useEffect(() => {

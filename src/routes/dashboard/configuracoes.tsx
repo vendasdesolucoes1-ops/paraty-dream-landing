@@ -7,8 +7,11 @@ import type { WhatsappInstance } from "@/lib/types";
 import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-card";
 import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
+import { TeamPanel } from "@/components/dashboard/team-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — Moradas de Paraty" }] }),
@@ -17,6 +20,8 @@ export const Route = createFileRoute("/dashboard/configuracoes")({
 
 function ConfiguracoesPage() {
   const [formOpen, setFormOpen] = useState(false);
+  const { profile } = useProfile();
+  const isAdmin = profile?.role === "admin";
 
   const { data: instances, isLoading } = useQuery({
     queryKey: ["whatsapp-instances"],
@@ -30,17 +35,8 @@ function ConfiguracoesPage() {
     },
   });
 
-  return (
+  const whatsappSection = (
     <div className="space-y-8">
-      <div>
-        <p className="eyebrow text-muted-foreground">Sistema</p>
-        <h1 className="text-3xl font-display text-primary">Integração WhatsApp</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no
-          CRM.
-        </p>
-      </div>
-
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -81,6 +77,36 @@ function ConfiguracoesPage() {
           ))}
         </section>
       ) : null}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <p className="eyebrow text-muted-foreground">Sistema</p>
+        <h1 className="text-3xl font-display text-primary">Configurações</h1>
+        <p className="text-muted-foreground mt-1">
+          Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no
+          CRM.
+        </p>
+      </div>
+
+      {isAdmin ? (
+        <Tabs defaultValue="whatsapp">
+          <TabsList>
+            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+            <TabsTrigger value="equipe">Equipe</TabsTrigger>
+          </TabsList>
+          <TabsContent value="whatsapp" className="pt-4">
+            {whatsappSection}
+          </TabsContent>
+          <TabsContent value="equipe" className="pt-4">
+            <TeamPanel />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        whatsappSection
+      )}
     </div>
   );
 }
