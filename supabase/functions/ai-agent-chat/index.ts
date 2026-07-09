@@ -6,7 +6,10 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
+  .trim()
+  .replace(/[\r\n\t]/g, "")
+  .replace(/[^\x20-\x7E]/g, "");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -49,6 +52,10 @@ Deno.serve(async (req) => {
     const body: ChatRequestBody = await req.json();
     const { agent_id, message, lead_id, session_id } = body;
 
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
+
     const { data: agent, error: agentError } = await supabase
       .from("ai_agents")
       .select("*")
@@ -87,10 +94,10 @@ Deno.serve(async (req) => {
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
+      headers: new Headers([
+        ["Content-Type", "application/json"],
+        ["Authorization", `Bearer ${OPENAI_API_KEY}`],
+      ]),
       body: JSON.stringify({
         model: OPENAI_MODEL,
         max_tokens: 1000,
