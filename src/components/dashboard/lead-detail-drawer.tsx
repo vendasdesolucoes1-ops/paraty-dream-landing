@@ -498,24 +498,48 @@ function HistoricoTab({ leadId }: { leadId: string }) {
 }
 
 function WhatsappTab({ leadId }: { leadId: string }) {
-  const { data: messages, isLoading } = useQuery({
+  const {
+    data: messages,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["whatsapp-messages", leadId],
     queryFn: async () => {
-      console.debug("[LeadDetailDrawer] querying whatsapp_messages", {
-        table: "whatsapp_messages",
-        filter: `lead_id = ${leadId}`,
-        order: "created_at asc",
-      });
-      const { data, error } = await supabase
+      const query = supabase
         .from("whatsapp_messages")
-        .select("*")
+        .select(
+          "id, instance_id, contact_id, lead_id, remote_jid, message_id, from_me, message_type, content, status, created_at",
+        )
         .eq("lead_id", leadId)
         .order("created_at", { ascending: true });
-      console.debug("[LeadDetailDrawer] whatsapp_messages result", {
-        count: data?.length ?? 0,
-        error,
+
+      console.debug("[LeadDetailDrawer] whatsapp_messages query", {
+        table: "whatsapp_messages",
+        filter: { lead_id: leadId },
+        order: "created_at asc",
       });
-      if (error) throw error;
+
+      const { data, error, status, statusText } = await query;
+
+      if (error) {
+        console.error("[LeadDetailDrawer] whatsapp_messages query failed", {
+          leadId,
+          status,
+          statusText,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+
+      console.debug("[LeadDetailDrawer] whatsapp_messages query result", {
+        leadId,
+        count: data?.length ?? 0,
+      });
+
       return data as WhatsappMessage[];
     },
   });
@@ -524,10 +548,12 @@ function WhatsappTab({ leadId }: { leadId: string }) {
     <div className="space-y-2 max-h-[28rem] overflow-y-auto">
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
-      ) : !messages || messages.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nenhuma mensagem encontrada. (Verifique o console para os detalhes da query de debug.)
+      ) : isError ? (
+        <p className="text-sm text-destructive">
+          Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
         </p>
+      ) : !messages || messages.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhuma mensagem encontrada.</p>
       ) : (
         messages.map((message) => (
           <div
