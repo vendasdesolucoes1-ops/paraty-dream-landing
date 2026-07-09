@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -24,9 +24,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LoteStatusEditableBadge } from "@/components/dashboard/status-badge";
 import { LoteFormDialog } from "@/components/dashboard/lote-form-dialog";
+import { LotePlantaViewer } from "@/components/dashboard/lote-planta-viewer";
 import type { Lote, LoteStatus, LoteTipo } from "@/lib/types";
+
+const VIEW_STORAGE_KEY = "lotes-view";
+type LotesView = "tabela" | "planta";
 
 export const Route = createFileRoute("/dashboard/lotes")({
   head: () => ({ meta: [{ title: "Lotes — Moradas de Paraty" }] }),
@@ -77,6 +82,15 @@ function LotesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editingLote, setEditingLote] = useState<Lote | null>(null);
+  const [view, setView] = useState<LotesView>(() => {
+    if (typeof window === "undefined") return "tabela";
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return stored === "planta" ? "planta" : "tabela";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
 
   const {
     data: lotes,
@@ -191,7 +205,21 @@ function LotesPage() {
               Gestão do estoque de lotes — Loteamento Residencial Sophia Saíde
             </p>
           </div>
-          <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
+          <div className="flex items-center gap-3">
+            <ToggleGroup
+              type="single"
+              value={view}
+              onValueChange={(v) => v && setView(v as LotesView)}
+            >
+              <ToggleGroupItem value="tabela" aria-label="Visualização em tabela">
+                Tabela
+              </ToggleGroupItem>
+              <ToggleGroupItem value="planta" aria-label="Visualização em planta">
+                Planta
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
+          </div>
         </div>
 
         {/* TEMPORARY DEBUG — remove once the "Nenhum lote encontrado" investigation is closed */}
@@ -331,141 +359,152 @@ function LotesPage() {
           ) : null}
         </div>
 
-        <div className="rounded-lg border bg-card overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Quadra</TableHead>
-                <TableHead>Nº Lote</TableHead>
-                <TableHead>Metragem</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Observações</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={8}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
+        {view === "planta" ? (
+          <LotePlantaViewer lotes={filtered} onSelectLote={setEditingLote} />
+        ) : (
+          <>
+            <div className="rounded-lg border bg-card overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Quadra</TableHead>
+                    <TableHead>Nº Lote</TableHead>
+                    <TableHead>Metragem</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Observações</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))
-              ) : isError ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-destructive py-8">
-                    Erro ao carregar os lotes.
-                  </TableCell>
-                </TableRow>
-              ) : paginated.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    Nenhum lote encontrado.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginated.map((lote, index) => (
-                  <TableRow key={lote.id} className={index % 2 === 1 ? "bg-muted/30" : undefined}>
-                    <TableCell>{lote.quadra ?? "—"}</TableCell>
-                    <TableCell className="font-medium">{lote.numero_lote}</TableCell>
-                    <TableCell>{formatMetragem(lote.metragem)}</TableCell>
-                    <TableCell>
-                      {lote.tipo ? (
-                        <Badge className={`font-normal ${TIPO_BADGE_STYLES[lote.tipo]}`}>
-                          {TIPO_LABELS[lote.tipo]}
-                        </Badge>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>{formatCurrency(lote.valor)}</TableCell>
-                    <TableCell>
-                      <LoteStatusEditableBadge loteId={lote.id} status={lote.status} />
-                    </TableCell>
-                    <TableCell className="max-w-[180px]">
-                      {lote.observacoes ? (
-                        lote.observacoes.length > 30 ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="truncate block cursor-default">
-                                {lote.observacoes.slice(0, 30)}…
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">{lote.observacoes}</TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <span className="truncate block">{lote.observacoes}</span>
-                        )
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setEditingLote(lote)}
-                          title="Editar lote"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          title="Excluir lote"
-                          onClick={() => {
-                            if (window.confirm(`Excluir o lote ${lote.numero_lote}?`)) {
-                              deleteMutation(lote.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {!isLoading && !isError && filtered.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Mostrando {rangeStart}–{rangeEnd} de {filtered.length} lotes
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={8}>
+                          <Skeleton className="h-6 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : isError ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-destructive py-8">
+                        Erro ao carregar os lotes.
+                      </TableCell>
+                    </TableRow>
+                  ) : paginated.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        Nenhum lote encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginated.map((lote, index) => (
+                      <TableRow
+                        key={lote.id}
+                        className={index % 2 === 1 ? "bg-muted/30" : undefined}
+                      >
+                        <TableCell>{lote.quadra ?? "—"}</TableCell>
+                        <TableCell className="font-medium">{lote.numero_lote}</TableCell>
+                        <TableCell>{formatMetragem(lote.metragem)}</TableCell>
+                        <TableCell>
+                          {lote.tipo ? (
+                            <Badge className={`font-normal ${TIPO_BADGE_STYLES[lote.tipo]}`}>
+                              {TIPO_LABELS[lote.tipo]}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>{formatCurrency(lote.valor)}</TableCell>
+                        <TableCell>
+                          <LoteStatusEditableBadge loteId={lote.id} status={lote.status} />
+                        </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          {lote.observacoes ? (
+                            lote.observacoes.length > 30 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="truncate block cursor-default">
+                                    {lote.observacoes.slice(0, 30)}…
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  {lote.observacoes}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="truncate block">{lote.observacoes}</span>
+                            )
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingLote(lote)}
+                              title="Editar lote"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Excluir lote"
+                              onClick={() => {
+                                if (window.confirm(`Excluir o lote ${lote.numero_lote}?`)) {
+                                  deleteMutation(lote.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        ) : null}
+
+            {!isLoading && !isError && filtered.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {rangeStart}–{rangeEnd} de {filtered.length} lotes
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próximo
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
 
         {editingLote ? (
           <LoteFormDialog

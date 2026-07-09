@@ -1,0 +1,26 @@
+<!--
+  PLACEHOLDER — substitua este arquivo pelo SVG real do loteamento.
+
+  Formato esperado por src/components/dashboard/lote-planta-viewer.tsx:
+  - Um <polygon> (ou <path>/<rect>) por lote, com:
+      data-quadra="<quadra>"
+      data-numero-lote="<numero_lote>"
+    exatamente como esses campos existem na tabela `lotes`.
+  - O viewer localiza cada elemento via [data-quadra][data-numero-lote],
+    aplica a cor de fill conforme o status do lote correspondente e anexa
+    os handlers de hover/click. Não é necessário definir fill/stroke no
+    SVG original — eles são sobrescritos em runtime.
+  - Mantenha um viewBox consistente; o viewer usa transform CSS para
+    zoom/pan por cima do SVG inteiro.
+
+  Os dois polígonos abaixo são apenas um exemplo de estrutura e não
+  representam lotes reais.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <rect x="0" y="0" width="800" height="600" fill="var(--sand-light, #f2ead9)" opacity="0.3" />
+  <text x="400" y="300" text-anchor="middle" font-size="20" fill="#9a9282">
+    Planta ainda não fornecida — substitua src/assets/loteamento-planta.svg
+  </text>
+  <polygon data-quadra="1" data-numero-lote="01" points="80,80 200,80 200,160 80,160" />
+  <polygon data-quadra="1" data-numero-lote="02" points="210,80 330,80 330,160 210,160" />
+</svg>
