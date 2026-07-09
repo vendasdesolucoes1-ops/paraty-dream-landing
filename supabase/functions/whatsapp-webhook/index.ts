@@ -199,6 +199,16 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   const pushName: string | null = data.pushName ?? null;
   const text = extractMessageText(data.message);
 
+  console.log(
+    "=== MESSAGE DATA ===",
+    JSON.stringify({
+      fromMe: data.key?.fromMe,
+      messageType: data.messageType,
+      remoteJid,
+      content: text?.substring(0, 100),
+    }),
+  );
+
   // 4. Find or create lead (round robin)
   const lead = await findOrCreateLead(phone, pushName);
 
@@ -223,6 +233,8 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   const sessionId = phone;
 
+  console.log("=== CHECKING HUMAN TAKEOVER ===", { leadId: lead.id });
+
   // 6. Human takeover check
   if (await isHumanTakeoverActive(sessionId)) return;
 
@@ -236,6 +248,8 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   if (!agent) return;
 
   const receivedAt = new Date().toISOString();
+
+  console.log("=== CALLING AI AGENT ===", { agentId: agent.id, leadId: lead.id, sessionId });
 
   // 7. Call ai-agent-chat
   const aiResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-agent-chat`, {
@@ -256,6 +270,8 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   if (!aiResponse.ok) return;
   const aiResult = await aiResponse.json();
+  console.log("=== AI RESPONSE ===", JSON.stringify(aiResult).substring(0, 300));
+
   const messages: string[] = aiResult.messages ?? [];
   if (messages.length === 0) return;
 
@@ -273,6 +289,8 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .neq("message_id", messageId);
 
   if (newerMessages && newerMessages.length > 0) return;
+
+  console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: messages.length });
 
   // 10 & 11. Send response(s) and persist them
   for (const messageText of messages) {
