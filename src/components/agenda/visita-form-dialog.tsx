@@ -44,6 +44,7 @@ function toDatetimeLocalValue(iso: string | null): string {
 interface VisitaFormDialogProps {
   visita?: VisitaWithRelations;
   defaultLead?: Pick<Lead, "id" | "nome" | "telefone">;
+  defaultDate?: Date;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -52,6 +53,7 @@ interface VisitaFormDialogProps {
 export function VisitaFormDialog({
   visita,
   defaultLead,
+  defaultDate,
   trigger,
   open,
   onOpenChange,
@@ -72,7 +74,9 @@ export function VisitaFormDialog({
   );
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
-  const [dataHora, setDataHora] = useState(toDatetimeLocalValue(visita?.data_hora ?? null));
+  const [dataHora, setDataHora] = useState(
+    toDatetimeLocalValue(visita?.data_hora ?? defaultDate?.toISOString() ?? null),
+  );
   const [vendedorId, setVendedorId] = useState(visita?.vendedor_id ?? "");
   const [observacoes, setObservacoes] = useState(visita?.observacoes ?? "");
 
@@ -81,12 +85,12 @@ export function VisitaFormDialog({
     const lead = visita?.lead ?? defaultLead ?? null;
     setLeadId(visita?.lead_id ?? defaultLead?.id ?? "");
     setLeadLabel(lead ? `${lead.nome}${lead.telefone ? ` — ${lead.telefone}` : ""}` : "");
-    setDataHora(toDatetimeLocalValue(visita?.data_hora ?? null));
+    setDataHora(toDatetimeLocalValue(visita?.data_hora ?? defaultDate?.toISOString() ?? null));
     setVendedorId(visita?.vendedor_id ?? "");
     setObservacoes(visita?.observacoes ?? "");
     setLeadSearch("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actualOpen, visita?.id, defaultLead?.id]);
+  }, [actualOpen, visita?.id, defaultLead?.id, defaultDate?.getTime()]);
 
   const { data: leadResults } = useQuery({
     queryKey: ["leads-search", leadSearch],

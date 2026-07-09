@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, List, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,10 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
+import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
 import type { VisitaWithRelations } from "@/lib/types";
 import { useProfile } from "@/hooks/use-profile";
+
+const VIEW_STORAGE_KEY = "agenda-view";
+type AgendaView = "lista" | "calendario";
 
 export const Route = createFileRoute("/dashboard/agenda")({
   head: () => ({ meta: [{ title: "Agenda — Moradas de Paraty" }] }),
@@ -48,11 +53,21 @@ function formatDayHeader(date: Date) {
 
 function AgendaPage() {
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
+  const [view, setView] = useState<AgendaView>(() => {
+    if (typeof window === "undefined") return "lista";
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return stored === "calendario" ? "calendario" : "lista";
+  });
   const { profile } = useProfile();
   const isVendedor = profile?.role === "vendedor";
 
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
+
   const { data: visitas, isLoading } = useQuery({
     queryKey: ["visitas", periodo, isVendedor ? profile?.vendedor_id : "all"],
+    enabled: view === "lista" && (!isVendedor || !!profile?.vendedor_id),
     queryFn: async () => {
       let query = supabase
         .from("visitas")
@@ -80,7 +95,6 @@ function AgendaPage() {
       if (error) throw error;
       return data as unknown as VisitaWithRelations[];
     },
-    enabled: !isVendedor || !!profile?.vendedor_id,
   });
 
   const groups = useMemo(() => {
@@ -113,18 +127,41 @@ function AgendaPage() {
         />
       </div>
 
-      <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
-        <SelectTrigger className="w-48">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="hoje">Hoje</SelectItem>
-          <SelectItem value="semana">Esta Semana</SelectItem>
-          <SelectItem value="todas">Todas</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {view === "lista" ? (
+          <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="semana">Esta Semana</SelectItem>
+              <SelectItem value="todas">Todas</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div />
+        )}
 
-      {isLoading ? (
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={(v) => v && setView(v as AgendaView)}
+        >
+          <ToggleGroupItem value="lista" aria-label="Visualização em lista">
+            <List className="h-4 w-4 mr-2" />
+            Lista
+          </ToggleGroupItem>
+          <ToggleGroupItem value="calendario" aria-label="Visualização em calendário">
+            <CalendarDays className="h-4 w-4 mr-2" />
+            Calendário
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {view === "calendario" ? (
+        <AgendaCalendar isVendedor={isVendedor} vendedorId={profile?.vendedor_id ?? null} />
+      ) : isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
