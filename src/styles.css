@@ -71,6 +71,17 @@
   --border: oklch(0.88 0.015 80);
   --input: oklch(0.9 0.012 80);
   --ring: var(--forest);
+
+  /* Lotes planta (mapa) — status fills reuse the same palette as the table view */
+  --lote-disponivel: var(--sand-light);
+  --lote-reservado: var(--gold);
+  --lote-vendido: var(--forest-deep);
+  --planta-bg: var(--ivory);
+  --planta-title: var(--forest-deep);
+  --planta-quadra-border: var(--sand);
+  --planta-quadra-label: var(--forest);
+  --planta-lote-border: var(--forest);
+  --planta-lote-text: var(--forest-deep);
 }
 
 @layer base {

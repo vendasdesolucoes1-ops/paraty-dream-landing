@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import type { Lote, LoteStatus } from "@/lib/types";
 
 const STATUS_COLORS: Record<LoteStatus, string> = {
-  disponivel: "var(--sand-light)",
-  reservado: "var(--gold)",
-  vendido: "var(--forest-deep)",
+  disponivel: "var(--lote-disponivel)",
+  reservado: "var(--lote-reservado)",
+  vendido: "var(--lote-vendido)",
 };
 
 const STATUS_LABELS: Record<LoteStatus, string> = {
@@ -89,9 +89,7 @@ export function LotePlantaViewer({
       const lote = loteByKey.get(`${quadra}::${numeroLote}`);
 
       el.style.cursor = lote ? "pointer" : "default";
-      el.style.fill = lote ? STATUS_COLORS[lote.status] : "var(--muted)";
-      el.style.stroke = "var(--forest)";
-      el.style.strokeWidth = "2";
+      if (lote) el.style.fill = STATUS_COLORS[lote.status];
       el.style.transition = "opacity 0.15s ease";
 
       if (!lote) continue;
@@ -227,7 +225,10 @@ export function LotePlantaViewer({
             <div key={status} className="flex items-center gap-2">
               <span
                 className="h-3 w-3 rounded-sm border"
-                style={{ backgroundColor: STATUS_COLORS[status], borderColor: "var(--forest)" }}
+                style={{
+                  backgroundColor: STATUS_COLORS[status],
+                  borderColor: "var(--planta-lote-border)",
+                }}
               />
               <span className="text-muted-foreground">{STATUS_LABELS[status]}</span>
             </div>
