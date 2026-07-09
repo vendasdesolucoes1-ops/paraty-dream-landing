@@ -80,6 +80,32 @@ export const LOTE_STATUS_OPTIONS: { value: LoteStatus; label: string }[] = [
   { value: "vendido", label: "Vendido" },
 ];
 
+export type VisitaStatus = "agendada" | "confirmada" | "realizada" | "cancelada" | "no_show";
+
+export interface Visita {
+  id: string;
+  lead_id: string;
+  vendedor_id: string | null;
+  data_hora: string;
+  status: VisitaStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VisitaWithRelations extends Visita {
+  lead: Pick<Lead, "id" | "nome" | "telefone"> | null;
+  vendedor: Pick<Vendedor, "id" | "nome"> | null;
+}
+
+export const VISITA_STATUS_OPTIONS: { value: VisitaStatus; label: string }[] = [
+  { value: "agendada", label: "Agendada" },
+  { value: "confirmada", label: "Confirmada" },
+  { value: "realizada", label: "Realizada" },
+  { value: "no_show", label: "No-show" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
 export interface WhatsappInstance {
   id: string;
   instance_name: string;

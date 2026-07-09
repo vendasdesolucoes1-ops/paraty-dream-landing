@@ -6,6 +6,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   LayoutGrid,
+  Calendar,
   Map,
   Wrench,
   Megaphone,
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
+  { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
   { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
