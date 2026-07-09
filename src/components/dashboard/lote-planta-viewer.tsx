@@ -40,6 +40,13 @@ interface TooltipState {
   y: number;
 }
 
+// Finds the closest ancestor-or-self lot polygon for a delegated event target,
+// since the raw SVG is injected via dangerouslySetInnerHTML rather than JSX.
+function findLotePoligono(target: EventTarget | null): SVGElement | null {
+  if (!(target instanceof Element)) return null;
+  return target.closest<SVGElement>("[data-quadra][data-numero-lote]");
+}
+
 export function LotePlantaViewer({
   lotes,
   onSelectLote,
@@ -70,72 +77,68 @@ export function LotePlantaViewer({
     return map;
   }, [positionedLotes]);
 
-  // Colors, hover tooltip and click handlers are applied directly to the raw
-  // SVG DOM after injection, since the polygons come from an external file
-  // rather than being React elements.
+  function loteFromElement(el: SVGElement): Lote | undefined {
+    const quadra = el.getAttribute("data-quadra") ?? "";
+    const numeroLote = el.getAttribute("data-numero-lote") ?? "";
+    return loteByKey.get(`${quadra}::${numeroLote}`);
+  }
+
+  // Fill color is the only thing that must be pushed imperatively into the
+  // raw injected SVG (React never diffs dangerouslySetInnerHTML content), so
+  // it re-runs whenever the underlying lote data (and therefore status)
+  // changes — including right after a save in LoteFormDialog invalidates the
+  // ["lotes"] query and this component re-renders with fresh data.
   useEffect(() => {
     const wrapper = svgWrapperRef.current;
     if (!wrapper) return;
 
-    const elements = Array.from(
-      wrapper.querySelectorAll<SVGElement>("[data-quadra][data-numero-lote]"),
-    );
-
-    const cleanups: (() => void)[] = [];
-
-    for (const el of elements) {
-      const quadra = el.getAttribute("data-quadra") ?? "";
-      const numeroLote = el.getAttribute("data-numero-lote") ?? "";
-      const lote = loteByKey.get(`${quadra}::${numeroLote}`);
-
+    const elements = wrapper.querySelectorAll<SVGElement>("[data-quadra][data-numero-lote]");
+    elements.forEach((el) => {
+      const lote = loteFromElement(el);
       el.style.cursor = lote ? "pointer" : "default";
-      if (lote) el.style.fill = STATUS_COLORS[lote.status];
-      el.style.transition = "opacity 0.15s ease";
+      if (!lote) return;
+      el.style.fill = STATUS_COLORS[lote.status];
 
-      if (!lote) continue;
+      // The lot number label sits in the next sibling <text>; on the dark
+      // "vendido" fill the default dark text is unreadable, so lighten it.
+      const label = el.nextElementSibling;
+      if (label instanceof SVGElement) {
+        label.style.fill = lote.status === "vendido" ? "var(--ivory)" : "";
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loteByKey]);
 
-      const handleEnter = (event: MouseEvent) => {
-        el.style.opacity = "0.75";
-        const rect = containerRef.current?.getBoundingClientRect();
-        setTooltip({
-          lote,
-          x: rect ? event.clientX - rect.left : event.clientX,
-          y: rect ? event.clientY - rect.top : event.clientY,
-        });
-      };
-      const handleMove = (event: MouseEvent) => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        setTooltip((prev) =>
-          prev
-            ? {
-                ...prev,
-                x: rect ? event.clientX - rect.left : event.clientX,
-                y: rect ? event.clientY - rect.top : event.clientY,
-              }
-            : prev,
-        );
-      };
-      const handleLeave = () => {
-        el.style.opacity = "1";
-        setTooltip(null);
-      };
-      const handleClick = () => onSelectLote(lote);
+  function updateTooltipPosition(event: React.MouseEvent, lote: Lote) {
+    const rect = containerRef.current?.getBoundingClientRect();
+    setTooltip({
+      lote,
+      x: rect ? event.clientX - rect.left : event.clientX,
+      y: rect ? event.clientY - rect.top : event.clientY,
+    });
+  }
 
-      el.addEventListener("mouseenter", handleEnter);
-      el.addEventListener("mousemove", handleMove);
-      el.addEventListener("mouseleave", handleLeave);
-      el.addEventListener("click", handleClick);
+  function handleSvgAreaClick(event: React.MouseEvent<HTMLDivElement>) {
+    const el = findLotePoligono(event.target);
+    if (!el) return;
+    const lote = loteFromElement(el);
+    if (lote) onSelectLote(lote);
+  }
 
-      cleanups.push(() => {
-        el.removeEventListener("mouseenter", handleEnter);
-        el.removeEventListener("mousemove", handleMove);
-        el.removeEventListener("mouseleave", handleLeave);
-        el.removeEventListener("click", handleClick);
-      });
+  function handleSvgAreaMouseMove(event: React.MouseEvent<HTMLDivElement>) {
+    const el = findLotePoligono(event.target);
+    if (!el) {
+      if (tooltip) setTooltip(null);
+      return;
     }
+    const lote = loteFromElement(el);
+    if (lote) updateTooltipPosition(event, lote);
+    else if (tooltip) setTooltip(null);
+  }
 
-    return () => cleanups.forEach((fn) => fn());
-  }, [loteByKey, onSelectLote]);
+  function handleSvgAreaMouseLeave() {
+    setTooltip(null);
+  }
 
   function clampScale(scale: number) {
     return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
@@ -156,6 +159,7 @@ export function LotePlantaViewer({
   }
 
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
+    handleSvgAreaMouseMove(event);
     if (!panState.current?.dragging) return;
     setTransform((prev) => ({
       ...prev,
@@ -185,7 +189,11 @@ export function LotePlantaViewer({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={stopPan}
-        onMouseLeave={stopPan}
+        onMouseLeave={() => {
+          stopPan();
+          handleSvgAreaMouseLeave();
+        }}
+        onClick={handleSvgAreaClick}
       >
         <div
           ref={svgWrapperRef}

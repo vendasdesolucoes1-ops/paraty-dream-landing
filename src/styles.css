@@ -79,7 +79,7 @@
   --planta-bg: var(--ivory);
   --planta-title: var(--forest-deep);
   --planta-quadra-border: var(--sand);
-  --planta-quadra-label: var(--forest);
+  --planta-quadra-label: var(--forest-deep);
   --planta-lote-border: var(--forest);
   --planta-lote-text: var(--forest-deep);
 }

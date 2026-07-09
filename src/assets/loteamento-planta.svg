@@ -1,370 +1,384 @@
 <svg viewBox="0 0 1100 1590" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+<style>
+.quadra-titulo { font-family: 'Cormorant Garamond', serif; }
+.lote-numero { font-family: Inter, sans-serif; }
+.lote-poligono {
+  filter: drop-shadow(0 1px 2px rgba(47,59,47,0.18));
+  transition: filter 0.15s ease, transform 0.15s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.lote-poligono:hover {
+  filter: drop-shadow(0 3px 7px rgba(47,59,47,0.32)) brightness(1.06);
+  transform: scale(1.08);
+}
+</style>
 <rect x="0" y="0" width="1100" height="1590" fill="var(--planta-bg, #FAF7F0)" />
 <text x="550.0" y="40" text-anchor="middle" font-size="20" font-weight="600" fill="var(--planta-title, #2F3B2F)">Estrada Paraty-Cunha (Entrada)</text>
 <g data-quadra="1">
-<rect x="313.0" y="70" width="474" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="88" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 01 &#8226; Comercial</text>
+<rect x="313.0" y="70" width="474" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="88" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 01 &#8226; Comercial</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="1" x="327.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">1</text>
+<text x="350.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">1</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="2" x="377.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">2</text>
+<text x="400.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">2</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="3" x="427.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">3</text>
+<text x="450.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">3</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="4" x="477.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">4</text>
+<text x="500.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">4</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="5" x="527.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">5</text>
+<text x="550.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">5</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="6" x="577.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">6</text>
+<text x="600.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">6</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="7" x="627.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">7</text>
+<text x="650.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">7</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="8" x="677.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">8</text>
+<text x="700.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">8</text>
 <rect class="lote-poligono" data-quadra="1" data-numero-lote="9" x="727.0" y="108.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="127.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">9</text>
+<text x="750.0" y="127.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">9</text>
 </g>
 <g data-quadra="2">
-<rect x="288.0" y="198" width="524" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="216" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 02 &#8226; Comercial</text>
+<rect x="288.0" y="198" width="524" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="216" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 02 &#8226; Comercial</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="10" x="302.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">10</text>
+<text x="325.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">10</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="11" x="352.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">11</text>
+<text x="375.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">11</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="12" x="402.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">12</text>
+<text x="425.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">12</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="13" x="452.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">13</text>
+<text x="475.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">13</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="14" x="502.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">14</text>
+<text x="525.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">14</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="15" x="552.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">15</text>
+<text x="575.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">15</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="16" x="602.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">16</text>
+<text x="625.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">16</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="17" x="652.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">17</text>
+<text x="675.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">17</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="18" x="702.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">18</text>
+<text x="725.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">18</text>
 <rect class="lote-poligono" data-quadra="2" data-numero-lote="19" x="752.0" y="236.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="255.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">19</text>
+<text x="775.0" y="255.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">19</text>
 </g>
 <g data-quadra="3">
-<rect x="213.0" y="326" width="674" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="344" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 03 &#8226; Residencial</text>
+<rect x="213.0" y="326" width="674" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="344" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 03 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="20" x="227.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="250.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">20</text>
+<text x="250.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">20</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="21" x="277.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="300.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">21</text>
+<text x="300.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">21</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="22" x="327.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">22</text>
+<text x="350.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">22</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="23" x="377.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">23</text>
+<text x="400.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">23</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="24" x="427.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">24</text>
+<text x="450.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">24</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="25" x="477.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">25</text>
+<text x="500.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">25</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="26" x="527.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">26</text>
+<text x="550.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">26</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="27" x="577.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">27</text>
+<text x="600.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">27</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="28" x="627.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">28</text>
+<text x="650.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">28</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="29" x="677.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">29</text>
+<text x="700.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">29</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="30" x="727.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">30</text>
+<text x="750.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">30</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="31" x="777.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="800.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">31</text>
+<text x="800.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">31</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="32" x="827.0" y="364.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="850.0" y="383.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">32</text>
+<text x="850.0" y="383.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">32</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="33" x="227.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="250.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">33</text>
+<text x="250.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">33</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="34" x="277.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="300.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">34</text>
+<text x="300.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">34</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="35" x="327.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">35</text>
+<text x="350.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">35</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="36" x="377.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">36</text>
+<text x="400.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">36</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="37" x="427.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">37</text>
+<text x="450.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">37</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="38" x="477.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">38</text>
+<text x="500.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">38</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="39" x="527.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">39</text>
+<text x="550.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">39</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="40" x="577.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">40</text>
+<text x="600.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">40</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="41" x="627.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">41</text>
+<text x="650.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">41</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="42" x="677.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">42</text>
+<text x="700.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">42</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="43" x="727.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">43</text>
+<text x="750.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">43</text>
 <rect class="lote-poligono" data-quadra="3" data-numero-lote="44" x="777.0" y="404.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="800.0" y="423.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">44</text>
+<text x="800.0" y="423.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">44</text>
 </g>
 <g data-quadra="4">
-<rect x="213.0" y="494" width="674" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="512" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 04 &#8226; Residencial</text>
+<rect x="213.0" y="494" width="674" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="512" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 04 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="45" x="227.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="250.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">45</text>
+<text x="250.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">45</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="46" x="277.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="300.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">46</text>
+<text x="300.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">46</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="47" x="327.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">47</text>
+<text x="350.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">47</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="48" x="377.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">48</text>
+<text x="400.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">48</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="49" x="427.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">49</text>
+<text x="450.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">49</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="50" x="477.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">50</text>
+<text x="500.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">50</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="51" x="527.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">51</text>
+<text x="550.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">51</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="52" x="577.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">52</text>
+<text x="600.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">52</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="53" x="627.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">53</text>
+<text x="650.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">53</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="54" x="677.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">54</text>
+<text x="700.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">54</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="55" x="727.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">55</text>
+<text x="750.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">55</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="56" x="777.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="800.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">56</text>
+<text x="800.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">56</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="57" x="827.0" y="532.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="850.0" y="551.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">57</text>
+<text x="850.0" y="551.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">57</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="58" x="227.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="250.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">58</text>
+<text x="250.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">58</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="59" x="277.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="300.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">59</text>
+<text x="300.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">59</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="60" x="327.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">60</text>
+<text x="350.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">60</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="61" x="377.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">61</text>
+<text x="400.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">61</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="62" x="427.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">62</text>
+<text x="450.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">62</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="63" x="477.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">63</text>
+<text x="500.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">63</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="64" x="527.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">64</text>
+<text x="550.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">64</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="65" x="577.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">65</text>
+<text x="600.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">65</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="66" x="627.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">66</text>
+<text x="650.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">66</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="67" x="677.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">67</text>
+<text x="700.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">67</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="68" x="727.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">68</text>
+<text x="750.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">68</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="69" x="777.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="800.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">69</text>
+<text x="800.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">69</text>
 <rect class="lote-poligono" data-quadra="4" data-numero-lote="70" x="827.0" y="572.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="850.0" y="591.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">70</text>
+<text x="850.0" y="591.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">70</text>
 </g>
 <g data-quadra="5">
-<rect x="338.0" y="662" width="424" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="680" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 05 &#8226; Residencial</text>
+<rect x="338.0" y="662" width="424" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="680" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 05 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="71" x="352.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">71</text>
+<text x="375.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">71</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="72" x="402.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">72</text>
+<text x="425.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">72</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="73" x="452.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">73</text>
+<text x="475.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">73</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="74" x="502.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">74</text>
+<text x="525.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">74</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="75" x="552.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">75</text>
+<text x="575.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">75</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="76" x="602.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">76</text>
+<text x="625.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">76</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="77" x="652.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">77</text>
+<text x="675.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">77</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="78" x="702.0" y="700.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="719.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">78</text>
+<text x="725.0" y="719.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">78</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="79" x="352.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">79</text>
+<text x="375.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">79</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="80" x="402.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">80</text>
+<text x="425.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">80</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="81" x="452.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">81</text>
+<text x="475.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">81</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="82" x="502.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">82</text>
+<text x="525.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">82</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="83" x="552.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">83</text>
+<text x="575.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">83</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="84" x="602.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">84</text>
+<text x="625.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">84</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="85" x="652.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">85</text>
+<text x="675.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">85</text>
 <rect class="lote-poligono" data-quadra="5" data-numero-lote="86" x="702.0" y="740.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="759.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">86</text>
+<text x="725.0" y="759.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">86</text>
 </g>
 <g data-quadra="6">
-<rect x="263.0" y="830" width="574" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="848" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 06 &#8226; Comercial/Residencial</text>
+<rect x="263.0" y="830" width="574" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="848" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 06 &#8226; Comercial/Residencial</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="87" x="277.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="300.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">87</text>
+<text x="300.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">87</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="88" x="327.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="350.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">88</text>
+<text x="350.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">88</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="89" x="377.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">89</text>
+<text x="400.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">89</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="90" x="427.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">90</text>
+<text x="450.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">90</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="91" x="477.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">91</text>
+<text x="500.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">91</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="92" x="527.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">92</text>
+<text x="550.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">92</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="93" x="577.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">93</text>
+<text x="600.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">93</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="94" x="627.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">94</text>
+<text x="650.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">94</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="95" x="677.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">95</text>
+<text x="700.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">95</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="96" x="727.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="750.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">96</text>
+<text x="750.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">96</text>
 <rect class="lote-poligono" data-quadra="6" data-numero-lote="97" x="777.0" y="868.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="800.0" y="887.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">97</text>
+<text x="800.0" y="887.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">97</text>
 </g>
 <g data-quadra="7">
-<rect x="188.0" y="958" width="724" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="976" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 07 &#8226; Residencial</text>
+<rect x="188.0" y="958" width="724" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="976" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 07 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="98" x="202.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="225.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">98</text>
+<text x="225.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">98</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="99" x="252.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="275.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">99</text>
+<text x="275.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">99</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="100" x="302.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">100</text>
+<text x="325.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">100</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="101" x="352.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">101</text>
+<text x="375.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">101</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="102" x="402.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">102</text>
+<text x="425.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">102</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="103" x="452.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">103</text>
+<text x="475.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">103</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="104" x="502.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">104</text>
+<text x="525.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">104</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="105" x="552.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">105</text>
+<text x="575.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">105</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="106" x="602.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">106</text>
+<text x="625.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">106</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="107" x="652.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">107</text>
+<text x="675.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">107</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="108" x="702.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">108</text>
+<text x="725.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">108</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="109" x="752.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">109</text>
+<text x="775.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">109</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="110" x="802.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="825.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">110</text>
+<text x="825.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">110</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="111" x="852.0" y="996.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="875.0" y="1015.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">111</text>
+<text x="875.0" y="1015.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">111</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="112" x="202.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="225.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">112</text>
+<text x="225.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">112</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="113" x="252.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="275.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">113</text>
+<text x="275.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">113</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="114" x="302.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">114</text>
+<text x="325.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">114</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="115" x="352.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">115</text>
+<text x="375.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">115</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="116" x="402.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">116</text>
+<text x="425.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">116</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="117" x="452.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">117</text>
+<text x="475.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">117</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="118" x="502.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">118</text>
+<text x="525.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">118</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="119" x="552.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">119</text>
+<text x="575.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">119</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="120" x="602.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">120</text>
+<text x="625.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">120</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="121" x="652.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">121</text>
+<text x="675.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">121</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="122" x="702.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">122</text>
+<text x="725.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">122</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="123" x="752.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">123</text>
+<text x="775.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">123</text>
 <rect class="lote-poligono" data-quadra="7" data-numero-lote="124" x="802.0" y="1036.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="825.0" y="1055.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">124</text>
+<text x="825.0" y="1055.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">124</text>
 </g>
 <g data-quadra="8">
-<rect x="288.0" y="1126" width="524" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="1144" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 08 &#8226; Residencial</text>
+<rect x="288.0" y="1126" width="524" height="122" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="1144" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 08 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="125" x="302.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">125</text>
+<text x="325.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">125</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="126" x="352.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">126</text>
+<text x="375.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">126</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="127" x="402.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">127</text>
+<text x="425.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">127</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="128" x="452.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">128</text>
+<text x="475.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">128</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="129" x="502.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">129</text>
+<text x="525.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">129</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="130" x="552.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">130</text>
+<text x="575.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">130</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="131" x="602.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">131</text>
+<text x="625.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">131</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="132" x="652.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">132</text>
+<text x="675.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">132</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="133" x="702.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">133</text>
+<text x="725.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">133</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="134" x="752.0" y="1164.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="1183.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">134</text>
+<text x="775.0" y="1183.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">134</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="135" x="302.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">135</text>
+<text x="325.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">135</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="136" x="352.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">136</text>
+<text x="375.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">136</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="137" x="402.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">137</text>
+<text x="425.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">137</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="138" x="452.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">138</text>
+<text x="475.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">138</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="139" x="502.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">139</text>
+<text x="525.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">139</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="140" x="552.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">140</text>
+<text x="575.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">140</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="141" x="602.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">141</text>
+<text x="625.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">141</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="142" x="652.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">142</text>
+<text x="675.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">142</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="143" x="702.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">143</text>
+<text x="725.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">143</text>
 <rect class="lote-poligono" data-quadra="8" data-numero-lote="144" x="752.0" y="1204.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="1223.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">144</text>
+<text x="775.0" y="1223.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">144</text>
 </g>
 <g data-quadra="9">
-<rect x="238.0" y="1294" width="624" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="1312" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 09 &#8226; Residencial</text>
+<rect x="238.0" y="1294" width="624" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="1312" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 09 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="145" x="252.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="275.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">145</text>
+<text x="275.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">145</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="146" x="302.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="325.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">146</text>
+<text x="325.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">146</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="147" x="352.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="375.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">147</text>
+<text x="375.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">147</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="148" x="402.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="425.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">148</text>
+<text x="425.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">148</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="149" x="452.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="475.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">149</text>
+<text x="475.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">149</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="150" x="502.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="525.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">150</text>
+<text x="525.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">150</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="151" x="552.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="575.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">151</text>
+<text x="575.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">151</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="152" x="602.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="625.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">152</text>
+<text x="625.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">152</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="153" x="652.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="675.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">153</text>
+<text x="675.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">153</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="154" x="702.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="725.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">154</text>
+<text x="725.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">154</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="155" x="752.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="775.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">155</text>
+<text x="775.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">155</text>
 <rect class="lote-poligono" data-quadra="9" data-numero-lote="156" x="802.0" y="1332.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="825.0" y="1351.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">156</text>
+<text x="825.0" y="1351.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">156</text>
 </g>
 <g data-quadra="10">
-<rect x="363.0" y="1422" width="374" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1.5" stroke-dasharray="4,3" />
-<text x="550.0" y="1440" text-anchor="middle" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 10 &#8226; Residencial</text>
+<rect x="363.0" y="1422" width="374" height="82" rx="10" fill="none" stroke="var(--planta-quadra-border, #C9BBA0)" stroke-width="1" stroke-opacity="0.55" />
+<text x="550.0" y="1440" text-anchor="middle" class="quadra-titulo" font-size="13" font-weight="600" fill="var(--planta-quadra-label, #6B5B3E)">QUADRA 10 &#8226; Residencial</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="157" x="377.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="400.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">157</text>
+<text x="400.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">157</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="158" x="427.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="450.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">158</text>
+<text x="450.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">158</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="159" x="477.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="500.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">159</text>
+<text x="500.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">159</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="160" x="527.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="550.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">160</text>
+<text x="550.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">160</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="161" x="577.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="600.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">161</text>
+<text x="600.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">161</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="162" x="627.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="650.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">162</text>
+<text x="650.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">162</text>
 <rect class="lote-poligono" data-quadra="10" data-numero-lote="163" x="677.0" y="1460.0" width="46" height="30" rx="3" fill="var(--lote-disponivel, #E9E2D0)" stroke="var(--planta-lote-border, #A89B7C)" stroke-width="1" style="cursor:pointer" />
-<text x="700.0" y="1479.0" text-anchor="middle" font-size="10" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">163</text>
+<text x="700.0" y="1479.0" text-anchor="middle" class="lote-numero" font-size="11" fill="var(--planta-lote-text, #3B3226)" pointer-events="none">163</text>
 </g>
 </svg>
