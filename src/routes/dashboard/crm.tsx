@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { LEAD_STATUS_COLUMNS, type Lead } from "@/lib/types";
 import { LeadCard } from "@/components/dashboard/lead-card";
 import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
+import { LeadDetailDrawer } from "@/components/dashboard/lead-detail-drawer";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/crm")({
@@ -79,6 +80,12 @@ function CrmPage() {
     return grouped;
   }, [leads]);
 
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const selectedLead = useMemo(
+    () => leads?.find((lead) => lead.id === selectedLeadId) ?? null,
+    [leads, selectedLeadId],
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -109,6 +116,7 @@ function CrmPage() {
                       key={lead.id}
                       lead={lead}
                       hasHumanTakeover={!!lead.telefone && activeTakeoverPhones?.has(lead.telefone)}
+                      onClick={() => setSelectedLeadId(lead.id)}
                     />
                   ))}
                   {columnLeads.length === 0 ? (
@@ -120,6 +128,14 @@ function CrmPage() {
           })}
         </div>
       )}
+
+      <LeadDetailDrawer
+        lead={selectedLead}
+        open={!!selectedLeadId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedLeadId(null);
+        }}
+      />
     </div>
   );
 }

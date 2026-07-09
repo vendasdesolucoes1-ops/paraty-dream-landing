@@ -43,22 +43,31 @@ function toDatetimeLocalValue(iso: string | null): string {
 
 interface VisitaFormDialogProps {
   visita?: VisitaWithRelations;
+  defaultLead?: Pick<Lead, "id" | "nome" | "telefone">;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function VisitaFormDialog({ visita, trigger, open, onOpenChange }: VisitaFormDialogProps) {
+export function VisitaFormDialog({
+  visita,
+  defaultLead,
+  trigger,
+  open,
+  onOpenChange,
+}: VisitaFormDialogProps) {
   const isEdit = Boolean(visita);
   const queryClient = useQueryClient();
   const [internalOpen, setInternalOpen] = useState(false);
   const actualOpen = open ?? internalOpen;
   const setActualOpen = onOpenChange ?? setInternalOpen;
 
-  const [leadId, setLeadId] = useState<string>(visita?.lead_id ?? "");
+  const initialLead = visita?.lead ?? defaultLead ?? null;
+
+  const [leadId, setLeadId] = useState<string>(visita?.lead_id ?? defaultLead?.id ?? "");
   const [leadLabel, setLeadLabel] = useState<string>(
-    visita?.lead
-      ? `${visita.lead.nome}${visita.lead.telefone ? ` — ${visita.lead.telefone}` : ""}`
+    initialLead
+      ? `${initialLead.nome}${initialLead.telefone ? ` — ${initialLead.telefone}` : ""}`
       : "",
   );
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
@@ -69,18 +78,15 @@ export function VisitaFormDialog({ visita, trigger, open, onOpenChange }: Visita
 
   useEffect(() => {
     if (!actualOpen) return;
-    setLeadId(visita?.lead_id ?? "");
-    setLeadLabel(
-      visita?.lead
-        ? `${visita.lead.nome}${visita.lead.telefone ? ` — ${visita.lead.telefone}` : ""}`
-        : "",
-    );
+    const lead = visita?.lead ?? defaultLead ?? null;
+    setLeadId(visita?.lead_id ?? defaultLead?.id ?? "");
+    setLeadLabel(lead ? `${lead.nome}${lead.telefone ? ` — ${lead.telefone}` : ""}` : "");
     setDataHora(toDatetimeLocalValue(visita?.data_hora ?? null));
     setVendedorId(visita?.vendedor_id ?? "");
     setObservacoes(visita?.observacoes ?? "");
     setLeadSearch("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actualOpen, visita?.id]);
+  }, [actualOpen, visita?.id, defaultLead?.id]);
 
   const { data: leadResults } = useQuery({
     queryKey: ["leads-search", leadSearch],
@@ -172,7 +178,7 @@ export function VisitaFormDialog({ visita, trigger, open, onOpenChange }: Visita
                   type="button"
                   variant="outline"
                   role="combobox"
-                  disabled={isEdit}
+                  disabled={isEdit || Boolean(defaultLead)}
                   className="w-full justify-between font-normal"
                 >
                   <span className="truncate">{leadLabel || "Buscar por nome ou telefone..."}</span>

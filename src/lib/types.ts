@@ -71,6 +71,17 @@ export interface Vendedor {
   created_at: string;
 }
 
+export type InteracaoTipo = "whatsapp" | "ligacao" | "email" | "visita" | "nota";
+
+export interface Interacao {
+  id: string;
+  lead_id: string | null;
+  tipo: InteracaoTipo | null;
+  conteudo: string | null;
+  canal: string | null;
+  created_at: string;
+}
+
 export const LEAD_STATUS_COLUMNS: { value: LeadStatus; label: string }[] = [
   { value: "novo", label: "Novo" },
   { value: "qualificado", label: "Qualificado" },

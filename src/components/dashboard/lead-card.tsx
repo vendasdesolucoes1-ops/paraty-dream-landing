@@ -1,13 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
-import { WhatsappHistoryDialog } from "@/components/dashboard/whatsapp-history-dialog";
 
 const ORIGEM_LABELS = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
 
-export function LeadCard({ lead, hasHumanTakeover }: { lead: Lead; hasHumanTakeover?: boolean }) {
+export function LeadCard({
+  lead,
+  hasHumanTakeover,
+  onClick,
+}: {
+  lead: Lead;
+  hasHumanTakeover?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <Card className="shadow-sm">
+    <Card
+      className="shadow-sm cursor-pointer transition-colors hover:border-primary/40"
+      onClick={onClick}
+    >
       <CardContent className="p-4 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="font-medium text-sm leading-tight">{lead.nome}</p>
@@ -15,7 +25,6 @@ export function LeadCard({ lead, hasHumanTakeover }: { lead: Lead; hasHumanTakeo
             <Badge variant="outline" className="text-xs font-normal">
               {lead.score} pts
             </Badge>
-            <WhatsappHistoryDialog leadId={lead.id} leadName={lead.nome} />
           </div>
         </div>
 
