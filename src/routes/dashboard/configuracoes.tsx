@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WhatsappInstance } from "@/lib/types";
 import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-card";
-import { AiAgentCard } from "@/components/dashboard/ai-agent-card";
+import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,14 +76,8 @@ function ConfiguracoesPage() {
 
       {instances && instances.length > 0 ? (
         <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-display text-primary">Configuração do Agente IA</h2>
-            <p className="text-sm text-muted-foreground">
-              O agente qualifica leads e agenda visitas automaticamente pelo WhatsApp.
-            </p>
-          </div>
           {instances.map((instance) => (
-            <AiAgentCard key={instance.id} instanceId={instance.id} />
+            <AiAgentPanel key={instance.id} instanceId={instance.id} />
           ))}
         </section>
       ) : null}

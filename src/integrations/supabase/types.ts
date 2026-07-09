@@ -78,30 +78,45 @@ export type Database = {
           id: string;
           instance_id: string | null;
           is_active: boolean;
+          mensagem_boas_vindas: string | null;
+          modelo: string;
           name: string;
+          ser_breve: boolean;
           system_prompt: string | null;
+          tom_voz: string;
           transfer_keywords: string[] | null;
           transfer_to_human_enabled: boolean;
+          usar_emojis: boolean;
         };
         Insert: {
           created_at?: string;
           id?: string;
           instance_id?: string | null;
           is_active?: boolean;
+          mensagem_boas_vindas?: string | null;
+          modelo?: string;
           name: string;
+          ser_breve?: boolean;
           system_prompt?: string | null;
+          tom_voz?: string;
           transfer_keywords?: string[] | null;
           transfer_to_human_enabled?: boolean;
+          usar_emojis?: boolean;
         };
         Update: {
           created_at?: string;
           id?: string;
           instance_id?: string | null;
           is_active?: boolean;
+          mensagem_boas_vindas?: string | null;
+          modelo?: string;
           name?: string;
+          ser_breve?: boolean;
           system_prompt?: string | null;
+          tom_voz?: string;
           transfer_keywords?: string[] | null;
           transfer_to_human_enabled?: boolean;
+          usar_emojis?: boolean;
         };
         Relationships: [
           {

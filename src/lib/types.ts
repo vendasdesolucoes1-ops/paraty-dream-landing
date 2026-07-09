@@ -91,6 +91,9 @@ export interface WhatsappInstance {
   created_at: string;
 }
 
+export type AiAgentModelo = "gpt-4o-mini" | "gpt-4o";
+export type AiAgentTomVoz = "profissional" | "amigavel" | "formal" | "informal";
+
 export interface AiAgent {
   id: string;
   name: string;
@@ -99,6 +102,11 @@ export interface AiAgent {
   system_prompt: string | null;
   transfer_keywords: string[] | null;
   transfer_to_human_enabled: boolean;
+  modelo: AiAgentModelo;
+  mensagem_boas_vindas: string | null;
+  tom_voz: AiAgentTomVoz;
+  usar_emojis: boolean;
+  ser_breve: boolean;
   created_at: string;
 }
 
