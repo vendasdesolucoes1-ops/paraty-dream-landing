@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bot, BookOpen, MessageSquare, Send, Trash2 } from "lucide-react";
+import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { AiAgent, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const DEFAULT_AGENT_NAME = "Agente Moradas de Paraty";
 const DEFAULT_TRANSFER_KEYWORDS = ["atendente", "humano", "falar com alguém", "corretor"];
@@ -110,6 +111,10 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
                 <Bot className="h-4 w-4" />
                 Geral
               </TabsTrigger>
+              <TabsTrigger value="prompt" className="gap-1.5">
+                <FileText className="h-4 w-4" />
+                Prompt do Sistema
+              </TabsTrigger>
               <TabsTrigger value="rag" className="gap-1.5">
                 <BookOpen className="h-4 w-4" />
                 Base de Conhecimento
@@ -122,6 +127,9 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
 
             <TabsContent value="geral" className="pt-4">
               <GeneralTab agent={agent} instanceId={instanceId} />
+            </TabsContent>
+            <TabsContent value="prompt" className="pt-4">
+              <SystemPromptTab agent={agent} instanceId={instanceId} />
             </TabsContent>
             <TabsContent value="rag" className="pt-4">
               <KnowledgeBaseTab />
@@ -300,6 +308,69 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
       <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
         {saveMutation.isPending ? "Salvando..." : "Salvar configurações"}
       </Button>
+    </div>
+  );
+}
+
+function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState(agent.system_prompt ?? "");
+
+  useEffect(() => {
+    setText(agent.system_prompt ?? "");
+  }, [agent]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("ai_agents")
+        .update({ system_prompt: text })
+        .eq("id", agent.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Prompt do sistema salvo.");
+      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+    },
+    onError: () => toast.error("Erro ao salvar o prompt do sistema."),
+  });
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Este é o prompt interno que define como o agente se comporta, incluindo lógica de
+        qualificação e estágios do funil. Edite com cuidado.
+      </p>
+
+      <div className="relative">
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          style={{ minHeight: 400 }}
+          className="resize-y"
+        />
+        <span className="absolute bottom-2 right-3 text-xs text-muted-foreground bg-background/80 px-1 rounded">
+          {text.length} caracteres
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? "Salvando..." : "Salvar Prompt do Sistema"}
+        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button variant="outline" disabled>
+                  Resetar para o padrão
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Em breve</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
 }
