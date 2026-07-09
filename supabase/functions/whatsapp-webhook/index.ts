@@ -152,13 +152,13 @@ async function sendPresence(
   apiUrl: string,
   apiKey: string,
   instanceName: string,
-  remoteJid: string,
+  number: string,
 ) {
   try {
     await fetch(`${apiUrl}/chat/sendPresence/${instanceName}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number: remoteJid, presence: "composing" }),
+      body: JSON.stringify({ number, presence: "composing" }),
     });
   } catch (error) {
     // presence indicator is a UX nicety — log but don't fail the webhook
@@ -170,15 +170,19 @@ async function sendWhatsAppText(
   apiUrl: string,
   apiKey: string,
   instanceName: string,
-  remoteJid: string,
+  number: string,
   text: string,
 ) {
   const response = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({ number: remoteJid, text }),
+    body: JSON.stringify({ number, text }),
   });
-  return response.json().catch(() => null);
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`Evolution sendText error: ${response.status} ${JSON.stringify(result)}`);
+  }
+  return result;
 }
 
 async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
@@ -276,7 +280,7 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   if (messages.length === 0) return;
 
   // 8. Humanized delay with composing presence
-  await sendPresence(instance.api_url, instance.api_key, instance.instance_name, remoteJid);
+  await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
   await new Promise((resolve) => setTimeout(resolve, AI_RESPONSE_DELAY_MS));
 
   // 9. Debounce — abort if a newer inbound message arrived meanwhile
@@ -298,7 +302,7 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
       instance.api_url,
       instance.api_key,
       instance.instance_name,
-      remoteJid,
+      phone,
       messageText,
     );
 
