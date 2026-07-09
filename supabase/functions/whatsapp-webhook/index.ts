@@ -160,8 +160,9 @@ async function sendPresence(
       headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({ number: remoteJid, presence: "composing" }),
     });
-  } catch (_err) {
-    // presence indicator is a UX nicety — ignore failures
+  } catch (error) {
+    // presence indicator is a UX nicety — log but don't fail the webhook
+    console.error("=== ERROR ===", (error as Error)?.message, (error as Error)?.stack);
   }
 }
 
@@ -358,18 +359,25 @@ async function handleQrCodeUpdate(instance: Record<string, any>, data: Record<st
 }
 
 Deno.serve(async (req) => {
+  console.log("=== WEBHOOK RECEIVED ===", JSON.stringify({ method: req.method, url: req.url }));
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const payload = await req.json();
+    console.log("=== BODY ===", JSON.stringify(payload).substring(0, 500));
+
     const event: string = payload.event;
     const instanceName: string = payload.instance;
     const data = payload.data ?? {};
 
+    console.log("=== EVENT ===", event, "INSTANCE ===", instanceName);
+
     const instance = await findInstance(instanceName);
     if (!instance) {
+      console.log("=== DONE ===");
       return new Response(JSON.stringify({ ok: true, ignored: "unknown instance" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -400,11 +408,12 @@ Deno.serve(async (req) => {
         break;
     }
 
+    console.log("=== DONE ===");
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("whatsapp-webhook error", error);
+    console.error("=== ERROR ===", (error as Error)?.message, (error as Error)?.stack);
     return new Response(JSON.stringify({ ok: false, error: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
