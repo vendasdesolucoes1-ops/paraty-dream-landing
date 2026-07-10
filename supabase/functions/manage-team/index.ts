@@ -26,6 +26,16 @@ async function requireAdmin(req: Request) {
   if (!profile || profile.role !== "admin") throw new Error("forbidden: admin role required");
 }
 
+async function nextRoundRobinPosicao(): Promise<number> {
+  const { data } = await supabase
+    .from("vendedores")
+    .select("posicao_round_robin")
+    .order("posicao_round_robin", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.posicao_round_robin ?? 0) + 1;
+}
+
 async function inviteMember(body: {
   nome: string;
   email: string;
@@ -40,6 +50,21 @@ async function inviteMember(body: {
     const { data: vendedor, error: vendedorError } = await supabase
       .from("vendedores")
       .insert({ nome: body.novo_vendedor_nome, email })
+      .select()
+      .single();
+    if (vendedorError) throw vendedorError;
+    vendedorId = vendedor.id;
+  }
+
+  // A "vendedor" login must have a corresponding salesperson record to be
+  // eligible for round-robin assignment. If the admin didn't link an
+  // existing one (or ask to create one via novo_vendedor_nome above), create
+  // it here, placed at the back of the round-robin queue.
+  if (role === "vendedor" && !vendedorId) {
+    const posicao = await nextRoundRobinPosicao();
+    const { data: vendedor, error: vendedorError } = await supabase
+      .from("vendedores")
+      .insert({ nome, email, ativo: true, posicao_round_robin: posicao })
       .select()
       .single();
     if (vendedorError) throw vendedorError;
@@ -61,6 +86,14 @@ async function inviteMember(body: {
     .select()
     .single();
   if (profileError) throw profileError;
+
+  if (role === "vendedor" && vendedorId) {
+    const { error: linkError } = await supabase
+      .from("vendedores")
+      .update({ profile_id: invited.user.id })
+      .eq("id", vendedorId);
+    if (linkError) throw linkError;
+  }
 
   return profile;
 }

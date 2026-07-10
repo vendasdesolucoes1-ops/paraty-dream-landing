@@ -68,6 +68,7 @@ export interface Vendedor {
   telefone: string | null;
   ativo: boolean;
   posicao_round_robin: number;
+  profile_id: string | null;
   created_at: string;
 }
 

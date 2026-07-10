@@ -10,6 +10,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const AI_RESPONSE_DELAY_MS = 30_000;
+const LEAD_QUALIFICADO_MARKER = "[LEAD_QUALIFICADO]";
 
 function normalizePhone(remoteJid: string): string {
   const digitsOnly = remoteJid.replace(/@s\.whatsapp\.net|@g\.us/g, "").replace(/\D/g, "");
@@ -63,6 +64,53 @@ async function findOrCreateLead(phone: string, name: string | null) {
 
   if (error) throw error;
   return newLead;
+}
+
+// Triggered when the AI agent's response contains the [LEAD_QUALIFICADO]
+// marker. Always marks the lead as qualified; only runs the round-robin
+// assignment (and the notification/interaction it produces) when the lead
+// doesn't already have a vendedor — an empty vendedores table is expected
+// and not an error, the lead simply stays unassigned.
+async function handleLeadQualification(lead: Record<string, any>) {
+  const { error: statusError } = await supabase
+    .from("leads")
+    .update({ status_crm: "qualificado" })
+    .eq("id", lead.id);
+  if (statusError) throw statusError;
+
+  if (lead.vendedor_id) return;
+
+  const { data: vendedorId } = await supabase.rpc("get_next_round_robin_salesperson");
+  if (!vendedorId) return;
+
+  const { error: assignError } = await supabase
+    .from("leads")
+    .update({ vendedor_id: vendedorId })
+    .eq("id", lead.id);
+  if (assignError) throw assignError;
+
+  const { data: vendedor } = await supabase
+    .from("vendedores")
+    .select("nome, profile_id")
+    .eq("id", vendedorId)
+    .maybeSingle();
+
+  if (vendedor?.profile_id) {
+    await supabase.from("notifications").insert({
+      user_id: vendedor.profile_id,
+      type: "lead_atribuido",
+      title: "Novo lead atribuído",
+      body: `O lead ${lead.nome} foi qualificado e atribuído a você via round-robin.`,
+      link: `/dashboard/crm?lead=${lead.id}`,
+    });
+  }
+
+  await supabase.from("interacoes").insert({
+    lead_id: lead.id,
+    tipo: "sistema",
+    canal: "sistema",
+    conteudo: `Lead atribuído automaticamente a ${vendedor?.nome ?? "vendedor"} via round-robin.`,
+  });
 }
 
 async function findOrCreateContact(phone: string, name: string | null, remoteJid: string) {
@@ -279,6 +327,28 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   const messages: string[] = aiResult.messages ?? [];
   if (messages.length === 0) return;
 
+  // The qualification marker is an internal signal from the AI agent, not
+  // customer-facing text — detect it and run the side effects regardless of
+  // whether the response actually ends up being sent (debounce below), then
+  // strip it out of what gets delivered to WhatsApp.
+  if (messages.some((m) => m.includes(LEAD_QUALIFICADO_MARKER))) {
+    try {
+      await handleLeadQualification(lead);
+    } catch (error) {
+      console.error(
+        "=== LEAD QUALIFICATION ERROR ===",
+        (error as Error)?.message,
+        (error as Error)?.stack,
+      );
+    }
+  }
+
+  const cleanMessages = messages
+    .map((m) => m.replaceAll(LEAD_QUALIFICADO_MARKER, "").trim())
+    .filter((m) => m.length > 0);
+
+  if (cleanMessages.length === 0) return;
+
   // 8. Humanized delay with composing presence
   await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
   await new Promise((resolve) => setTimeout(resolve, AI_RESPONSE_DELAY_MS));
@@ -294,10 +364,10 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   if (newerMessages && newerMessages.length > 0) return;
 
-  console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: messages.length });
+  console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: cleanMessages.length });
 
   // 10 & 11. Send response(s) and persist them
-  for (const messageText of messages) {
+  for (const messageText of cleanMessages) {
     const sendResult = await sendWhatsAppText(
       instance.api_url,
       instance.api_key,

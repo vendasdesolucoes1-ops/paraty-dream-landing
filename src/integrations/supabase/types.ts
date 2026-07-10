@@ -410,6 +410,7 @@ export type Database = {
           id: string;
           nome: string;
           posicao_round_robin: number;
+          profile_id: string | null;
           telefone: string | null;
         };
         Insert: {
@@ -419,6 +420,7 @@ export type Database = {
           id?: string;
           nome: string;
           posicao_round_robin?: number;
+          profile_id?: string | null;
           telefone?: string | null;
         };
         Update: {
@@ -428,9 +430,18 @@ export type Database = {
           id?: string;
           nome?: string;
           posicao_round_robin?: number;
+          profile_id?: string | null;
           telefone?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "vendedores_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       visitas: {
         Row: {
