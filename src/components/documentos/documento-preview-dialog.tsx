@@ -56,9 +56,8 @@ export function DocumentoPreviewDialog({
           const response = await fetch(url);
           if (!response.ok) throw new Error(`Falha ao baixar arquivo (${response.status})`);
           const blob = await response.blob();
-          const pdfBlob = blob.type === "application/pdf"
-            ? blob
-            : new Blob([blob], { type: "application/pdf" });
+          const pdfBlob =
+            blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" });
           createdBlobUrl = URL.createObjectURL(pdfBlob);
           if (cancelled) {
             URL.revokeObjectURL(createdBlobUrl);
@@ -117,7 +116,12 @@ export function DocumentoPreviewDialog({
                       Abrir
                     </Button>
                   ) : null}
-                  <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                  >
                     <Download className="h-4 w-4 mr-2" />
                     {downloading ? "Gerando..." : "Baixar"}
                   </Button>
@@ -129,7 +133,9 @@ export function DocumentoPreviewDialog({
               {loading ? (
                 <Skeleton className="h-[60vh] w-full" />
               ) : error || (!signedUrl && !blobUrl) ? (
-                <p className="text-sm text-destructive">{error ?? "Erro ao gerar link de visualização."}</p>
+                <p className="text-sm text-destructive">
+                  {error ?? "Erro ao gerar link de visualização."}
+                </p>
               ) : isPdfTipo(documento.tipo_arquivo) && pdfSrc ? (
                 <object
                   data={pdfSrc}
@@ -145,7 +151,9 @@ export function DocumentoPreviewDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(signedUrl ?? pdfSrc, "_blank", "noopener,noreferrer")}
+                        onClick={() =>
+                          window.open(signedUrl ?? pdfSrc, "_blank", "noopener,noreferrer")
+                        }
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Abrir em nova aba
