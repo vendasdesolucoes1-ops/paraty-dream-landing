@@ -6,6 +6,12 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { DOCUMENTOS_BUCKET, extensionFromFile, resolveContentType } from "@/lib/documento-utils";
+import { ProcessoField } from "@/components/documentos/processo-field";
+import {
+  EMPTY_PROCESSO_VALUE,
+  resolveProcessoId,
+  type ProcessoFieldValue,
+} from "@/lib/processo-utils";
 import { DOCUMENTO_CATEGORIA_OPTIONS, type DocumentoCategoria, type Lead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +67,7 @@ export function DocumentoUploadDialog({
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [tags, setTags] = useState("");
+  const [processo, setProcesso] = useState<ProcessoFieldValue>(EMPTY_PROCESSO_VALUE);
 
   function resetForm() {
     setFile(null);
@@ -70,6 +77,7 @@ export function DocumentoUploadDialog({
     setLeadLabel(defaultLead?.nome ?? "");
     setTags("");
     setLeadSearch("");
+    setProcesso(EMPTY_PROCESSO_VALUE);
   }
 
   function handleFileChosen(chosen: File) {
@@ -103,6 +111,8 @@ export function DocumentoUploadDialog({
       if (!file) throw new Error("Selecione um arquivo.");
       if (!titulo.trim()) throw new Error("Informe um título.");
 
+      const processoId = await resolveProcessoId(processo);
+
       const ext = extensionFromFile(file);
       const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
       const contentType = resolveContentType(file, ext);
@@ -121,6 +131,7 @@ export function DocumentoUploadDialog({
         titulo: titulo.trim(),
         categoria,
         lead_id: leadId || null,
+        processo_id: processoId,
         storage_path: storagePath,
         tipo_arquivo: ext,
         tamanho_bytes: file.size,
@@ -132,6 +143,7 @@ export function DocumentoUploadDialog({
     onSuccess: () => {
       toast.success("Documento enviado.");
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
       resetForm();
       setOpen(false);
     },
@@ -213,6 +225,8 @@ export function DocumentoUploadDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <ProcessoField value={processo} onChange={setProcesso} />
 
           <div className="space-y-2">
             <Label>Lead vinculado (opcional)</Label>

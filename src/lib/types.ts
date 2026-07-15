@@ -90,11 +90,19 @@ export type DocumentoCategoria =
   | "proposta"
   | "outro";
 
+export interface Processo {
+  id: string;
+  titulo: string;
+  categoria: string;
+  created_at: string;
+}
+
 export interface Documento {
   id: string;
   titulo: string;
   categoria: DocumentoCategoria;
   lead_id: string | null;
+  processo_id: string | null;
   storage_path: string;
   tipo_arquivo: string;
   tamanho_bytes: number | null;
@@ -106,6 +114,7 @@ export interface Documento {
 
 export interface DocumentoWithLead extends Documento {
   lead: Pick<Lead, "id" | "nome"> | null;
+  processo?: Pick<Processo, "id" | "titulo" | "categoria"> | null;
 }
 
 export const DOCUMENTO_CATEGORIA_OPTIONS: { value: DocumentoCategoria; label: string }[] = [

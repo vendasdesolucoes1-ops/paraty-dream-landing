@@ -162,6 +162,7 @@ export type Database = {
           id: string
           lead_id: string | null
           observacoes: string | null
+          processo_id: string | null
           storage_path: string
           tags: string[] | null
           tamanho_bytes: number | null
@@ -175,6 +176,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           observacoes?: string | null
+          processo_id?: string | null
           storage_path: string
           tags?: string[] | null
           tamanho_bytes?: number | null
@@ -188,6 +190,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           observacoes?: string | null
+          processo_id?: string | null
           storage_path?: string
           tags?: string[] | null
           tamanho_bytes?: number | null
@@ -201,6 +204,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
             referencedColumns: ["id"]
           },
           {
@@ -421,6 +431,27 @@ export type Database = {
           publicado_em?: string | null
           status?: string | null
           titulo?: string | null
+        }
+        Relationships: []
+      }
+      processos: {
+        Row: {
+          categoria: string
+          created_at: string | null
+          id: string
+          titulo: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string | null
+          id?: string
+          titulo: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string | null
+          id?: string
+          titulo?: string
         }
         Relationships: []
       }

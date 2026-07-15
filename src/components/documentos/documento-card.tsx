@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileImage, FileText, File as FileIcon, Trash2 } from "lucide-react";
+import { FileImage, FileText, File as FileIcon, Pencil, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -34,9 +34,11 @@ function DocumentoIcon({ tipoArquivo }: { tipoArquivo: string }) {
 export function DocumentoCard({
   documento,
   onClick,
+  onEdit,
 }: {
   documento: DocumentoWithLead;
   onClick: () => void;
+  onEdit?: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -79,6 +81,21 @@ export function DocumentoCard({
                 {documento.tipo_arquivo} · {formatBytes(documento.tamanho_bytes)}
               </p>
             </div>
+            {onEdit ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-8 w-8"
+                title="Editar documento"
+                aria-label="Editar documento"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"
