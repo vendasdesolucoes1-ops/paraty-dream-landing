@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Calendar,
   Map,
+  FileText,
   Wrench,
   Megaphone,
   Settings,
@@ -26,6 +27,12 @@ const NAV_ITEMS = [
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
   { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
+  {
+    to: "/dashboard/documentos",
+    label: "Documentos",
+    icon: FileText,
+    hideFor: ["vendedor"],
+  },
   { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench, hideFor: ["vendedor"] },
   { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone, hideFor: ["vendedor"] },
   {

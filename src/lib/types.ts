@@ -72,7 +72,7 @@ export interface Vendedor {
   created_at: string;
 }
 
-export type InteracaoTipo = "whatsapp" | "ligacao" | "email" | "visita" | "nota";
+export type InteracaoTipo = "whatsapp" | "ligacao" | "email" | "visita" | "nota" | "sistema";
 
 export interface Interacao {
   id: string;
@@ -82,6 +82,39 @@ export interface Interacao {
   canal: string | null;
   created_at: string;
 }
+
+export type DocumentoCategoria =
+  | "institucional"
+  | "contrato"
+  | "documento_pessoal"
+  | "proposta"
+  | "outro";
+
+export interface Documento {
+  id: string;
+  titulo: string;
+  categoria: DocumentoCategoria;
+  lead_id: string | null;
+  storage_path: string;
+  tipo_arquivo: string;
+  tamanho_bytes: number | null;
+  uploaded_by: string | null;
+  tags: string[] | null;
+  observacoes: string | null;
+  created_at: string;
+}
+
+export interface DocumentoWithLead extends Documento {
+  lead: Pick<Lead, "id" | "nome"> | null;
+}
+
+export const DOCUMENTO_CATEGORIA_OPTIONS: { value: DocumentoCategoria; label: string }[] = [
+  { value: "institucional", label: "Institucional" },
+  { value: "contrato", label: "Contrato" },
+  { value: "documento_pessoal", label: "Documento Pessoal" },
+  { value: "proposta", label: "Proposta" },
+  { value: "outro", label: "Outro" },
+];
 
 export const LEAD_STATUS_COLUMNS: { value: LeadStatus; label: string }[] = [
   { value: "novo", label: "Novo" },

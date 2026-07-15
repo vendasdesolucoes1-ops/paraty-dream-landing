@@ -45,6 +45,11 @@ import {
 import { LoteStatusBadge } from "@/components/dashboard/status-badge";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
+import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-dialog";
+import { DocumentoCard } from "@/components/documentos/documento-card";
+import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
+import { useProfile } from "@/hooks/use-profile";
+import type { DocumentoWithLead } from "@/lib/types";
 
 const NO_VENDEDOR = "nenhum";
 
@@ -616,6 +621,61 @@ function VisitasTab({ lead }: { lead: Lead }) {
   );
 }
 
+function DocumentosTab({ lead }: { lead: Lead }) {
+  const [selectedDocumento, setSelectedDocumento] = useState<DocumentoWithLead | null>(null);
+
+  const { data: documentos, isLoading } = useQuery({
+    queryKey: ["documentos", "lead", lead.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documentos")
+        .select("*, lead:leads(id, nome)")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as unknown as DocumentoWithLead[];
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <DocumentoUploadDialog
+        defaultLead={{ id: lead.id, nome: lead.nome }}
+        trigger={
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Enviar documento
+          </Button>
+        }
+      />
+
+      {isLoading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : !documentos || documentos.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum documento vinculado a este lead.</p>
+      ) : (
+        <div className="space-y-2">
+          {documentos.map((documento) => (
+            <DocumentoCard
+              key={documento.id}
+              documento={documento}
+              onClick={() => setSelectedDocumento(documento)}
+            />
+          ))}
+        </div>
+      )}
+
+      <DocumentoPreviewDialog
+        documento={selectedDocumento}
+        open={!!selectedDocumento}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDocumento(null);
+        }}
+      />
+    </div>
+  );
+}
+
 export function LeadDetailDrawer({
   lead,
   open,
@@ -625,6 +685,9 @@ export function LeadDetailDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { profile } = useProfile();
+  const canSeeDocumentos = profile?.role === "admin" || profile?.role === "gestor";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
@@ -653,6 +716,7 @@ export function LeadDetailDrawer({
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
                 <TabsTrigger value="whatsapp">Conversas WhatsApp</TabsTrigger>
                 <TabsTrigger value="visitas">Visitas</TabsTrigger>
+                {canSeeDocumentos ? <TabsTrigger value="documentos">Documentos</TabsTrigger> : null}
               </TabsList>
 
               <TabsContent value="dados" className="pt-4">
@@ -667,6 +731,11 @@ export function LeadDetailDrawer({
               <TabsContent value="whatsapp" className="pt-4">
                 <WhatsappTab leadId={lead.id} />
               </TabsContent>
+              {canSeeDocumentos ? (
+                <TabsContent value="documentos" className="pt-4">
+                  <DocumentosTab lead={lead} />
+                </TabsContent>
+              ) : null}
               <TabsContent value="visitas" className="pt-4">
                 <VisitasTab lead={lead} />
               </TabsContent>

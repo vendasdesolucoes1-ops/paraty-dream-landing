@@ -149,6 +149,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      documentos: {
+        Row: {
+          categoria: string;
+          created_at: string | null;
+          id: string;
+          lead_id: string | null;
+          observacoes: string | null;
+          storage_path: string;
+          tags: string[] | null;
+          tamanho_bytes: number | null;
+          tipo_arquivo: string;
+          titulo: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          categoria: string;
+          created_at?: string | null;
+          id?: string;
+          lead_id?: string | null;
+          observacoes?: string | null;
+          storage_path: string;
+          tags?: string[] | null;
+          tamanho_bytes?: number | null;
+          tipo_arquivo: string;
+          titulo: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          categoria?: string;
+          created_at?: string | null;
+          id?: string;
+          lead_id?: string | null;
+          observacoes?: string | null;
+          storage_path?: string;
+          tags?: string[] | null;
+          tamanho_bytes?: number | null;
+          tipo_arquivo?: string;
+          titulo?: string;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "documentos_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "documentos_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       interacoes: {
         Row: {
           canal: string | null;
@@ -635,6 +692,7 @@ export type Database = {
     };
     Functions: {
       get_next_round_robin_salesperson: { Args: never; Returns: string };
+      get_my_role: { Args: never; Returns: string };
     };
     Enums: {
       [_ in never]: never;

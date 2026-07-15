@@ -16,6 +16,7 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
 import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
 import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/ferramentas'
+import { Route as DashboardDocumentosRouteImport } from './routes/dashboard/documentos'
 import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
 import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
 import { Route as DashboardAgendaRouteImport } from './routes/dashboard/agenda'
@@ -55,6 +56,11 @@ const DashboardFerramentasRoute = DashboardFerramentasRouteImport.update({
   path: '/ferramentas',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardDocumentosRoute = DashboardDocumentosRouteImport.update({
+  id: '/documentos',
+  path: '/documentos',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardCrmRoute = DashboardCrmRouteImport.update({
   id: '/crm',
   path: '/crm',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/documentos': typeof DashboardDocumentosRoute
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/documentos': typeof DashboardDocumentosRoute
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
+  '/dashboard/documentos': typeof DashboardDocumentosRoute
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/dashboard/agenda'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/documentos'
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/dashboard/agenda'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/documentos'
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/dashboard/agenda'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
+    | '/dashboard/documentos'
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
@@ -202,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardFerramentasRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/documentos': {
+      id: '/dashboard/documentos'
+      path: '/documentos'
+      fullPath: '/dashboard/documentos'
+      preLoaderRoute: typeof DashboardDocumentosRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/crm': {
       id: '/dashboard/crm'
       path: '/crm'
@@ -230,6 +249,7 @@ interface DashboardRouteRouteChildren {
   DashboardAgendaRoute: typeof DashboardAgendaRoute
   DashboardConfiguracoesRoute: typeof DashboardConfiguracoesRoute
   DashboardCrmRoute: typeof DashboardCrmRoute
+  DashboardDocumentosRoute: typeof DashboardDocumentosRoute
   DashboardFerramentasRoute: typeof DashboardFerramentasRoute
   DashboardLotesRoute: typeof DashboardLotesRoute
   DashboardMarketingRoute: typeof DashboardMarketingRoute
@@ -240,6 +260,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAgendaRoute: DashboardAgendaRoute,
   DashboardConfiguracoesRoute: DashboardConfiguracoesRoute,
   DashboardCrmRoute: DashboardCrmRoute,
+  DashboardDocumentosRoute: DashboardDocumentosRoute,
   DashboardFerramentasRoute: DashboardFerramentasRoute,
   DashboardLotesRoute: DashboardLotesRoute,
   DashboardMarketingRoute: DashboardMarketingRoute,
