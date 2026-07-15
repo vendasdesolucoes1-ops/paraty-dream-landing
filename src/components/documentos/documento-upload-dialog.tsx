@@ -5,7 +5,7 @@ import { Check, ChevronsUpDown, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { DOCUMENTOS_BUCKET, extensionFromFile } from "@/lib/documento-utils";
+import { DOCUMENTOS_BUCKET, extensionFromFile, resolveContentType } from "@/lib/documento-utils";
 import { DOCUMENTO_CATEGORIA_OPTIONS, type DocumentoCategoria, type Lead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,10 +105,11 @@ export function DocumentoUploadDialog({
 
       const ext = extensionFromFile(file);
       const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
+      const contentType = resolveContentType(file, ext);
 
       const { error: uploadError } = await supabase.storage
         .from(DOCUMENTOS_BUCKET)
-        .upload(storagePath, file, { contentType: file.type || undefined });
+        .upload(storagePath, file, { contentType });
       if (uploadError) throw uploadError;
 
       const tagList = tags

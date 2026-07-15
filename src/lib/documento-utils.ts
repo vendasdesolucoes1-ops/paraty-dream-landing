@@ -19,6 +19,28 @@ export function extensionFromFile(file: File): string {
   return (fromMime || "bin").toLowerCase();
 }
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+};
+
+// The browser-reported file.type is empty for some mobile camera captures
+// and can't be trusted blindly, so it's cross-checked against the file
+// extension and only used when it looks like a real MIME type (has a "/").
+// Falling through to application/octet-stream (Storage's default when no
+// contentType is sent) is what made Chrome refuse to render PDFs inline —
+// it treats octet-stream as "unknown, must download" regardless of the
+// iframe.
+export function resolveContentType(file: File, extension: string): string {
+  if (file.type && file.type.includes("/")) return file.type;
+  return MIME_BY_EXTENSION[extension] ?? "application/octet-stream";
+}
+
 export function formatBytes(bytes: number | null): string {
   if (bytes == null) return "—";
   if (bytes < 1024) return `${bytes} B`;
