@@ -53,22 +53,20 @@ export function LeadForm() {
     try {
       const telefoneNormalizado = normalizePhone(lead.telefone);
 
-      // Anon insert: NO .select() back (anon has INSERT but not SELECT on
-      // leads — reading the row back would 401) and NO vendedor_id here.
-      // Round-robin assignment happens server-side in enrich-lead, only after
-      // this insert is confirmed, so a failed insert never burns a turn.
-      const { error: insertError } = await supabase.from("leads").insert({
-        nome: lead.nome,
-        email: lead.email || null,
-        telefone: telefoneNormalizado,
-        cidade: lead.cidade || null,
-        metragem_interesse: parseMetragem(lead.metragem),
-        tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
-        origem: "lp",
-        status_crm: "novo",
+      // Idempotent create/update via a SECURITY DEFINER RPC. Re-submitting the
+      // same phone (unique index) updates the existing lead's contact fields
+      // instead of 409ing, and preserves its CRM progress (status_crm,
+      // vendedor_id, origem). anon gets no direct SELECT/UPDATE on leads.
+      const { error: rpcError } = await supabase.rpc("upsert_lead_from_form", {
+        p_nome: lead.nome,
+        p_email: lead.email || null,
+        p_telefone: telefoneNormalizado,
+        p_cidade: lead.cidade || null,
+        p_metragem_interesse: parseMetragem(lead.metragem),
+        p_tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
       });
 
-      if (insertError) throw insertError;
+      if (rpcError) throw rpcError;
 
       setSent(true);
       setLead(empty);
@@ -213,7 +211,7 @@ export function LeadForm() {
         </button>
         {sent && (
           <p className="mt-4 text-sm text-forest">
-            Recebemos seu contato! Em breve nossa equipe entrará em contato pelo WhatsApp.
+            Recebemos seus dados! Nossa equipe entrará em contato em breve.
           </p>
         )}
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}

@@ -104,11 +104,13 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join(" · ");
 
+    // Wording works for both a brand-new lead and a returning visitor who
+    // re-submitted the form (the upsert may have updated an existing lead).
     await supabase.from("interacoes").insert({
       lead_id: lead.id,
       tipo: "sistema",
       canal: "formulario_site",
-      conteudo: `Lead criado pelo formulário do site (Landing Page).${
+      conteudo: `Contato recebido pelo formulário do site (Landing Page).${
         detalhes ? ` ${detalhes}.` : ""
       }`,
     });
