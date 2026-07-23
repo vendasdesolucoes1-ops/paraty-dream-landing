@@ -21,8 +21,6 @@ const empty: Lead = {
   criadoEm: "",
 };
 
-const WEBHOOK_URL = "https://mokgxoygbjvtketoyraf.supabase.co/functions/v1/whatsapp-webhook";
-
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   return digits.startsWith("55") ? digits : `55${digits}`;
@@ -31,42 +29,6 @@ function normalizePhone(raw: string): string {
 function parseMetragem(value: Lead["metragem"]): number | null {
   const match = value.match(/\d+/);
   return match ? Number(match[0]) : null;
-}
-
-async function triggerAiAgent(telefone: string, nome: string) {
-  const { data: instance } = await supabase
-    .from("whatsapp_instances")
-    .select("instance_name")
-    .in("status", ["connected", "open"])
-    .limit(1)
-    .maybeSingle();
-
-  // No connected WhatsApp instance yet — the lead is already saved, just skip the AI handoff.
-  if (!instance) return;
-
-  const timestamp = Date.now();
-
-  await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      event: "messages.upsert",
-      instance: instance.instance_name,
-      data: {
-        key: {
-          remoteJid: `${telefone}@s.whatsapp.net`,
-          fromMe: false,
-          id: `LP_${timestamp}_${telefone}`,
-        },
-        message: {
-          conversation:
-            "Olá! Vim pelo site do Moradas de Paraty e gostaria de mais informações sobre os lotes.",
-        },
-        pushName: nome,
-        messageTimestamp: Math.floor(timestamp / 1000),
-      },
-    }),
-  });
 }
 
 export function LeadForm() {
@@ -91,59 +53,40 @@ export function LeadForm() {
     try {
       const telefoneNormalizado = normalizePhone(lead.telefone);
 
-      const { data: vendedorId } = await supabase.rpc("get_next_round_robin_salesperson");
-
-      const { data: novoLead, error: insertError } = await supabase
-        .from("leads")
-        .insert({
-          nome: lead.nome,
-          email: lead.email || null,
-          telefone: telefoneNormalizado,
-          cidade: lead.cidade || null,
-          metragem_interesse: parseMetragem(lead.metragem),
-          tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
-          origem: "lp",
-          status_crm: "novo",
-          vendedor_id: vendedorId ?? null,
-        })
-        .select("id")
-        .single();
+      // Anon insert: NO .select() back (anon has INSERT but not SELECT on
+      // leads — reading the row back would 401) and NO vendedor_id here.
+      // Round-robin assignment happens server-side in enrich-lead, only after
+      // this insert is confirmed, so a failed insert never burns a turn.
+      const { error: insertError } = await supabase.from("leads").insert({
+        nome: lead.nome,
+        email: lead.email || null,
+        telefone: telefoneNormalizado,
+        cidade: lead.cidade || null,
+        metragem_interesse: parseMetragem(lead.metragem),
+        tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
+        origem: "lp",
+        status_crm: "novo",
+      });
 
       if (insertError) throw insertError;
-
-      // Registra no histórico do lead que ele veio do formulário do site, com
-      // o resumo do que foi preenchido — aparece na aba Histórico do CRM.
-      // Best-effort: o lead já foi criado, então uma falha aqui (ex: migration
-      // ainda não aplicada) não deve impedir a confirmação de sucesso.
-      if (novoLead?.id) {
-        const detalhes = [
-          lead.cidade ? `Cidade: ${lead.cidade}` : null,
-          lead.metragem ? `Metragem: ${lead.metragem}` : null,
-          lead.tipo ? `Tipo: ${lead.tipo}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-        supabase
-          .from("interacoes")
-          .insert({
-            lead_id: novoLead.id,
-            tipo: "sistema",
-            canal: "formulario_site",
-            conteudo: `Lead criado pelo formulário do site (Landing Page).${
-              detalhes ? ` ${detalhes}.` : ""
-            }`,
-          })
-          .then(({ error }) => {
-            if (error) console.warn("Não foi possível registrar a interação de origem:", error);
-          });
-      }
 
       setSent(true);
       setLead(empty);
 
-      // Fire-and-forget: kick off the AI agent's WhatsApp handoff without blocking the UI.
-      triggerAiAgent(telefoneNormalizado, lead.nome).catch(() => {});
+      // Fire-and-forget: everything that needs the new lead's id and elevated
+      // access (round-robin assignment, origin history entry, WhatsApp AI
+      // handoff) runs in the enrich-lead Edge Function with service_role.
+      supabase.functions
+        .invoke("enrich-lead", {
+          body: {
+            telefone: telefoneNormalizado,
+            nome: lead.nome,
+            cidade: lead.cidade || null,
+            metragem: lead.metragem || null,
+            tipo: lead.tipo || null,
+          },
+        })
+        .catch(() => {});
 
       setTimeout(() => setSent(false), 6000);
     } catch {
