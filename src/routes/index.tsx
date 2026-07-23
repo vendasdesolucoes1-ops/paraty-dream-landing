@@ -14,7 +14,9 @@ import seteQuedas2Img from "@/assets/cachoeira-sete-quedas-2.jpg";
 import seteQuedas3Img from "@/assets/cachoeira-sete-quedas-3.jpg";
 import toboga1Img from "@/assets/cachoeira-toboga-1.jpg";
 import toboga2Img from "@/assets/cachoeira-toboga-2.jpg";
-import cenaInicialVideo from "@/assets/cena-inicial.mp4.asset.json";
+import empreendimentoAntesImg from "@/assets/empreendimento-antes.jpg";
+import empreendimentoDepoisImg from "@/assets/empreendimento-depois.jpg";
+import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
@@ -38,23 +40,94 @@ export const Route = createFileRoute("/")({
 });
 
 const centroSlides: CarouselSlide[] = [
-  { src: igrejaImg, alt: "Igreja de Santa Rita de Cássia no Centro Histórico de Paraty", titulo: "Igreja de Santa Rita", descricao: "Construída em 1722, a mais antiga da cidade — hoje Museu de Arte Sacra." },
-  { src: locationImg, alt: "Centro Histórico de Paraty", titulo: "Centro Histórico", descricao: "Ruas de pedra e casario colonial, a nove minutos do empreendimento." },
-  { src: canhoesImg, alt: "Canhões coloniais na orla histórica de Paraty", titulo: "Orla Histórica", descricao: "Canhões coloniais à beira do cais, marca da herança marítima da cidade." },
-  { src: vistaAereaImg, alt: "Vista aérea do Centro Histórico de Paraty", titulo: "Vista do Centro Histórico", descricao: "O casario colonial entre o mar e a Serra do Mar, visto do alto." },
-  { src: ruaNoiteImg, alt: "Rua de pedra do Centro Histórico ao entardecer", titulo: "Vida ao Entardecer", descricao: "Ruas de pedra, restaurantes e flores ao cair da noite no centro." },
-  { src: cheiaCanoasImg, alt: "Ruas alagadas do Centro Histórico de Paraty com canoas", titulo: "Maré das Ruas", descricao: "Na maré cheia, as ruas viram canais — cena típica e única de Paraty." },
-  { src: telhadosImg, alt: "Telhados coloniais do Centro Histórico vistos do alto", titulo: "Telhados Coloniais", descricao: "O conjunto de telhas e quintais preservados, patrimônio tombado." },
+  {
+    src: igrejaImg,
+    alt: "Igreja de Santa Rita de Cássia no Centro Histórico de Paraty",
+    titulo: "Igreja de Santa Rita",
+    descricao: "Construída em 1722, a mais antiga da cidade — hoje Museu de Arte Sacra.",
+  },
+  {
+    src: locationImg,
+    alt: "Centro Histórico de Paraty",
+    titulo: "Centro Histórico",
+    descricao: "Ruas de pedra e casario colonial, a nove minutos do empreendimento.",
+  },
+  {
+    src: canhoesImg,
+    alt: "Canhões coloniais na orla histórica de Paraty",
+    titulo: "Orla Histórica",
+    descricao: "Canhões coloniais à beira do cais, marca da herança marítima da cidade.",
+  },
+  {
+    src: vistaAereaImg,
+    alt: "Vista aérea do Centro Histórico de Paraty",
+    titulo: "Vista do Centro Histórico",
+    descricao: "O casario colonial entre o mar e a Serra do Mar, visto do alto.",
+  },
+  {
+    src: ruaNoiteImg,
+    alt: "Rua de pedra do Centro Histórico ao entardecer",
+    titulo: "Vida ao Entardecer",
+    descricao: "Ruas de pedra, restaurantes e flores ao cair da noite no centro.",
+  },
+  {
+    src: cheiaCanoasImg,
+    alt: "Ruas alagadas do Centro Histórico de Paraty com canoas",
+    titulo: "Maré das Ruas",
+    descricao: "Na maré cheia, as ruas viram canais — cena típica e única de Paraty.",
+  },
+  {
+    src: telhadosImg,
+    alt: "Telhados coloniais do Centro Histórico vistos do alto",
+    titulo: "Telhados Coloniais",
+    descricao: "O conjunto de telhas e quintais preservados, patrimônio tombado.",
+  },
 ];
 
 const lifeSlides: CarouselSlide[] = [
-  { src: pedraBrancaImg, alt: "Cachoeira da Pedra Branca em Paraty", titulo: "Cachoeira da Pedra Branca", descricao: "Poços de água cristalina e tobogã natural, a poucos minutos do loteamento." },
-  { src: seteQuedasImg, alt: "Cachoeira das Sete Quedas em Paraty", titulo: "Cachoeira das Sete Quedas", descricao: "Quedas em série e piscinas naturais em meio à floresta, ideais para um dia de mergulho." },
-  { src: seteQuedas2Img, alt: "Poço da Cachoeira das Sete Quedas", titulo: "Cachoeira das Sete Quedas", descricao: "Poço de águas calmas ao pé da queda, perfeito para banho em meio à mata." },
-  { src: seteQuedas3Img, alt: "Queda d'água entre rochas da Cachoeira das Sete Quedas", titulo: "Cachoeira das Sete Quedas", descricao: "Cortina de água entre rochas musgo, um espetáculo natural." },
-  { src: toboga1Img, alt: "Cachoeira do Tobogã com tobogã natural de rocha", titulo: "Cachoeira do Tobogã", descricao: "Tobogã natural de rocha polida — diversão e adrenalina em meio à mata." },
-  { src: toboga2Img, alt: "Poço e tobogã da Cachoeira do Tobogã em Paraty", titulo: "Cachoeira do Tobogã", descricao: "Poço cristalino ao pé do tobogã, perfeito para banho e lazer em família." },
-  { src: waterfallImg, alt: "Cachoeira em meio à Mata Atlântica de Paraty", titulo: "Mata Atlântica", descricao: "Trilhas, quedas d'água e floresta preservada cercando o empreendimento." },
+  {
+    src: pedraBrancaImg,
+    alt: "Cachoeira da Pedra Branca em Paraty",
+    titulo: "Cachoeira da Pedra Branca",
+    descricao: "Poços de água cristalina e tobogã natural, a poucos minutos do loteamento.",
+  },
+  {
+    src: seteQuedasImg,
+    alt: "Cachoeira das Sete Quedas em Paraty",
+    titulo: "Cachoeira das Sete Quedas",
+    descricao:
+      "Quedas em série e piscinas naturais em meio à floresta, ideais para um dia de mergulho.",
+  },
+  {
+    src: seteQuedas2Img,
+    alt: "Poço da Cachoeira das Sete Quedas",
+    titulo: "Cachoeira das Sete Quedas",
+    descricao: "Poço de águas calmas ao pé da queda, perfeito para banho em meio à mata.",
+  },
+  {
+    src: seteQuedas3Img,
+    alt: "Queda d'água entre rochas da Cachoeira das Sete Quedas",
+    titulo: "Cachoeira das Sete Quedas",
+    descricao: "Cortina de água entre rochas musgo, um espetáculo natural.",
+  },
+  {
+    src: toboga1Img,
+    alt: "Cachoeira do Tobogã com tobogã natural de rocha",
+    titulo: "Cachoeira do Tobogã",
+    descricao: "Tobogã natural de rocha polida — diversão e adrenalina em meio à mata.",
+  },
+  {
+    src: toboga2Img,
+    alt: "Poço e tobogã da Cachoeira do Tobogã em Paraty",
+    titulo: "Cachoeira do Tobogã",
+    descricao: "Poço cristalino ao pé do tobogã, perfeito para banho e lazer em família.",
+  },
+  {
+    src: waterfallImg,
+    alt: "Cachoeira em meio à Mata Atlântica de Paraty",
+    titulo: "Mata Atlântica",
+    descricao: "Trilhas, quedas d'água e floresta preservada cercando o empreendimento.",
+  },
 ];
 
 function Landing() {
@@ -107,7 +180,9 @@ function Hero() {
 
       <div className="relative container-x min-h-screen flex flex-col justify-end pb-20 pt-32">
         <Reveal>
-          <p className="eyebrow text-ivory/85 mb-6">Loteamento Residencial Sophia Saíde · Paraty / RJ</p>
+          <p className="eyebrow text-ivory/85 mb-6">
+            Loteamento Residencial Sophia Saíde · Paraty / RJ
+          </p>
         </Reveal>
         <Reveal delay={150}>
           <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
@@ -118,8 +193,8 @@ function Hero() {
         </Reveal>
         <Reveal delay={300}>
           <p className="mt-8 text-ivory/85 text-lg sm:text-xl max-w-xl font-light">
-            Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico.
-            Um lugar para viver, construir e valorizar.
+            Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico. Um lugar para viver,
+            construir e valorizar.
           </p>
         </Reveal>
         <Reveal delay={450}>
@@ -163,11 +238,12 @@ function Localizacao() {
           <Reveal>
             <p className="eyebrow text-accent mb-6">Localização</p>
             <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
-              A nove minutos do <em className="not-italic text-forest">coração colonial</em> de Paraty.
+              A nove minutos do <em className="not-italic text-forest">coração colonial</em> de
+              Paraty.
             </h2>
             <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
-              Entre as ruas de pedra do Centro Histórico e o silêncio da Serra do Mar,
-              o Moradas de Paraty oferece o raro equilíbrio entre cultura, natureza e praticidade.
+              Entre as ruas de pedra do Centro Histórico e o silêncio da Serra do Mar, o Moradas de
+              Paraty oferece o raro equilíbrio entre cultura, natureza e praticidade.
             </p>
             <ul className="mt-10 space-y-4 text-foreground">
               {[
@@ -191,7 +267,9 @@ function Localizacao() {
             </div>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-2">
               <span className="eyebrow text-accent text-[0.65rem]">Endereço</span>
-              <span className="text-[0.95rem] text-forest">Rod. Paraty–Cunha, 489 · Pantanal · Paraty / RJ</span>
+              <span className="text-[0.95rem] text-forest">
+                Rod. Paraty–Cunha, 489 · Pantanal · Paraty / RJ
+              </span>
             </div>
           </Reveal>
         </div>
@@ -205,10 +283,14 @@ function Localizacao() {
                 Paraty, patrimônio vivo entre a serra e o mar.
               </h3>
               <p className="mt-5 text-muted-foreground text-[1.0625rem] font-light leading-[1.75]">
-                Fundada no século XVII, Paraty preserva um dos conjuntos coloniais mais íntegros do Brasil — ruas de pedra, casario branco e igrejas centenárias que hoje compõem um Patrimônio Mundial reconhecido pela UNESCO.
+                Fundada no século XVII, Paraty preserva um dos conjuntos coloniais mais íntegros do
+                Brasil — ruas de pedra, casario branco e igrejas centenárias que hoje compõem um
+                Patrimônio Mundial reconhecido pela UNESCO.
               </p>
               <p className="mt-4 text-muted-foreground text-[1.0625rem] font-light leading-[1.75]">
-                Entre festivais literários, gastronomia premiada e o encontro da Mata Atlântica com a Baía da Ilha Grande, a cidade reúne história, cultura e natureza em um mesmo endereço.
+                Entre festivais literários, gastronomia premiada e o encontro da Mata Atlântica com
+                a Baía da Ilha Grande, a cidade reúne história, cultura e natureza em um mesmo
+                endereço.
               </p>
             </div>
           </Reveal>
@@ -235,9 +317,9 @@ function EstiloDeVida() {
               Onde o cotidiano se reencontra com a natureza.
             </h2>
             <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
-              Lotes prontos para construir, cercados por cachoeiras, trilhas e mirantes.
-              Um endereço para quem busca qualidade de vida sem abrir mão de praticidade,
-              segurança e valorização patrimonial.
+              Lotes prontos para construir, cercados por cachoeiras, trilhas e mirantes. Um endereço
+              para quem busca qualidade de vida sem abrir mão de praticidade, segurança e
+              valorização patrimonial.
             </p>
 
             <div className="mt-12 grid grid-cols-2 gap-x-8 gap-y-10">
@@ -270,24 +352,19 @@ function Maquete() {
             Conheça o Moradas de Paraty.
           </h2>
           <p className="mt-6 text-muted-foreground text-lg font-light">
-            Uma visão imersiva sobre o desenho do loteamento, suas vias, áreas comuns e a integração com o relevo natural.
+            Uma visão imersiva sobre o desenho do loteamento, suas vias, áreas comuns e a integração
+            com o relevo natural.
           </p>
         </div>
       </Reveal>
 
       <Reveal delay={200}>
-        <div className="mt-14 relative aspect-video bg-primary overflow-hidden rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]">
-          <video
-            src={cenaInicialVideo.url}
-            className="w-full h-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            preload="metadata"
-          />
-        </div>
+        <BeforeAfterSlider
+          beforeSrc={empreendimentoAntesImg}
+          afterSrc={empreendimentoDepoisImg}
+          alt="Loteamento Moradas de Paraty"
+          className="mt-14 aspect-video bg-primary rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
+        />
       </Reveal>
     </section>
   );
@@ -337,23 +414,28 @@ function Rodape() {
           <div className="font-display text-2xl text-ivory">Moradas de Paraty</div>
           <p className="eyebrow text-ivory/60 mt-2">Loteamento Sophia Saíde</p>
           <p className="mt-6 leading-relaxed">
-            Rod. Paraty–Cunha, 489<br />
+            Rod. Paraty–Cunha, 489
+            <br />
             Pantanal — Paraty / RJ
           </p>
         </div>
         <div>
           <p className="eyebrow text-ivory/60 mb-4">Registro</p>
           <p className="leading-relaxed">
-            Loteamento Residencial Sophia Saíde<br />
-            Matrícula nº 3487A<br />
+            Loteamento Residencial Sophia Saíde
+            <br />
+            Matrícula nº 3487A
+            <br />
             Comarca de Paraty / RJ
           </p>
         </div>
         <div>
           <p className="eyebrow text-ivory/60 mb-4">Incorporação</p>
           <p className="leading-relaxed">
-            Incorporadora Sophia Saíde<br />
-            Empreendimentos Imobiliários<br />
+            Incorporadora Sophia Saíde
+            <br />
+            Empreendimentos Imobiliários
+            <br />
             <span className="text-ivory/55">Dados completos disponíveis sob consulta.</span>
           </p>
         </div>
@@ -361,7 +443,9 @@ function Rodape() {
       <div className="border-t border-ivory/10">
         <div className="container-x py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ivory/55">
           <span>© {new Date().getFullYear()} Moradas de Paraty. Todos os direitos reservados.</span>
-          <Link to="/login" className="hover:text-ivory transition-colors">Acesso ao sistema</Link>
+          <Link to="/login" className="hover:text-ivory transition-colors">
+            Acesso ao sistema
+          </Link>
         </div>
       </div>
     </footer>
