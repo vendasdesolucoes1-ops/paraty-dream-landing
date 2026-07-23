@@ -69,6 +69,7 @@ const INTERACAO_LABELS: Record<string, string> = {
   email: "E-mail",
   visita: "Visita",
   nota: "Nota manual",
+  sistema: "Sistema",
 };
 
 function DadosLeadTab({ lead }: { lead: Lead }) {

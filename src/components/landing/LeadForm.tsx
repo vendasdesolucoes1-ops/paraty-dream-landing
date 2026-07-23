@@ -93,19 +93,51 @@ export function LeadForm() {
 
       const { data: vendedorId } = await supabase.rpc("get_next_round_robin_salesperson");
 
-      const { error: insertError } = await supabase.from("leads").insert({
-        nome: lead.nome,
-        email: lead.email || null,
-        telefone: telefoneNormalizado,
-        cidade: lead.cidade || null,
-        metragem_interesse: parseMetragem(lead.metragem),
-        tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
-        origem: "lp",
-        status_crm: "novo",
-        vendedor_id: vendedorId ?? null,
-      });
+      const { data: novoLead, error: insertError } = await supabase
+        .from("leads")
+        .insert({
+          nome: lead.nome,
+          email: lead.email || null,
+          telefone: telefoneNormalizado,
+          cidade: lead.cidade || null,
+          metragem_interesse: parseMetragem(lead.metragem),
+          tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
+          origem: "lp",
+          status_crm: "novo",
+          vendedor_id: vendedorId ?? null,
+        })
+        .select("id")
+        .single();
 
       if (insertError) throw insertError;
+
+      // Registra no histórico do lead que ele veio do formulário do site, com
+      // o resumo do que foi preenchido — aparece na aba Histórico do CRM.
+      // Best-effort: o lead já foi criado, então uma falha aqui (ex: migration
+      // ainda não aplicada) não deve impedir a confirmação de sucesso.
+      if (novoLead?.id) {
+        const detalhes = [
+          lead.cidade ? `Cidade: ${lead.cidade}` : null,
+          lead.metragem ? `Metragem: ${lead.metragem}` : null,
+          lead.tipo ? `Tipo: ${lead.tipo}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        supabase
+          .from("interacoes")
+          .insert({
+            lead_id: novoLead.id,
+            tipo: "sistema",
+            canal: "formulario_site",
+            conteudo: `Lead criado pelo formulário do site (Landing Page).${
+              detalhes ? ` ${detalhes}.` : ""
+            }`,
+          })
+          .then(({ error }) => {
+            if (error) console.warn("Não foi possível registrar a interação de origem:", error);
+          });
+      }
 
       setSent(true);
       setLead(empty);
