@@ -1,5 +1,8 @@
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
 
 const ORIGEM_LABELS = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
@@ -8,14 +11,32 @@ export function LeadCard({
   lead,
   hasHumanTakeover,
   onClick,
+  draggable = true,
 }: {
   lead: Lead;
   hasHumanTakeover?: boolean;
   onClick?: () => void;
+  draggable?: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id,
+    data: { lead },
+    disabled: !draggable,
+  });
+
   return (
     <Card
-      className="shadow-sm cursor-pointer transition-colors hover:border-primary/40"
+      ref={setNodeRef}
+      {...(draggable ? attributes : {})}
+      {...(draggable ? listeners : {})}
+      style={{
+        transform: transform ? CSS.Translate.toString(transform) : undefined,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className={cn(
+        "shadow-sm transition-colors hover:border-primary/40 touch-none",
+        draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+      )}
       onClick={onClick}
     >
       <CardContent className="p-4 space-y-2">

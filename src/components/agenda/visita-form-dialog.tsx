@@ -48,6 +48,7 @@ interface VisitaFormDialogProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onSaved?: () => void;
 }
 
 export function VisitaFormDialog({
@@ -57,6 +58,7 @@ export function VisitaFormDialog({
   trigger,
   open,
   onOpenChange,
+  onSaved,
 }: VisitaFormDialogProps) {
   const isEdit = Boolean(visita);
   const queryClient = useQueryClient();
@@ -156,6 +158,7 @@ export function VisitaFormDialog({
       toast.success(isEdit ? "Visita remarcada." : "Visita agendada.");
       queryClient.invalidateQueries({ queryKey: ["visitas"] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      onSaved?.();
       setActualOpen(false);
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao salvar a visita."),
