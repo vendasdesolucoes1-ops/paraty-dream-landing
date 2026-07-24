@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  Clock,
   MessageCircle,
   MoreVertical,
   CheckCircle2,
@@ -23,22 +24,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
-
-const STATUS_STYLES: Record<VisitaStatus, string> = {
-  agendada: "bg-sky-100 text-sky-800 hover:bg-sky-100",
-  confirmada: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  realizada: "bg-muted text-muted-foreground",
-  cancelada: "bg-red-100 text-red-800 hover:bg-red-100",
-  no_show: "bg-orange-100 text-orange-800 hover:bg-orange-100",
-};
-
-const STATUS_LABELS: Record<VisitaStatus, string> = {
-  agendada: "Agendada",
-  confirmada: "Confirmada",
-  realizada: "Realizada",
-  cancelada: "Cancelada",
-  no_show: "No-show",
-};
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  vendorColor,
+  vendorInitials,
+} from "@/components/agenda/visita-status";
 
 // leads.status_crm has no dedicated value for "no-show", so that transition
 // leaves the lead as "agendado" (awaiting a new visit) rather than losing it.
@@ -49,7 +40,13 @@ const STATUS_CRM_MAP: Record<Exclude<VisitaStatus, "cancelada">, string> = {
   no_show: "agendado",
 };
 
-export function VisitaCard({ visita }: { visita: VisitaWithRelations }) {
+export function VisitaCard({
+  visita,
+  readOnly = false,
+}: {
+  visita: VisitaWithRelations;
+  readOnly?: boolean;
+}) {
   const queryClient = useQueryClient();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
@@ -85,68 +82,96 @@ export function VisitaCard({ visita }: { visita: VisitaWithRelations }) {
     ? `https://wa.me/${visita.lead.telefone.replace(/\D/g, "")}`
     : null;
 
+  const accent = vendorColor(visita.vendedor_id);
+
   return (
-    <Card className="shadow-sm">
-      <CardContent className="p-4 flex items-center gap-4">
+    <Card
+      className="shadow-sm overflow-hidden border-l-4 transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-0.5"
+      style={{ borderLeftColor: accent }}
+    >
+      <CardContent className="p-4 flex items-center gap-3">
         <div className="w-14 shrink-0 text-center">
           <p className="text-lg font-display text-primary leading-none">{horario}</p>
+          <Clock className="h-3 w-3 mx-auto mt-1 text-muted-foreground/70" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{visita.lead?.nome ?? "Lead removido"}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
+          <p className="font-medium truncate leading-tight">
+            {visita.lead?.nome ?? "Lead removido"}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
             {visita.lead?.telefone ? <span>{visita.lead.telefone}</span> : null}
-            {visita.vendedor?.nome ? <span>Vendedor: {visita.vendedor.nome}</span> : null}
+            {visita.vendedor?.nome ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold text-white"
+                  style={{ backgroundColor: accent }}
+                  title={visita.vendedor.nome}
+                >
+                  {vendorInitials(visita.vendedor.nome)}
+                </span>
+                {visita.vendedor.nome}
+              </span>
+            ) : null}
           </div>
         </div>
 
-        <Badge className={cn("font-normal shrink-0", STATUS_STYLES[visita.status])}>
+        <Badge className={cn("font-normal shrink-0 border-0", STATUS_STYLES[visita.status])}>
           {STATUS_LABELS[visita.status]}
         </Badge>
 
         {whatsappLink ? (
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 transition-transform duration-200 hover:scale-110"
+            asChild
+          >
             <a href={whatsappLink} target="_blank" rel="noreferrer" title="WhatsApp">
               <MessageCircle className="h-4 w-4" />
             </a>
           </Button>
         ) : null}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => statusMutation.mutate("confirmada")}>
-              <UserCheck className="h-4 w-4 mr-2" />
-              Confirmar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setRescheduleOpen(true)}>
-              <CalendarClock className="h-4 w-4 mr-2" />
-              Remarcar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => statusMutation.mutate("realizada")}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Marcar Realizada
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => statusMutation.mutate("no_show")}>
-              <UserX className="h-4 w-4 mr-2" />
-              No-show
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => statusMutation.mutate("cancelada")}
-              className="text-destructive focus:text-destructive"
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Cancelar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {readOnly ? null : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => statusMutation.mutate("confirmada")}>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Confirmar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRescheduleOpen(true)}>
+                <CalendarClock className="h-4 w-4 mr-2" />
+                Remarcar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => statusMutation.mutate("realizada")}>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Marcar Realizada
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => statusMutation.mutate("no_show")}>
+                <UserX className="h-4 w-4 mr-2" />
+                No-show
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => statusMutation.mutate("cancelada")}
+                className="text-destructive focus:text-destructive"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancelar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </CardContent>
 
-      <VisitaFormDialog visita={visita} open={rescheduleOpen} onOpenChange={setRescheduleOpen} />
+      {readOnly ? null : (
+        <VisitaFormDialog visita={visita} open={rescheduleOpen} onOpenChange={setRescheduleOpen} />
+      )}
     </Card>
   );
 }
