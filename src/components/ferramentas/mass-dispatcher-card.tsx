@@ -89,7 +89,11 @@ export function MassDispatcherCard() {
   const { data: crmLeads } = useQuery({
     queryKey: ["ferramentas-crm-leads", crmStatusFilter],
     queryFn: async () => {
-      let query = supabase.from("leads").select("*").not("telefone", "is", null);
+      let query = supabase
+        .from("leads")
+        .select("*")
+        .is("deletado_em", null)
+        .not("telefone", "is", null);
       if (crmStatusFilter !== "todos") query = query.eq("status_crm", crmStatusFilter);
       const { data, error } = await query;
       if (error) throw error;

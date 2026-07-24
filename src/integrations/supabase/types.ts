@@ -255,6 +255,7 @@ export type Database = {
         Row: {
           cidade: string | null;
           created_at: string;
+          deletado_em: string | null;
           email: string | null;
           id: string;
           lote_interesse_id: string | null;
@@ -271,6 +272,7 @@ export type Database = {
         Insert: {
           cidade?: string | null;
           created_at?: string;
+          deletado_em?: string | null;
           email?: string | null;
           id?: string;
           lote_interesse_id?: string | null;
@@ -287,6 +289,7 @@ export type Database = {
         Update: {
           cidade?: string | null;
           created_at?: string;
+          deletado_em?: string | null;
           email?: string | null;
           id?: string;
           lote_interesse_id?: string | null;

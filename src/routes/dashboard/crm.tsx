@@ -25,7 +25,11 @@ function CrmPage() {
   } = useQuery({
     queryKey: ["leads", isVendedor ? profile?.vendedor_id : "all"],
     queryFn: async () => {
-      let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
+      let query = supabase
+        .from("leads")
+        .select("*")
+        .is("deletado_em", null)
+        .order("created_at", { ascending: false });
       if (isVendedor && profile?.vendedor_id) {
         query = query.eq("vendedor_id", profile.vendedor_id);
       }
@@ -59,9 +63,7 @@ function CrmPage() {
       if (error) throw error;
       const phones = (data ?? []).flatMap((row) => {
         const conversations = row.ai_agent_conversations as
-          | { session_id: string }
-          | { session_id: string }[]
-          | null;
+          { session_id: string } | { session_id: string }[] | null;
         if (!conversations) return [];
         return Array.isArray(conversations)
           ? conversations.map((c) => c.session_id)

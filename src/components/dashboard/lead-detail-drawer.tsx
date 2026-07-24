@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, MessageCircle, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import {
@@ -18,6 +18,17 @@ import {
   type WhatsappMessage,
 } from "@/lib/types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -677,6 +688,66 @@ function DocumentosTab({ lead }: { lead: Lead }) {
   );
 }
 
+// Soft delete: never a physical DELETE (leads with whatsapp_messages /
+// interacoes / visitas would violate the NO ACTION foreign keys). Stamps
+// deletado_em so the lead drops out of every active listing while its history
+// is preserved. Admin/gestor only.
+function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => void }) {
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("leads")
+        .update({ deletado_em: new Date().toISOString() })
+        .eq("id", lead.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Lead excluído do CRM.");
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-home"] });
+      onDeleted();
+    },
+    onError: () => toast.error("Erro ao excluir o lead."),
+  });
+
+  return (
+    <div className="mt-8 pt-6 border-t">
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="outline" className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir Lead
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir o lead {lead.nome}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o lead {lead.nome}? Ele deixará de aparecer no CRM, mas
+              o histórico de conversas e visitas será preservado internamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir Lead"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export function LeadDetailDrawer({
   lead,
   open,
@@ -688,6 +759,7 @@ export function LeadDetailDrawer({
 }) {
   const { profile } = useProfile();
   const canSeeDocumentos = profile?.role === "admin" || profile?.role === "gestor";
+  const canDelete = profile?.role === "admin" || profile?.role === "gestor";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -741,6 +813,10 @@ export function LeadDetailDrawer({
                 <VisitasTab lead={lead} />
               </TabsContent>
             </Tabs>
+
+            {canDelete ? (
+              <LeadDeleteSection lead={lead} onDeleted={() => onOpenChange(false)} />
+            ) : null}
           </>
         ) : null}
       </SheetContent>

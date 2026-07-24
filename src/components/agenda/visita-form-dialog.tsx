@@ -98,6 +98,7 @@ export function VisitaFormDialog({
       const { data, error } = await supabase
         .from("leads")
         .select("id, nome, telefone")
+        .is("deletado_em", null)
         .or(`nome.ilike.%${leadSearch}%,telefone.ilike.%${leadSearch}%`)
         .limit(10);
       if (error) throw error;

@@ -70,7 +70,11 @@ function useDashboardData() {
       const today = startOfTodayIso();
 
       const [leadsRes, lotesDisponiveisRes, takeoversRes] = await Promise.all([
-        supabase.from("leads").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("leads")
+          .select("*")
+          .is("deletado_em", null)
+          .order("created_at", { ascending: false }),
         supabase
           .from("lotes")
           .select("id", { count: "exact", head: true })

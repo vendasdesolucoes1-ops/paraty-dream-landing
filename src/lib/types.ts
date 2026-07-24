@@ -17,13 +17,7 @@ export interface Lote {
 
 export type LeadOrigem = "lp" | "whatsapp" | "indicacao" | "instagram" | "google_maps";
 export type LeadStatus =
-  | "novo"
-  | "qualificado"
-  | "agendado"
-  | "visitou"
-  | "proposta"
-  | "fechado"
-  | "perdido";
+  "novo" | "qualificado" | "agendado" | "visitou" | "proposta" | "fechado" | "perdido";
 
 export interface Lead {
   id: string;
@@ -40,6 +34,7 @@ export interface Lead {
   score: number;
   created_at: string;
   updated_at: string;
+  deletado_em: string | null;
 }
 
 export type ProfileRole = "admin" | "gestor" | "vendedor";
@@ -84,11 +79,7 @@ export interface Interacao {
 }
 
 export type DocumentoCategoria =
-  | "institucional"
-  | "contrato"
-  | "documento_pessoal"
-  | "proposta"
-  | "outro";
+  "institucional" | "contrato" | "documento_pessoal" | "proposta" | "outro";
 
 export interface Processo {
   id: string;
