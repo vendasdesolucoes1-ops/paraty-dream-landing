@@ -1,10 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { GeneratePostCard } from "@/components/marketing/generate-post-card";
-import { PostsHistoryTable } from "@/components/marketing/posts-history-table";
+import { CreatePostTab } from "@/components/marketing/create-post-tab";
+import { PostsGalleryTab } from "@/components/marketing/posts-gallery-tab";
+import { BrandAssetsPanel } from "@/components/marketing/brand-assets-panel";
 import { InstagramSettingsCard } from "@/components/marketing/instagram-settings-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/dashboard/marketing")({
-  head: () => ({ meta: [{ title: "Marketing — Moradas de Paraty" }] }),
+  head: () => ({
+    meta: [
+      { title: "Marketing — Moradas de Paraty" },
+      {
+        name: "description",
+        content:
+          "Imagery Engine do Moradas de Paraty: planeje, gere e publique carrosséis de Instagram no padrão visual do loteamento.",
+      },
+      { property: "og:title", content: "Marketing — Moradas de Paraty" },
+      {
+        property: "og:description",
+        content: "Planeje, gere e publique conteúdo de Instagram com IA.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: MarketingPage,
 });
 
@@ -14,13 +32,30 @@ function MarketingPage() {
       <div>
         <h1 className="text-3xl font-display text-primary">Marketing</h1>
         <p className="text-muted-foreground">
-          Crie e publique conteúdo para o Instagram do Moradas de Paraty
+          Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty
         </p>
       </div>
 
-      <GeneratePostCard />
-      <PostsHistoryTable />
-      <InstagramSettingsCard />
+      <Tabs defaultValue="criar" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="criar">Criar post</TabsTrigger>
+          <TabsTrigger value="galeria">Galeria</TabsTrigger>
+          <TabsTrigger value="marca">Marca</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="criar">
+          <CreatePostTab />
+        </TabsContent>
+
+        <TabsContent value="galeria">
+          <PostsGalleryTab />
+        </TabsContent>
+
+        <TabsContent value="marca" className="space-y-6">
+          <BrandAssetsPanel />
+          <InstagramSettingsCard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

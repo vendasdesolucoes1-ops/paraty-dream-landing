@@ -57,7 +57,8 @@ export function LeadForm() {
       // same phone (unique index) updates the existing lead's contact fields
       // instead of 409ing, and preserves its CRM progress (status_crm,
       // vendedor_id, origem). anon gets no direct SELECT/UPDATE on leads.
-      const { error: rpcError } = await supabase.rpc("upsert_lead_from_form", {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: rpcError } = await (supabase.rpc as any)("upsert_lead_from_form", {
         p_nome: lead.nome,
         p_email: lead.email || null,
         p_telefone: telefoneNormalizado,
