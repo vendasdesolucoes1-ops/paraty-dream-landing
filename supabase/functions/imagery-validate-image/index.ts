@@ -2,6 +2,7 @@
 // Recebe { slide_id } → avalia a imagem gerada em 4 critérios e decide keep/retry.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { guardInternalCall } from "../_shared/internal-auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -24,6 +25,10 @@ Devolva APENAS via tool call.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Etapa interna e cara do pipeline: só o orchestrate pode invocar.
+  const denied = guardInternalCall(req, corsHeaders);
+  if (denied) return denied;
 
   const t0 = Date.now();
   try {

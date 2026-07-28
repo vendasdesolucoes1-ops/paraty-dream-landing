@@ -2,6 +2,7 @@
 // A requisição HTTP apenas enfileira e retorna 202; o pipeline roda em background.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { internalHeaders } from "../_shared/internal-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -9,7 +10,13 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 async function callFn(name: string, body: unknown, authHeader: string) {
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: "POST",
-    headers: { Authorization: authHeader, "Content-Type": "application/json" },
+    // O segredo interno prova que a chamada partiu do orchestrate; as funções
+    // de geração recusam qualquer requisição sem ele.
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+      ...internalHeaders(),
+    },
     body: JSON.stringify(body),
   });
   const text = await resp.text();
@@ -35,6 +42,8 @@ async function processSlide(slideId: string, needsImage: boolean, authHeader: st
     if (!val.ok) {
       console.warn("validação falhou, seguindo:", val.text.slice(0, 200));
     } else if (val.json?.decisao === "retry") {
+      // Teto rígido de 1 retry por slide: a segunda validação nunca dispara
+      // outra geração, então o custo do slide é no máximo 2x, jamais em cascata.
       await admin.from("imagery_slides").update({ retry_count: 1 }).eq("id", slideId);
       const gen2 = await callFn("imagery-generate-image", { slide_id: slideId }, authHeader);
       if (gen2.ok) await callFn("imagery-validate-image", { slide_id: slideId }, authHeader);

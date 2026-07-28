@@ -4,6 +4,7 @@ import { PostsGalleryTab } from "@/components/marketing/posts-gallery-tab";
 import { BrandAssetsPanel } from "@/components/marketing/brand-assets-panel";
 import { InstagramSettingsCard } from "@/components/marketing/instagram-settings-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RoleGuard } from "@/components/dashboard/role-guard";
 
 export const Route = createFileRoute("/dashboard/marketing")({
   head: () => ({
@@ -28,34 +29,36 @@ export const Route = createFileRoute("/dashboard/marketing")({
 
 function MarketingPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-display text-primary">Marketing</h1>
-        <p className="text-muted-foreground">
-          Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty
-        </p>
+    <RoleGuard allow={["admin", "gestor"]}>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-display text-primary">Marketing</h1>
+          <p className="text-muted-foreground">
+            Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty
+          </p>
+        </div>
+
+        <Tabs defaultValue="criar" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="criar">Criar post</TabsTrigger>
+            <TabsTrigger value="galeria">Galeria</TabsTrigger>
+            <TabsTrigger value="marca">Marca</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="criar">
+            <CreatePostTab />
+          </TabsContent>
+
+          <TabsContent value="galeria">
+            <PostsGalleryTab />
+          </TabsContent>
+
+          <TabsContent value="marca" className="space-y-6">
+            <BrandAssetsPanel />
+            <InstagramSettingsCard />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs defaultValue="criar" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="criar">Criar post</TabsTrigger>
-          <TabsTrigger value="galeria">Galeria</TabsTrigger>
-          <TabsTrigger value="marca">Marca</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="criar">
-          <CreatePostTab />
-        </TabsContent>
-
-        <TabsContent value="galeria">
-          <PostsGalleryTab />
-        </TabsContent>
-
-        <TabsContent value="marca" className="space-y-6">
-          <BrandAssetsPanel />
-          <InstagramSettingsCard />
-        </TabsContent>
-      </Tabs>
-    </div>
+    </RoleGuard>
   );
 }

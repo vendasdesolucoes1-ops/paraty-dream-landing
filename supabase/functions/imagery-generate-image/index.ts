@@ -3,6 +3,7 @@
 // Lovable AI Gateway, sobe no bucket privado e devolve URL assinada.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { guardInternalCall } from "../_shared/internal-auth.ts";
 import { VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { base64ToBytes, uploadSigned } from "../_shared/imagery.ts";
 
@@ -32,6 +33,10 @@ function typeHint(imageType: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Etapa interna e cara do pipeline: só o orchestrate pode invocar.
+  const denied = guardInternalCall(req, corsHeaders);
+  if (denied) return denied;
 
   const t0 = Date.now();
   let slideId: string | undefined;

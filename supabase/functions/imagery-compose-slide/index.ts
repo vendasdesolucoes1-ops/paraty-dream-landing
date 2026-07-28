@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import satori from "https://esm.sh/satori@0.10.13";
 import { initWasm, Resvg } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { guardInternalCall } from "../_shared/internal-auth.ts";
 import { uploadSigned } from "../_shared/imagery.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -539,6 +540,10 @@ function buildTree(templateId: string, image: string, headline: string, sub?: st
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Etapa interna e cara do pipeline: só o orchestrate pode invocar.
+  const denied = guardInternalCall(req, corsHeaders);
+  if (denied) return denied;
 
   const t0 = Date.now();
   let slideId: string | undefined;

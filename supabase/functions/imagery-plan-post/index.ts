@@ -3,6 +3,7 @@
 // com headline, sub_text e brief visual de cada arte.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
@@ -92,6 +93,39 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // Teto de gasto: soma o que este usuário já consumiu nas últimas 24h e
+    // recusa antes de gastar qualquer coisa. Roda com service_role de propósito
+    // — o usuário não pode ler o gasto alheio, mas a cota considera só o dele.
+    const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: gastoRows, error: gastoErr } = await admin
+      .from("imagery_logs")
+      .select("custo_usd, imagery_posts!inner(user_id)")
+      .gte("created_at", desde)
+      .eq("imagery_posts.user_id", user.id);
+    if (gastoErr) throw gastoErr;
+
+    const gasto24h = (gastoRows ?? []).reduce(
+      (acc: number, row: { custo_usd: number | null }) => acc + Number(row.custo_usd ?? 0),
+      0,
+    );
+    const estimativa = estimatePostCost(requestedSlides);
+
+    if (gasto24h + estimativa.estimado > DAILY_BUDGET_USD) {
+      return new Response(
+        JSON.stringify({
+          error: "cota_diaria_excedida",
+          message:
+            `Cota diária de geração atingida (US$ ${DAILY_BUDGET_USD.toFixed(2)}). ` +
+            `Você já usou US$ ${gasto24h.toFixed(2)} nas últimas 24h e este post custaria cerca de ` +
+            `US$ ${estimativa.estimado.toFixed(2)}. Tente novamente mais tarde ou reduza o número de slides.`,
+          gasto_24h_usd: Number(gasto24h.toFixed(4)),
+          limite_usd: DAILY_BUDGET_USD,
+          estimativa_usd: estimativa.estimado,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Diretrizes de marca salvas no painel
     const { data: assets } = await admin

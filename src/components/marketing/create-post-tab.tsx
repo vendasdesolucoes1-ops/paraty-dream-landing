@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Wand2, RefreshCw, Instagram, Download } from "lucide-react";
+import { Loader2, Sparkles, Wand2, RefreshCw, Instagram, Download, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  CONFIRM_THRESHOLD_USD,
+  estimatePlannedCost,
+  estimatePostCost,
+  formatUsd,
+} from "@/lib/imagery-cost";
 
 const PILARES = [
   { value: "lugar", label: "Lugar — paisagem, rio, mata, cachoeiras" },
@@ -39,6 +55,8 @@ type SlideRow = {
   slide_n: number;
   template_id: string;
   status: string;
+  needs_image: boolean | null;
+  image_type: string | null;
   final_png_url: string | null;
   raw_image_url: string | null;
   error_message: string | null;
@@ -75,6 +93,7 @@ export function CreatePostTab() {
   const [planning, setPlanning] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const [postId, setPostId] = useState<string | null>(null);
   const [post, setPost] = useState<PostRow | null>(null);
@@ -143,8 +162,14 @@ export function CreatePostTab() {
           n_slides: Number(nSlides),
         },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // A recusa por cota vem como 429 com um texto pronto para o usuário; sem
+      // isto o invoke só reportaria "non-2xx status code".
+      if (error) {
+        const ctx = (error as { context?: Response }).context;
+        const detalhe = ctx?.json ? await ctx.json().catch(() => null) : null;
+        throw new Error(detalhe?.message ?? detalhe?.error ?? error.message);
+      }
+      if (data?.error) throw new Error(data.message ?? data.error);
       setPostId(data.post_id);
       await refresh(data.post_id);
       toast.success("Plano editorial pronto. Revise e gere as artes.");
@@ -155,7 +180,12 @@ export function CreatePostTab() {
     }
   };
 
-  const handleGenerate = async () => {
+  // Estimativa grosseira mostrada no briefing, antes de existir um plano.
+  const briefingEstimate = useMemo(() => estimatePostCost(Number(nSlides)), [nSlides]);
+  // Estimativa precisa, já sabendo quais slides pedem imagem e de que tipo.
+  const plannedEstimate = useMemo(() => estimatePlannedCost(slides), [slides]);
+
+  const runGenerate = async () => {
     if (!postId) return;
     setGenerating(true);
     try {
@@ -171,6 +201,16 @@ export function CreatePostTab() {
       setGenerating(false);
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar a geração.");
     }
+  };
+
+  // Acima do limiar, gerar exige confirmação explícita do custo.
+  const handleGenerate = () => {
+    if (!postId) return;
+    if (plannedEstimate.estimado > CONFIRM_THRESHOLD_USD) {
+      setConfirmOpen(true);
+      return;
+    }
+    void runGenerate();
   };
 
   const handlePublish = async () => {
@@ -224,10 +264,14 @@ export function CreatePostTab() {
           <div className="space-y-2">
             <Label>Pilar de conteúdo</Label>
             <Select value={nicho} onValueChange={setNicho}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {PILARES.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -236,10 +280,14 @@ export function CreatePostTab() {
           <div className="space-y-2">
             <Label>Objetivo</Label>
             <Select value={objetivo} onValueChange={setObjetivo}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {OBJETIVOS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -249,7 +297,9 @@ export function CreatePostTab() {
             <div className="space-y-2">
               <Label>Formato</Label>
               <Select value={tipo} onValueChange={setTipo}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="carrossel">Carrossel</SelectItem>
                   <SelectItem value="imagem_unica">Imagem única</SelectItem>
@@ -270,8 +320,26 @@ export function CreatePostTab() {
             </div>
           </div>
 
+          <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 shrink-0" />
+              Custo estimado:{" "}
+              <strong className="text-foreground font-medium">
+                {formatUsd(postId ? plannedEstimate.estimado : briefingEstimate.estimado)}
+              </strong>
+            </span>
+            <span className="mt-1 block">
+              Até {formatUsd(postId ? plannedEstimate.maximo : briefingEstimate.maximo)} se algum
+              slide precisar de uma segunda tentativa.
+            </span>
+          </div>
+
           <Button onClick={handlePlan} disabled={planning || generating} className="w-full">
-            {planning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+            {planning ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4 mr-2" />
+            )}
             {planning ? "Planejando..." : "Planejar post"}
           </Button>
 
@@ -282,9 +350,11 @@ export function CreatePostTab() {
               variant="secondary"
               className="w-full"
             >
-              {generating
-                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                : <RefreshCw className="h-4 w-4 mr-2" />}
+              {generating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
               {generating ? "Gerando artes..." : "Gerar artes"}
             </Button>
           ) : null}
@@ -377,15 +447,50 @@ export function CreatePostTab() {
 
             {allReady ? (
               <Button onClick={handlePublish} disabled={publishing}>
-                {publishing
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <Instagram className="h-4 w-4 mr-2" />}
+                {publishing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Instagram className="h-4 w-4 mr-2" />
+                )}
                 {publishing ? "Publicando..." : "Publicar no Instagram"}
               </Button>
             ) : null}
           </>
         )}
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar custo da geração</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Gerar as artes deste post custa aproximadamente{" "}
+                  <strong>{formatUsd(plannedEstimate.estimado)}</strong>, podendo chegar a{" "}
+                  <strong>{formatUsd(plannedEstimate.maximo)}</strong> se algum slide precisar de
+                  uma segunda tentativa.
+                </p>
+                <p>
+                  São {slides.filter((s) => s.needs_image !== false).length} imagem(ns) geradas por
+                  IA. O valor é cobrado mesmo que você descarte o resultado.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                void runGenerate();
+              }}
+            >
+              Gerar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
