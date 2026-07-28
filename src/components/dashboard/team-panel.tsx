@@ -833,7 +833,18 @@ export function TeamPanel() {
         .select("*")
         .is("deletado_em", null)
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        // O objeto de erro do PostgREST carrega code/details/hint, que dizem
+        // exatamente o que falhou (coluna inexistente, FK ambígua, RLS). Sem
+        // isto sobra só a mensagem na tela, e o diagnóstico vira adivinhação.
+        console.error("[team-profiles] falha ao carregar a equipe:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw error;
+      }
       return data as Profile[];
     },
   });
@@ -892,6 +903,9 @@ export function TeamPanel() {
           <p className="text-sm font-medium text-destructive">Erro ao carregar a equipe.</p>
           <p className="text-xs text-muted-foreground">
             {error instanceof Error ? error.message : "Tente recarregar a página."}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Detalhes técnicos no console do navegador.
           </p>
         </div>
       ) : !profiles || profiles.length === 0 ? (
