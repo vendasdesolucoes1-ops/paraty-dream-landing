@@ -49,11 +49,13 @@ async function getCaller(req: Request): Promise<Caller> {
 async function getTargetProfile(profileId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, nome, email, role, ativo")
+    .select("id, nome, email, role, ativo, deletado_em")
     .eq("id", profileId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new BusinessError("Membro não encontrado.", 404);
+  // Um membro excluído saiu da Equipe: nenhuma ação deve mais alcançá-lo.
+  if (data.deletado_em) throw new BusinessError("Este membro foi excluído.", 404);
   return data as { id: string; nome: string | null; email: string | null; role: Role; ativo: boolean };
 }
 
@@ -296,18 +298,59 @@ async function reactivateMember(caller: Caller, body: { profile_id: string }) {
   return data;
 }
 
-async function resetPassword(caller: Caller, body: { profile_id: string }) {
+/** Mesmo critério exigido no formulário: 8+ caracteres, com letra e número. */
+function assertSenhaValida(senha: string) {
+  if (senha.length < 8 || !/[A-Za-z]/.test(senha) || !/[0-9]/.test(senha)) {
+    throw new BusinessError(
+      "A senha precisa ter ao menos 8 caracteres, incluindo uma letra e um número.",
+    );
+  }
+}
+
+async function resetPassword(caller: Caller, body: { profile_id: string; senha?: string | null }) {
   const target = await getTargetProfile(body.profile_id);
   assertCanManageAccount(caller, target);
 
-  const senhaTemporaria = generateTemporaryPassword();
+  // Senha digitada pelo admin ou gerada aqui. A validação é refeita no servidor
+  // porque a checagem do formulário é conveniência, não garantia.
+  const manual = typeof body.senha === "string" && body.senha.length > 0;
+  if (manual) assertSenhaValida(body.senha!);
+  const novaSenha = manual ? body.senha! : generateTemporaryPassword();
+
   const { error } = await supabase.auth.admin.updateUserById(body.profile_id, {
-    password: senhaTemporaria,
+    password: novaSenha,
   });
   if (error) throw error;
 
+  // Numa senha manual o admin já a conhece, então nada precisa ser devolvido —
+  // evita expor a senha na resposta sem necessidade.
+  if (manual) return { success: true, email: target.email, manual: true };
+
   // Mesma regra da criação: a senha só existe aqui e na tela do admin.
-  return { success: true, email: target.email, senha_temporaria: senhaTemporaria };
+  return { success: true, email: target.email, senha_temporaria: novaSenha, manual: false };
+}
+
+async function deleteMember(caller: Caller, body: { profile_id: string }) {
+  const target = await getTargetProfile(body.profile_id);
+  assertCanManageAccount(caller, target);
+  await assertNotLastAdmin(target);
+
+  // Bane o login pelo mesmo caminho da desativação.
+  const { error: banError } = await supabase.auth.admin.updateUserById(body.profile_id, {
+    ban_duration: BAN_FOREVER,
+  });
+  if (banError) throw banError;
+
+  // Soft delete: a linha permanece, assim como vendedores.profile_id e
+  // documentos.uploaded_by que apontam para ela. Nada de histórico se perde.
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ deletado_em: new Date().toISOString(), ativo: false })
+    .eq("id", body.profile_id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 Deno.serve(async (req) => {
@@ -335,6 +378,8 @@ Deno.serve(async (req) => {
       result = await reactivateMember(caller, body);
     } else if (action === "reset_password") {
       result = await resetPassword(caller, body);
+    } else if (action === "delete_member") {
+      result = await deleteMember(caller, body);
     } else {
       return new Response(JSON.stringify({ error: "unknown action" }), {
         status: 400,

@@ -46,6 +46,7 @@ export interface Profile {
   role: ProfileRole;
   vendedor_id: string | null;
   ativo: boolean;
+  deletado_em: string | null;
   created_at: string;
   updated_at: string;
 }

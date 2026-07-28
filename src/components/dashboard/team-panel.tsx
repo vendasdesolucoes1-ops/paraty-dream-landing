@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, CheckCircle2, Copy, KeyRound, MoreVertical, Plus } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  Eye,
+  EyeOff,
+  KeyRound,
+  MoreVertical,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { PROFILE_ROLE_OPTIONS, type Profile, type ProfileRole, type Vendedor } from "@/lib/types";
@@ -38,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { useProfile } from "@/hooks/use-profile";
 import {
@@ -345,8 +356,12 @@ function EditMemberDialog({
 }) {
   const [role, setRole] = useState<ProfileRole>(profile.role);
   const [vendedorId, setVendedorId] = useState(profile.vendedor_id ?? NO_VENDEDOR);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetMode, setResetMode] = useState<"aleatoria" | "manual">("aleatoria");
+  const [senhaManual, setSenhaManual] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [credentials, setCredentials] = useState<CreatedCredentials | null>(null);
   const queryClient = useQueryClient();
   const { profile: currentUser } = useProfile();
@@ -405,21 +420,53 @@ function EditMemberDialog({
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => callManageTeam({ action: "reset_password", profile_id: profile.id }),
-    onSuccess: (data: { email: string; senha_temporaria: string }) => {
-      setConfirmReset(false);
+    mutationFn: () =>
+      callManageTeam({
+        action: "reset_password",
+        profile_id: profile.id,
+        senha: resetMode === "manual" ? senhaManual : null,
+      }),
+    onSuccess: (data: { email: string; senha_temporaria?: string; manual?: boolean }) => {
+      closeReset();
+      // Na senha manual o admin já sabe qual é — não há o que exibir.
+      if (data.manual) {
+        toast.success("Senha atualizada.");
+        return;
+      }
       setCredentials({
         nome: profile.nome ?? "o membro",
         email: data.email,
-        senha_temporaria: data.senha_temporaria,
+        senha_temporaria: data.senha_temporaria ?? "",
         modo: "senha_redefinida",
       });
     },
+    onError: (error: Error) => toast.error(error.message || "Erro ao redefinir a senha."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => callManageTeam({ action: "delete_member", profile_id: profile.id }),
+    onSuccess: () => {
+      toast.success(`${profile.nome ?? "Membro"} excluído da equipe.`);
+      invalidateTeam();
+      setConfirmDelete(false);
+      onOpenChange(false);
+    },
     onError: (error: Error) => {
-      toast.error(error.message || "Erro ao redefinir a senha.");
-      setConfirmReset(false);
+      toast.error(error.message || "Erro ao excluir o membro.");
+      setConfirmDelete(false);
     },
   });
+
+  const senhaManualValida =
+    senhaManual.length >= 8 && /[A-Za-z]/.test(senhaManual) && /[0-9]/.test(senhaManual);
+  const podeConfirmarReset = resetMode === "aleatoria" || senhaManualValida;
+
+  function closeReset() {
+    setResetOpen(false);
+    setResetMode("aleatoria");
+    setSenhaManual("");
+    setMostrarSenha(false);
+  }
 
   return (
     <>
@@ -506,11 +553,33 @@ function EditMemberDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setConfirmReset(true)}
+                    onClick={() => setResetOpen(true)}
                     disabled={resetMutation.isPending}
                   >
                     <KeyRound className="h-4 w-4 mr-2" />
                     Redefinir Senha
+                  </Button>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-destructive">Excluir membro</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Remove da Equipe e revoga o acesso. O histórico é preservado.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir Membro
                   </Button>
                 </div>
               </>
@@ -535,29 +604,103 @@ function EditMemberDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-display">Redefinir senha</AlertDialogTitle>
-            <AlertDialogDescription>
-              Gerar nova senha temporária para {profile.nome ?? "este membro"}? A senha atual
-              deixará de funcionar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                resetMutation.mutate();
-              }}
-              disabled={resetMutation.isPending}
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) closeReset();
+          else setResetOpen(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Redefinir senha</DialogTitle>
+            <DialogDescription>
+              Gerar nova senha para {profile.nome ?? "este membro"}? A senha atual deixará de
+              funcionar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <RadioGroup
+              value={resetMode}
+              onValueChange={(v) => setResetMode(v as "aleatoria" | "manual")}
+              className="gap-3"
             >
-              {resetMutation.isPending ? "Gerando..." : "Gerar nova senha"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <RadioGroupItem value="aleatoria" id="modo-aleatoria" className="mt-0.5" />
+                <div className="space-y-0.5">
+                  <Label htmlFor="modo-aleatoria" className="font-normal cursor-pointer">
+                    Gerar senha aleatória
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Exibida uma única vez para você copiar e enviar.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <RadioGroupItem value="manual" id="modo-manual" className="mt-0.5" />
+                <div className="space-y-0.5">
+                  <Label htmlFor="modo-manual" className="font-normal cursor-pointer">
+                    Definir senha manualmente
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Você escolhe a senha e já sabe qual informar.
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+
+            {resetMode === "manual" ? (
+              <div className="space-y-2">
+                <Label htmlFor="senha-manual">Nova senha</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="senha-manual"
+                    type={mostrarSenha ? "text" : "password"}
+                    value={senhaManual}
+                    onChange={(e) => setSenhaManual(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setMostrarSenha((v) => !v)}
+                    title={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p
+                  className={cn(
+                    "text-xs",
+                    senhaManual.length === 0
+                      ? "text-muted-foreground"
+                      : senhaManualValida
+                        ? "text-emerald-600"
+                        : "text-destructive",
+                  )}
+                >
+                  Mínimo de 8 caracteres, com pelo menos uma letra e um número.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeReset}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => resetMutation.mutate()}
+              disabled={resetMutation.isPending || !podeConfirmarReset}
+            >
+              {resetMutation.isPending ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmStatus} onOpenChange={setConfirmStatus}>
         <AlertDialogContent>
@@ -581,6 +724,32 @@ function EditMemberDialog({
               disabled={statusMutation.isPending}
             >
               {statusMutation.isPending ? "Aplicando..." : profile.ativo ? "Desativar" : "Reativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Excluir membro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {profile.nome ?? "este membro"}? Ele perderá acesso ao
+              sistema e deixará de aparecer na lista de Equipe. Todo o histórico de leads,
+              documentos e ações associadas a ele será preservado internamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir membro"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -662,6 +831,7 @@ export function TeamPanel() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
+        .is("deletado_em", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Profile[];
