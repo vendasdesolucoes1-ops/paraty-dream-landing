@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, CheckCircle2, Copy, MoreVertical, Plus } from "lucide-react";
+import { Check, CheckCircle2, Copy, KeyRound, MoreVertical, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { PROFILE_ROLE_OPTIONS, type Profile, type ProfileRole, type Vendedor } from "@/lib/types";
@@ -21,11 +21,25 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { useProfile } from "@/hooks/use-profile";
 import {
   Select,
   SelectContent,
@@ -96,6 +110,63 @@ interface CreatedCredentials {
   nome: string;
   email: string;
   senha_temporaria: string;
+  /** Diferencia o texto entre criar usuário e redefinir senha de um existente. */
+  modo: "criado" | "senha_redefinida";
+}
+
+/**
+ * Exibição única das credenciais geradas — usada tanto na criação do membro
+ * quanto na redefinição de senha. A senha vive só neste estado, em memória.
+ */
+function CredentialsDialog({
+  credentials,
+  onClose,
+}: {
+  credentials: CreatedCredentials | null;
+  onClose: () => void;
+}) {
+  const criado = credentials?.modo === "criado";
+
+  return (
+    <Dialog
+      open={!!credentials}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            {criado ? "Usuário criado com sucesso!" : "Nova senha gerada!"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {credentials ? (
+          <div className="space-y-4">
+            <CopyableField label="E-mail" value={credentials.email} />
+            <CopyableField label="Senha temporária" value={credentials.senha_temporaria} />
+
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Compartilhe essas credenciais com {credentials.nome} por um canal seguro (WhatsApp,
+              por exemplo). Essa senha não poderá ser vista novamente depois de fechar esta janela.
+              {criado ? null : " A senha anterior deixou de funcionar."}
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Lê a mensagem de erro real do corpo da resposta da edge function. */
+async function readFunctionError(error: { context?: Response; message: string }): Promise<string> {
+  const detalhe = error.context?.json ? await error.context.json().catch(() => null) : null;
+  return detalhe?.error ?? error.message;
 }
 
 function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
@@ -133,11 +204,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
       });
       // Erros de negócio (e-mail duplicado) chegam como não-2xx; sem ler o corpo
       // o usuário veria apenas "non-2xx status code".
-      if (error) {
-        const ctx = (error as { context?: Response }).context;
-        const detalhe = ctx?.json ? await ctx.json().catch(() => null) : null;
-        throw new Error(detalhe?.error ?? error.message);
-      }
+      if (error) throw new Error(await readFunctionError(error));
       if (data?.error) throw new Error(data.error);
       return data as { email: string; senha_temporaria: string };
     },
@@ -145,7 +212,12 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
       queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["vendedores-ativos"] });
       queryClient.invalidateQueries({ queryKey: ["vendedores-lookup"] });
-      setCredentials({ nome, email: data.email, senha_temporaria: data.senha_temporaria });
+      setCredentials({
+        nome,
+        email: data.email,
+        senha_temporaria: data.senha_temporaria,
+        modo: "criado",
+      });
       setOpen(false);
       resetForm();
     },
@@ -255,44 +327,12 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
         </DialogContent>
       </Dialog>
 
-      {/* Credenciais geradas — única oportunidade de ver a senha temporária. */}
-      <Dialog
-        open={!!credentials}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setCredentials(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              Usuário criado com sucesso!
-            </DialogTitle>
-          </DialogHeader>
-
-          {credentials ? (
-            <div className="space-y-4">
-              <CopyableField label="E-mail" value={credentials.email} />
-              <CopyableField label="Senha temporária" value={credentials.senha_temporaria} />
-
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Compartilhe essas credenciais com {credentials.nome} por um canal seguro (WhatsApp,
-                por exemplo). Essa senha não poderá ser vista novamente depois de fechar esta
-                janela.
-              </div>
-            </div>
-          ) : null}
-
-          <DialogFooter>
-            <Button onClick={() => setCredentials(null)}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CredentialsDialog credentials={credentials} onClose={() => setCredentials(null)} />
     </>
   );
 }
 
-function EditRoleDialog({
+function EditMemberDialog({
   profile,
   vendedores,
   open,
@@ -305,81 +345,249 @@ function EditRoleDialog({
 }) {
   const [role, setRole] = useState<ProfileRole>(profile.role);
   const [vendedorId, setVendedorId] = useState(profile.vendedor_id ?? NO_VENDEDOR);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmStatus, setConfirmStatus] = useState(false);
+  const [credentials, setCredentials] = useState<CreatedCredentials | null>(null);
   const queryClient = useQueryClient();
+  const { profile: currentUser } = useProfile();
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("manage-team", {
-        body: {
-          action: "update_role",
-          profile_id: profile.id,
-          role,
-          vendedor_id: vendedorId !== NO_VENDEDOR ? vendedorId : null,
-        },
-      });
-      if (error) throw error;
-      return data;
-    },
+  // Senha e status são exclusivos de admin. A própria conta fica de fora para
+  // o admin não se autobloquear. A edge function repete estas checagens — aqui
+  // é só para não oferecer um botão que vai falhar.
+  const isAdmin = currentUser?.role === "admin";
+  const isSelf = currentUser?.id === profile.id;
+  const canManageAccount = isAdmin && !isSelf;
+  const canEditRole = isAdmin || (currentUser?.role === "gestor" && profile.role !== "admin");
+
+  const invalidateTeam = () => {
+    queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
+    queryClient.invalidateQueries({ queryKey: ["vendedores-lookup"] });
+  };
+
+  const callManageTeam = async (body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("manage-team", { body });
+    if (error) throw new Error(await readFunctionError(error));
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      callManageTeam({
+        action: "update_role",
+        profile_id: profile.id,
+        role,
+        vendedor_id: vendedorId !== NO_VENDEDOR ? vendedorId : null,
+      }),
     onSuccess: () => {
-      toast.success("Papel atualizado.");
-      queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
+      toast.success("Membro atualizado.");
+      invalidateTeam();
       onOpenChange(false);
     },
-    onError: (error: Error) => toast.error(error.message || "Erro ao atualizar o papel."),
+    onError: (error: Error) => toast.error(error.message || "Erro ao atualizar o membro."),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: () =>
+      callManageTeam({
+        action: profile.ativo ? "deactivate" : "reactivate",
+        profile_id: profile.id,
+      }),
+    onSuccess: () => {
+      toast.success(profile.ativo ? "Membro desativado." : "Membro reativado.");
+      invalidateTeam();
+      setConfirmStatus(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao alterar o status.");
+      setConfirmStatus(false);
+    },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => callManageTeam({ action: "reset_password", profile_id: profile.id }),
+    onSuccess: (data: { email: string; senha_temporaria: string }) => {
+      setConfirmReset(false);
+      setCredentials({
+        nome: profile.nome ?? "o membro",
+        email: data.email,
+        senha_temporaria: data.senha_temporaria,
+        modo: "senha_redefinida",
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao redefinir a senha.");
+      setConfirmReset(false);
+    },
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar papel — {profile.nome}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Editar Membro da Equipe</DialogTitle>
+            <DialogDescription>
+              {profile.nome ?? "—"} · {profile.email ?? "—"}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Papel</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as ProfileRole)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROFILE_ROLE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Papel</Label>
+              <Select
+                value={role}
+                onValueChange={(v) => setRole(v as ProfileRole)}
+                disabled={!canEditRole}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROFILE_ROLE_OPTIONS.map((opt) => (
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                      disabled={opt.value === "admin" && !isAdmin}
+                    >
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Vendedor vinculado</Label>
+              <Select value={vendedorId} onValueChange={setVendedorId} disabled={!canEditRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
+                  {vendedores.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {canManageAccount ? (
+              <>
+                <Separator />
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="status-toggle">Status</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {profile.ativo
+                        ? "Ativo — pode acessar o painel."
+                        : "Inativo — login bloqueado."}
+                    </p>
+                  </div>
+                  <Switch
+                    id="status-toggle"
+                    checked={profile.ativo}
+                    disabled={statusMutation.isPending}
+                    onCheckedChange={() => setConfirmStatus(true)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label>Senha</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Gera uma nova senha temporária para compartilhar.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmReset(true)}
+                    disabled={resetMutation.isPending}
+                  >
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    Redefinir Senha
+                  </Button>
+                </div>
+              </>
+            ) : isSelf ? (
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                Status e senha da própria conta não podem ser alterados por esta tela.
+              </p>
+            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label>Vendedor vinculado</Label>
-            <Select value={vendedorId} onValueChange={setVendedorId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
-                {vendedores.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !canEditRole}
+            >
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Redefinir senha</AlertDialogTitle>
+            <AlertDialogDescription>
+              Gerar nova senha temporária para {profile.nome ?? "este membro"}? A senha atual
+              deixará de funcionar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                resetMutation.mutate();
+              }}
+              disabled={resetMutation.isPending}
+            >
+              {resetMutation.isPending ? "Gerando..." : "Gerar nova senha"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmStatus} onOpenChange={setConfirmStatus}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">
+              {profile.ativo ? "Desativar membro" : "Reativar membro"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {profile.ativo
+                ? `${profile.nome ?? "Este membro"} deixará de conseguir entrar no painel. O histórico de atribuições é preservado e o acesso pode ser devolvido depois.`
+                : `${profile.nome ?? "Este membro"} volta a conseguir entrar no painel com a senha atual.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                statusMutation.mutate();
+              }}
+              disabled={statusMutation.isPending}
+            >
+              {statusMutation.isPending ? "Aplicando..." : profile.ativo ? "Desativar" : "Reativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <CredentialsDialog credentials={credentials} onClose={() => setCredentials(null)} />
+    </>
   );
 }
 
@@ -391,22 +599,6 @@ function TeamRow({
   vendedores: Vendedor[];
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  const deactivateMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("manage-team", {
-        body: { action: "deactivate", profile_id: profile.id },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Membro desativado.");
-      queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
-    },
-    onError: () => toast.error("Erro ao desativar o membro."),
-  });
 
   return (
     <TableRow>
@@ -438,19 +630,12 @@ function TeamRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setEditOpen(true)}>Editar papel</DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => deactivateMutation.mutate()}
-              className="text-destructive focus:text-destructive"
-              disabled={!profile.ativo}
-            >
-              Desativar
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>Editar membro</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
 
-      <EditRoleDialog
+      <EditMemberDialog
         profile={profile}
         vendedores={vendedores}
         open={editOpen}

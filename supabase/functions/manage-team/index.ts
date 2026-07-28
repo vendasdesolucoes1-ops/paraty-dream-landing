@@ -9,7 +9,24 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-async function requireAdmin(req: Request) {
+type Role = "admin" | "gestor" | "vendedor";
+
+interface Caller {
+  id: string;
+  role: Role;
+}
+
+// Erros de regra de negócio: a mensagem é exibida ao usuário como está.
+class BusinessError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "BusinessError";
+    this.status = status;
+  }
+}
+
+async function getCaller(req: Request): Promise<Caller> {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace("Bearer ", "");
   if (!token) throw new Error("missing authorization token");
@@ -19,11 +36,56 @@ async function requireAdmin(req: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, ativo")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (!profile || profile.role !== "admin") throw new Error("forbidden: admin role required");
+  if (!profile) throw new Error("forbidden: no profile");
+  if (!profile.ativo) throw new Error("forbidden: inactive account");
+
+  return { id: userData.user.id, role: profile.role as Role };
+}
+
+async function getTargetProfile(profileId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, nome, email, role, ativo")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new BusinessError("Membro não encontrado.", 404);
+  return data as { id: string; nome: string | null; email: string | null; role: Role; ativo: boolean };
+}
+
+async function countActiveAdmins(): Promise<number> {
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "admin")
+    .eq("ativo", true);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Se este membro é o último admin ativo, removê-lo (rebaixar ou desativar)
+ * deixaria o sistema sem ninguém capaz de gerenciar a equipe.
+ */
+async function assertNotLastAdmin(target: { role: Role; ativo: boolean }) {
+  if (target.role !== "admin" || !target.ativo) return;
+  if ((await countActiveAdmins()) <= 1) {
+    throw new BusinessError("Não é possível remover o último administrador ativo.", 409);
+  }
+}
+
+/** Senha, status e qualquer ação sobre um admin são exclusivas de admin. */
+function assertCanManageAccount(caller: Caller, target: { id: string; role: Role }) {
+  if (caller.role !== "admin") {
+    throw new BusinessError("Apenas administradores podem alterar senha ou status.", 403);
+  }
+  if (caller.id === target.id) {
+    throw new BusinessError("Você não pode alterar o status da própria conta.", 403);
+  }
 }
 
 // Senha temporária gerada no servidor: garante pelo menos uma maiúscula, uma
@@ -158,11 +220,28 @@ async function inviteMember(body: {
   return { success: true, email, senha_temporaria: senhaTemporaria };
 }
 
-async function updateRole(body: {
-  profile_id: string;
-  role: "admin" | "gestor" | "vendedor";
-  vendedor_id?: string | null;
-}) {
+async function updateRole(
+  caller: Caller,
+  body: { profile_id: string; role: Role; vendedor_id?: string | null },
+) {
+  const target = await getTargetProfile(body.profile_id);
+
+  // Gestor administra a operação, não os administradores: não edita um admin
+  // nem promove ninguém a admin.
+  if (caller.role !== "admin") {
+    if (caller.role !== "gestor") {
+      throw new BusinessError("Você não tem permissão para editar membros.", 403);
+    }
+    if (target.role === "admin") {
+      throw new BusinessError("Gestores não podem editar administradores.", 403);
+    }
+    if (body.role === "admin") {
+      throw new BusinessError("Apenas administradores podem promover alguém a administrador.", 403);
+    }
+  }
+
+  if (body.role !== "admin") await assertNotLastAdmin(target);
+
   const { data, error } = await supabase
     .from("profiles")
     .update({ role: body.role, vendedor_id: body.vendedor_id ?? null })
@@ -173,7 +252,21 @@ async function updateRole(body: {
   return data;
 }
 
-async function deactivateMember(body: { profile_id: string }) {
+// Desativar precisa bloquear o login de fato: só marcar profiles.ativo=false
+// deixava a sessão do Auth continuar funcionando normalmente.
+const BAN_FOREVER = "876000h"; // 100 anos
+
+async function deactivateMember(caller: Caller, body: { profile_id: string }) {
+  const target = await getTargetProfile(body.profile_id);
+  assertCanManageAccount(caller, target);
+  await assertNotLastAdmin(target);
+
+  const { error: banError } = await supabase.auth.admin.updateUserById(body.profile_id, {
+    ban_duration: BAN_FOREVER,
+  });
+  if (banError) throw banError;
+
+  // O profile e todo o histórico de atribuições continuam intactos.
   const { data, error } = await supabase
     .from("profiles")
     .update({ ativo: false })
@@ -184,24 +277,64 @@ async function deactivateMember(body: { profile_id: string }) {
   return data;
 }
 
+async function reactivateMember(caller: Caller, body: { profile_id: string }) {
+  const target = await getTargetProfile(body.profile_id);
+  assertCanManageAccount(caller, target);
+
+  const { error: unbanError } = await supabase.auth.admin.updateUserById(body.profile_id, {
+    ban_duration: "none",
+  });
+  if (unbanError) throw unbanError;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ ativo: true })
+    .eq("id", body.profile_id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function resetPassword(caller: Caller, body: { profile_id: string }) {
+  const target = await getTargetProfile(body.profile_id);
+  assertCanManageAccount(caller, target);
+
+  const senhaTemporaria = generateTemporaryPassword();
+  const { error } = await supabase.auth.admin.updateUserById(body.profile_id, {
+    password: senhaTemporaria,
+  });
+  if (error) throw error;
+
+  // Mesma regra da criação: a senha só existe aqui e na tela do admin.
+  return { success: true, email: target.email, senha_temporaria: senhaTemporaria };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    await requireAdmin(req);
+    const caller = await getCaller(req);
 
     const body = await req.json().catch(() => ({}));
     const action = body.action;
 
     let result;
     if (action === "invite") {
+      if (caller.role !== "admin") {
+        throw new BusinessError("Apenas administradores podem criar membros.", 403);
+      }
       result = await inviteMember(body);
     } else if (action === "update_role") {
-      result = await updateRole(body);
+      result = await updateRole(caller, body);
     } else if (action === "deactivate") {
-      result = await deactivateMember(body);
+      result = await deactivateMember(caller, body);
+    } else if (action === "reactivate") {
+      result = await reactivateMember(caller, body);
+    } else if (action === "reset_password") {
+      result = await resetPassword(caller, body);
     } else {
       return new Response(JSON.stringify({ error: "unknown action" }), {
         status: 400,
@@ -214,6 +347,14 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("manage-team error", error);
+    // Regras de negócio carregam mensagem própria, já pronta para a tela.
+    if (error instanceof BusinessError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: error.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Erros do PostgREST são objetos simples: String(err) viraria "[object Object]".
     const message =
       error instanceof Error
