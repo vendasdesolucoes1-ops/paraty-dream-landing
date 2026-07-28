@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import plantaSvg from "@/assets/loteamento-planta.svg?raw";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,14 @@ const STATUS_LABELS: Record<LoteStatus, string> = {
 
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
+
+// Identidade estável de propósito. Um objeto novo a cada render faz o React 19
+// re-setar innerHTML quando qualquer outra prop do elemento muda, recriando o
+// DOM do SVG — foi o que apagava as cores ao aplicar zoom.
+const PLANTA_HTML = { __html: plantaSvg };
+
+// Escopo das regras de cor, para não vazarem para fora da planta.
+const PLANTA_SCOPE = "planta-status-scope";
 
 function formatCurrency(value: number | null) {
   if (value == null) return "—";
@@ -83,31 +91,34 @@ export function LotePlantaViewer({
     return loteByKey.get(`${quadra}::${numeroLote}`);
   }
 
-  // Fill color is the only thing that must be pushed imperatively into the
-  // raw injected SVG (React never diffs dangerouslySetInnerHTML content), so
-  // it re-runs whenever the underlying lote data (and therefore status)
-  // changes — including right after a save in LoteFormDialog invalidates the
-  // ["lotes"] query and this component re-renders with fresh data.
-  useEffect(() => {
-    const wrapper = svgWrapperRef.current;
-    if (!wrapper) return;
+  // O status vira uma folha de estilo renderizada pelo React a partir dos dados,
+  // em vez de fills escritos no DOM. Assim a cor não depende do nó do SVG
+  // sobreviver: se o conteúdo for reinjetado por qualquer motivo, as regras
+  // continuam valendo e a pintura se refaz sozinha.
+  const statusCss = useMemo(() => {
+    const rules = [
+      // Polígonos sem lote correspondente não são clicáveis.
+      `.${PLANTA_SCOPE} [data-quadra][data-numero-lote]{cursor:default}`,
+    ];
 
-    const elements = wrapper.querySelectorAll<SVGElement>("[data-quadra][data-numero-lote]");
-    elements.forEach((el) => {
-      const lote = loteFromElement(el);
-      el.style.cursor = lote ? "pointer" : "default";
-      if (!lote) return;
-      el.style.fill = STATUS_COLORS[lote.status];
+    for (const lote of positionedLotes) {
+      // JSON.stringify entrega o valor já com aspas e escape corretos para o
+      // seletor de atributo, mesmo que quadra/número tenham caracteres chatos.
+      const quadra = JSON.stringify(String(lote.quadra ?? ""));
+      const numero = JSON.stringify(String(lote.numero_lote));
+      const sel = `.${PLANTA_SCOPE} [data-quadra=${quadra}][data-numero-lote=${numero}]`;
 
-      // The lot number label sits in the next sibling <text>; on the dark
-      // "vendido" fill the default dark text is unreadable, so lighten it.
-      const label = el.nextElementSibling;
-      if (label instanceof SVGElement) {
-        label.style.fill = lote.status === "vendido" ? "var(--ivory)" : "";
+      rules.push(`${sel}{fill:${STATUS_COLORS[lote.status]};cursor:pointer}`);
+
+      // O número do lote fica no <text> irmão seguinte; sobre o fill escuro de
+      // "vendido" o texto padrão fica ilegível.
+      if (lote.status === "vendido") {
+        rules.push(`${sel}+text{fill:var(--ivory)}`);
       }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loteByKey]);
+    }
+
+    return rules.join("\n");
+  }, [positionedLotes]);
 
   function updateTooltipPosition(event: React.MouseEvent, lote: Lote) {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -184,7 +195,7 @@ export function LotePlantaViewer({
     <div className="space-y-4">
       <div
         ref={containerRef}
-        className="relative border rounded-lg overflow-hidden bg-card h-[32rem] cursor-grab active:cursor-grabbing"
+        className={`relative border rounded-lg overflow-hidden bg-card h-[32rem] cursor-grab active:cursor-grabbing ${PLANTA_SCOPE}`}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -195,15 +206,24 @@ export function LotePlantaViewer({
         }}
         onClick={handleSvgAreaClick}
       >
+        <style>{statusCss}</style>
+
+        {/* O transform vive num wrapper próprio. Se ficasse no mesmo elemento
+            do dangerouslySetInnerHTML, cada mudança de escala reinjetaria o
+            SVG inteiro. O nó de baixo nunca muda de props. */}
         <div
-          ref={svgWrapperRef}
-          className="w-full h-full [&_svg]:w-full [&_svg]:h-full"
+          className="w-full h-full"
           style={{
             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
             transformOrigin: "center center",
           }}
-          dangerouslySetInnerHTML={{ __html: plantaSvg }}
-        />
+        >
+          <div
+            ref={svgWrapperRef}
+            className="w-full h-full [&_svg]:w-full [&_svg]:h-full"
+            dangerouslySetInnerHTML={PLANTA_HTML}
+          />
+        </div>
 
         <div className="absolute bottom-3 right-3 flex flex-col gap-1">
           <Button
