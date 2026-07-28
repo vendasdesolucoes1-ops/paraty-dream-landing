@@ -214,7 +214,13 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("manage-team error", error);
-    const message = String(error);
+    // Erros do PostgREST são objetos simples: String(err) viraria "[object Object]".
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null
+          ? ((error as { message?: string }).message ?? JSON.stringify(error))
+          : String(error);
 
     if (message.includes("email_ja_cadastrado")) {
       return new Response(
