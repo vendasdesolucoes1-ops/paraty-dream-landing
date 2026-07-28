@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, CheckCircle2, Copy, MoreVertical, Plus } from "lucide-react";
@@ -144,6 +144,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["vendedores-ativos"] });
+      queryClient.invalidateQueries({ queryKey: ["vendedores-lookup"] });
       setCredentials({ nome, email: data.email, senha_temporaria: data.senha_temporaria });
       setOpen(false);
       resetForm();
@@ -460,17 +461,47 @@ function TeamRow({
 }
 
 export function TeamPanel() {
-  const { data: profiles, isLoading } = useQuery({
+  // profiles e vendedores têm FK nos dois sentidos (profiles.vendedor_id e
+  // vendedores.profile_id), então um embed do tipo `vendedores(...)` é ambíguo
+  // para o PostgREST e falha com PGRST201. As duas tabelas são buscadas
+  // separadamente e o vínculo é resolvido aqui — um admin/gestor sem
+  // vendedor_id continua aparecendo normalmente.
+  const {
+    data: rawProfiles,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["team-profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*, vendedores(id, nome)")
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as ProfileWithVendedor[];
+      return data as Profile[];
     },
   });
+
+  // Sem filtro de ativo: serve só para resolver o nome do vínculo, e um vendedor
+  // desativado ainda precisa aparecer com nome na coluna.
+  const { data: todosVendedores } = useQuery({
+    queryKey: ["vendedores-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("vendedores").select("id, nome");
+      if (error) throw error;
+      return data as Pick<Vendedor, "id" | "nome">[];
+    },
+  });
+
+  const profiles = useMemo<ProfileWithVendedor[] | undefined>(() => {
+    if (!rawProfiles) return undefined;
+    const byId = new Map((todosVendedores ?? []).map((v) => [v.id, v]));
+    return rawProfiles.map((profile) => ({
+      ...profile,
+      vendedores: profile.vendedor_id ? (byId.get(profile.vendedor_id) ?? null) : null,
+    }));
+  }, [rawProfiles, todosVendedores]);
 
   const { data: vendedores } = useQuery({
     queryKey: ["vendedores-ativos"],
@@ -499,6 +530,15 @@ export function TeamPanel() {
 
       {isLoading ? (
         <Skeleton className="h-72 w-full rounded-xl" />
+      ) : isError ? (
+        // Distinguir falha de lista vazia: tratar as duas igual foi o que
+        // escondeu este bug — a query quebrava e a tela dizia "nenhum membro".
+        <div className="border border-destructive/40 rounded-lg p-6 text-center space-y-1">
+          <p className="text-sm font-medium text-destructive">Erro ao carregar a equipe.</p>
+          <p className="text-xs text-muted-foreground">
+            {error instanceof Error ? error.message : "Tente recarregar a página."}
+          </p>
+        </div>
       ) : !profiles || profiles.length === 0 ? (
         <p className="text-sm text-muted-foreground border rounded-lg p-6 text-center">
           Nenhum membro cadastrado ainda.
