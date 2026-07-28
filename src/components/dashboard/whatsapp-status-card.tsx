@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Wifi, WifiOff, Pencil, Trash2, RefreshCcw } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Pencil, QrCode, Trash2, RefreshCcw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { WhatsappInstance } from "@/lib/types";
@@ -24,9 +24,17 @@ function isConnected(status: string | undefined) {
   return status === "open" || status === "connected";
 }
 
-function StatusBadge({ status }: { status: string | undefined }) {
+function StatusBadge({
+  status,
+  attempting = false,
+}: {
+  status: string | undefined;
+  attempting?: boolean;
+}) {
   const connected = isConnected(status);
-  const connecting = status === "connecting";
+  // Sem tentativa em curso o card está ocioso, mesmo que o banco tenha ficado
+  // com "connecting" de uma sessão anterior.
+  const connecting = attempting && !connected;
   return (
     <span
       className={cn(
@@ -55,7 +63,16 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ api_url: instance.api_url, api_key: "" });
 
-  // Poll Evolution API connection state every 10s (via edge function, which syncs the DB).
+  // Conexão é sob demanda: nada é solicitado à Evolution API até o usuário pedir.
+  // Enquanto qrRequested for false o card fica ocioso, sem QR e sem polling.
+  const [qrRequested, setQrRequested] = useState(false);
+  const [qrExpired, setQrExpired] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(QR_TTL_SECONDS);
+
+  // O status do banco (carregado pela lista) basta para o estado ocioso; só
+  // consultamos a Evolution API ao vivo durante uma tentativa de conexão.
+  const pollingEnabled = qrRequested && !qrExpired;
+
   const { data: liveInstance } = useQuery({
     queryKey: ["whatsapp-live-status", instance.instance_name],
     queryFn: async () => {
@@ -65,7 +82,8 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
       if (error) throw error;
       return data as WhatsappInstance;
     },
-    refetchInterval: 10_000,
+    enabled: pollingEnabled,
+    refetchInterval: pollingEnabled ? 10_000 : false,
     retry: false,
   });
 
@@ -86,18 +104,38 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
       if (error) throw error;
       return (data as WhatsappInstance).qr_code;
     },
-    enabled: !connected,
-    refetchInterval: QR_TTL_SECONDS * 1000,
+    enabled: qrRequested && !connected,
+    // Sem refetchInterval: um QR expirado não é substituído sozinho. Regerar é
+    // sempre ação explícita do usuário.
     retry: false,
   });
 
-  const [secondsLeft, setSecondsLeft] = useState(QR_TTL_SECONDS);
+  // Contagem regressiva do QR. O interval é limpo na troca de QR e no unmount.
   useEffect(() => {
-    if (connected || !qr) return;
+    if (connected || !qr || qrExpired) return;
     setSecondsLeft(QR_TTL_SECONDS);
     const timer = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(timer);
-  }, [qr, qrUpdatedAt, connected]);
+  }, [qr, qrUpdatedAt, connected, qrExpired]);
+
+  // Zerou o contador sem conectar: encerra o polling em vez de seguir
+  // consultando a Evolution API por um QR que ninguém vai escanear.
+  useEffect(() => {
+    if (secondsLeft === 0 && qr && !connected) setQrExpired(true);
+  }, [secondsLeft, qr, connected]);
+
+  // Conectou: o fluxo terminou, o card volta a não precisar de QR nem polling.
+  useEffect(() => {
+    if (connected && qrRequested) setQrRequested(false);
+  }, [connected, qrRequested]);
+
+  function startQrFlow() {
+    setQrExpired(false);
+    setSecondsLeft(QR_TTL_SECONDS);
+    // Já habilitada (caso de QR expirado): mudar o estado não dispara refetch.
+    if (qrRequested) void refetchQr();
+    else setQrRequested(true);
+  }
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
@@ -114,6 +152,8 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
     },
     onSuccess: () => {
       toast.success("Instância desconectada.");
+      setQrRequested(false);
+      setQrExpired(false);
       invalidateAll();
     },
     onError: () => toast.error("Erro ao desconectar a instância."),
@@ -160,7 +200,7 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
           <p className="font-medium text-lg">{instance.instance_name}</p>
           <p className="text-xs text-muted-foreground break-all">{instance.api_url}</p>
         </div>
-        <StatusBadge status={status} />
+        <StatusBadge status={status} attempting={pollingEnabled} />
       </CardHeader>
 
       <CardContent className="flex flex-col items-center justify-center py-6 min-h-[280px]">
@@ -172,7 +212,7 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
             <p className="font-medium text-lg">Conectado</p>
             <p className="text-sm text-muted-foreground">Pronto para enviar e receber mensagens.</p>
           </div>
-        ) : qr ? (
+        ) : qr && !qrExpired ? (
           <div className="flex flex-col items-center gap-3">
             <img
               src={qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`}
@@ -183,7 +223,7 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
               <Progress value={(secondsLeft / QR_TTL_SECONDS) * 100} />
               <p className="text-xs text-muted-foreground text-center">Expira em {secondsLeft}s</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => refetchQr()} disabled={qrFetching}>
+            <Button variant="outline" size="sm" onClick={startQrFlow} disabled={qrFetching}>
               <RefreshCcw className={cn("h-4 w-4 mr-2", qrFetching && "animate-spin")} />
               Atualizar QR
             </Button>
@@ -192,15 +232,25 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
               para o QR code
             </p>
           </div>
-        ) : (
+        ) : qrFetching ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <Loader2 className={cn("h-6 w-6", qrFetching && "animate-spin")} />
-            <p className="text-sm">{qrFetching ? "Gerando QR code..." : "QR code indisponível."}</p>
-            {!qrFetching ? (
-              <Button variant="outline" size="sm" onClick={() => refetchQr()}>
-                Tentar novamente
-              </Button>
-            ) : null}
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="text-sm">Gerando QR code...</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center">
+              <QrCode className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              {qrExpired
+                ? "O QR code expirou sem conexão. Gere um novo para tentar de novo."
+                : "Gere um QR code para conectar este número ao WhatsApp."}
+            </p>
+            <Button onClick={startQrFlow}>
+              <QrCode className="h-4 w-4 mr-2" />
+              {qrExpired ? "Gerar novo QR Code" : "Gerar QR Code"}
+            </Button>
           </div>
         )}
       </CardContent>
