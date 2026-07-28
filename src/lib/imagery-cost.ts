@@ -10,6 +10,7 @@ export const COST_PLAN = 0.002;
 
 export const PRO_IMAGE_TYPES = ["paisagem", "arquitetura", "agua"];
 
+/** Comparado contra o PIOR caso da estimativa, não contra o provável. */
 export const CONFIRM_THRESHOLD_USD = 0.3;
 export const DAILY_BUDGET_USD = 5;
 

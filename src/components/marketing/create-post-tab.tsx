@@ -203,10 +203,11 @@ export function CreatePostTab() {
     }
   };
 
-  // Acima do limiar, gerar exige confirmação explícita do custo.
+  // O limiar vale sobre o pior caso, não sobre o provável: o que precisa de
+  // consentimento é o teto que a geração pode alcançar com os retries.
   const handleGenerate = () => {
     if (!postId) return;
-    if (plannedEstimate.estimado > CONFIRM_THRESHOLD_USD) {
+    if (plannedEstimate.maximo > CONFIRM_THRESHOLD_USD) {
       setConfirmOpen(true);
       return;
     }
