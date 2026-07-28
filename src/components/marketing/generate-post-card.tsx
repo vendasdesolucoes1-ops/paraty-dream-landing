@@ -28,10 +28,13 @@ import {
 } from "@/components/ui/dialog";
 
 interface GeneratedPost {
+  post_id: string;
   titulo: string;
   copy: string;
   hashtags: string[];
   imagem_url: string;
+  parcial?: boolean;
+  falhou?: "copy" | "imagem" | null;
 }
 
 const emptyForm = {
@@ -70,27 +73,22 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
       if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "erro");
       return data as GeneratedPost;
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setResult(data);
       setCopyText(data.copy);
       setHashtagsText(data.hashtags.join(" "));
       setPublishedUrl(null);
+      // The edge function already persisted the draft (atomically with the
+      // generation it billed), so there is nothing to insert here.
+      setPostId(data.post_id);
+      queryClient.invalidateQueries({ queryKey: ["posts-marketing"] });
 
-      const { data: inserted, error } = await supabase
-        .from("posts_marketing")
-        .insert({
-          titulo: data.titulo,
-          copy_texto: data.copy,
-          hashtags: data.hashtags.join(" "),
-          imagem_url: data.imagem_url,
-          status: "rascunho",
-        })
-        .select("id")
-        .single();
-
-      if (!error && inserted) {
-        setPostId(inserted.id);
-        queryClient.invalidateQueries({ queryKey: ["posts-marketing"] });
+      if (data.parcial) {
+        toast.warning(
+          data.falhou === "imagem"
+            ? "A copy foi gerada, mas a imagem falhou. O rascunho foi salvo — tente gerar de novo para obter a imagem."
+            : "A imagem foi gerada, mas a copy falhou. O rascunho foi salvo — escreva a copy manualmente ou gere de novo.",
+        );
       }
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao gerar o post."),
@@ -226,11 +224,17 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
           </div>
         ) : result ? (
           <div className="space-y-4 border-t pt-6">
-            <img
-              src={result.imagem_url}
-              alt={result.titulo}
-              className="aspect-square w-full max-w-md rounded-lg object-cover border"
-            />
+            {result.imagem_url ? (
+              <img
+                src={result.imagem_url}
+                alt={result.titulo}
+                className="aspect-square w-full max-w-md rounded-lg object-cover border"
+              />
+            ) : (
+              <div className="aspect-square w-full max-w-md rounded-lg border border-dashed flex items-center justify-center text-sm text-muted-foreground text-center p-6">
+                A imagem não pôde ser gerada. Gere o post novamente para tentar de novo.
+              </div>
+            )}
 
             <div className="space-y-2 max-w-md">
               <Label>Título</Label>
@@ -258,11 +262,14 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={handleDownload}>
+              <Button variant="outline" onClick={handleDownload} disabled={!result.imagem_url}>
                 <Download className="h-4 w-4 mr-2" />
                 Baixar imagem
               </Button>
-              <Button onClick={handlePublishClick} disabled={publishMutation.isPending}>
+              <Button
+                onClick={handlePublishClick}
+                disabled={publishMutation.isPending || !result.imagem_url}
+              >
                 <Send className="h-4 w-4 mr-2" />
                 {publishMutation.isPending ? "Publicando..." : "Publicar no Instagram"}
               </Button>
