@@ -48,18 +48,34 @@ function titleFromFileName(name: string) {
 
 export function DocumentoUploadDialog({
   defaultLead,
+  defaultProcesso,
   trigger,
+  open: openProp,
+  onOpenChange,
 }: {
   defaultLead?: Pick<Lead, "id" | "nome">;
+  defaultProcesso?: { id: string; titulo: string };
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [open, setOpen] = useState(false);
+  const initialProcesso: ProcessoFieldValue = defaultProcesso
+    ? {
+        ...EMPTY_PROCESSO_VALUE,
+        processoId: defaultProcesso.id,
+        processoLabel: defaultProcesso.titulo,
+      }
+    : EMPTY_PROCESSO_VALUE;
+
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [dragActive, setDragActive] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [titulo, setTitulo] = useState("");
   const [categoria, setCategoria] = useState<DocumentoCategoria>("outro");
   const [leadId, setLeadId] = useState<string>(defaultLead?.id ?? "");
@@ -67,29 +83,39 @@ export function DocumentoUploadDialog({
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [tags, setTags] = useState("");
-  const [processo, setProcesso] = useState<ProcessoFieldValue>(EMPTY_PROCESSO_VALUE);
+  const [processo, setProcesso] = useState<ProcessoFieldValue>(initialProcesso);
 
   function resetForm() {
-    setFile(null);
+    setFiles([]);
     setTitulo("");
     setCategoria("outro");
     setLeadId(defaultLead?.id ?? "");
     setLeadLabel(defaultLead?.nome ?? "");
     setTags("");
     setLeadSearch("");
-    setProcesso(EMPTY_PROCESSO_VALUE);
+    setProcesso(initialProcesso);
   }
 
-  function handleFileChosen(chosen: File) {
-    setFile(chosen);
-    setTitulo((current) => current || titleFromFileName(chosen.name));
+  function handleFilesChosen(chosen: File[]) {
+    if (chosen.length === 0) return;
+    setFiles((current) => {
+      const merged = [...current];
+      for (const f of chosen) {
+        if (!merged.some((m) => m.name === f.name && m.size === f.size)) merged.push(f);
+      }
+      return merged;
+    });
+    setTitulo((current) => current || titleFromFileName(chosen[0].name));
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, i) => i !== index));
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragActive(false);
-    const dropped = event.dataTransfer.files?.[0];
-    if (dropped) handleFileChosen(dropped);
+    handleFilesChosen(Array.from(event.dataTransfer.files ?? []));
   }
 
   const { data: leadResults } = useQuery({
