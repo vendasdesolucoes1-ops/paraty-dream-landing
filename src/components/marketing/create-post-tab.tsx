@@ -2,7 +2,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, Sparkles, Wand2, RefreshCw, Instagram, Download, Wallet } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  Sparkles,
+  Wand2,
+  RefreshCw,
+  Instagram,
+  Download,
+  Wallet,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,13 +118,20 @@ function isCreditsError(status?: number, payload?: EdgeErrorPayload) {
   return status === 402 || /créditos|creditos|not enough credits|payment_required/i.test(text);
 }
 
-async function readFunctionError(error: unknown): Promise<{ status?: number; payload?: EdgeErrorPayload; message: string }> {
+async function readFunctionError(
+  error: unknown,
+): Promise<{ status?: number; payload?: EdgeErrorPayload; message: string }> {
   const ctx = (error as { context?: Response })?.context;
-  const payload = ctx?.json ? ((await ctx.json().catch(() => null)) as EdgeErrorPayload | null) : null;
+  const payload = ctx?.json
+    ? ((await ctx.json().catch(() => null)) as EdgeErrorPayload | null)
+    : null;
   return {
     status: ctx?.status,
     payload: payload ?? undefined,
-    message: payload?.message ?? payload?.error ?? (error instanceof Error ? error.message : "Erro na função"),
+    message:
+      payload?.message ??
+      payload?.error ??
+      (error instanceof Error ? error.message : "Erro na função"),
   };
 }
 
@@ -208,12 +224,12 @@ export function CreatePostTab() {
         if (isCreditsError(fnError.status, fnError.payload)) {
           const requestId = extractRequestId(fnError.payload?.details);
           setBillingError({
-            title: "Créditos de IA esgotados",
+            title: "Créditos Lovable esgotados",
             message:
-              "O planejamento usa o AI Gateway do Lovable e foi recusado por falta de saldo no workspace. Adicione créditos em Settings → Plans & credits → Buy credits e tente novamente.",
+              "O planejamento e a geração de imagens rodam direto no Google e não dependem do Lovable. Só a validação automática das imagens ainda usa créditos Lovable — adicione créditos em Settings → Plans & credits → Buy credits, ou siga assim: a validação falha sem interromper o post.",
             requestId,
           });
-          toast.error("Créditos de IA esgotados. Adicione créditos no workspace.");
+          toast.error("Créditos Lovable esgotados (usados só na validação de imagens).");
           return;
         }
         throw new Error(fnError.message);
@@ -221,13 +237,13 @@ export function CreatePostTab() {
       if (data?.error) {
         if (isCreditsError(undefined, data)) {
           setBillingError({
-            title: "Créditos de IA esgotados",
+            title: "Créditos Lovable esgotados",
             message:
               data.message ??
-              "Adicione créditos em Settings → Plans & credits → Buy credits e tente novamente.",
+              "Só a validação automática das imagens ainda usa créditos Lovable. Adicione créditos em Settings → Plans & credits → Buy credits, ou siga assim: a validação falha sem interromper o post.",
             requestId: extractRequestId(data.details),
           });
-          toast.error("Créditos de IA esgotados. Adicione créditos no workspace.");
+          toast.error("Créditos Lovable esgotados (usados só na validação de imagens).");
           return;
         }
         throw new Error(data.message ?? data.error);
@@ -403,7 +419,9 @@ export function CreatePostTab() {
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="space-y-1">
                   <p className="font-medium">{billingError.title}</p>
-                  <p className="text-xs leading-relaxed text-destructive/90">{billingError.message}</p>
+                  <p className="text-xs leading-relaxed text-destructive/90">
+                    {billingError.message}
+                  </p>
                   {billingError.requestId ? (
                     <p className="text-[11px] text-destructive/80">
                       Request ID: {billingError.requestId}

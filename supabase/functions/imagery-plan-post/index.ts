@@ -6,9 +6,29 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL_PLANNER = "gemini-2.5-pro";
+
+// Preço de tabela do Google, verificado 2026-07-29 (contexto <= 200k).
+const PLANNER_IN_PER_1M = 1.25;
+const PLANNER_OUT_PER_1M = 10.0;
+
+/**
+ * Custo real da chamada a partir do usageMetadata. O gemini-2.5-pro é modelo de
+ * raciocínio: thoughtsTokenCount é cobrado como output e costuma superar a
+ * resposta em si, então ignorá-lo subestimaria o gasto por larga margem.
+ */
+function plannerCost(usage: Record<string, number> | undefined): number {
+  if (!usage) return 0;
+  const input = Number(usage.promptTokenCount ?? 0);
+  const output = Number(usage.candidatesTokenCount ?? 0) + Number(usage.thoughtsTokenCount ?? 0);
+  const custo = (input * PLANNER_IN_PER_1M + output * PLANNER_OUT_PER_1M) / 1_000_000;
+  return Number(custo.toFixed(6));
+}
 
 const SYSTEM_PROMPT = `Você é o Planner do Imagery Engine do Moradas de Paraty.
 Planeja posts de Instagram nível revista: fotografia editorial em cor natural +
@@ -163,20 +183,21 @@ ${dbBrand ? `\nDIRETRIZES SALVAS DA MARCA:\n${dbBrand}` : ""}
 
 Gere a estrutura completa.`;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResp = await fetch(`${GOOGLE_AI_BASE}/${MODEL_PLANNER}:generateContent`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { "x-goog-api-key": GOOGLE_AI_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
+        // O Google não tem role "system": as instruções de marca vão em
+        // systemInstruction, fora de contents. Dentro de contents elas viravam
+        // só mais uma mensagem do usuário e o planner as tratava como sugestão.
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         tools: [{
-          type: "function",
-          function: {
+          functionDeclarations: [{
             name: "plan_post",
             description: "Estrutura completa de um post de Instagram do Moradas de Paraty",
+            // O subset OpenAPI do Google não aceita additionalProperties — o
+            // campo derruba a requisição com 400 INVALID_ARGUMENT.
             parameters: {
               type: "object",
               properties: {
@@ -203,17 +224,19 @@ Gere a estrutura completa.`;
                       image_brief: { type: "string", description: "Brief visual em inglês, 40-80 palavras" },
                     },
                     required: ["slide_n", "template_id", "headline", "needs_image"],
-                    additionalProperties: false,
                   },
                 },
               },
               required: ["titulo_post", "caption_final", "slides"],
-              additionalProperties: false,
             },
-          },
+          }],
         }],
-        tool_choice: { type: "function", function: { name: "plan_post" } },
+        // mode ANY obriga o modelo a chamar a função em vez de responder texto.
+        toolConfig: {
+          functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["plan_post"] },
+        },
       }),
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!aiResp.ok) {
@@ -222,19 +245,14 @@ Gere a estrutura completa.`;
         .from("imagery_posts")
         .update({ status: "failed", error_message: `Planner: ${aiResp.status} ${txt.slice(0, 200)}` })
         .eq("id", post.id);
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: "Créditos de IA esgotados. Adicione créditos no workspace.",
-            details: txt,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+      // Sem 402 aqui: o planner agora é cobrado direto no Google, que sinaliza
+      // estouro de cota com 429 e chave inválida com 403.
       const status = aiResp.status === 429 ? aiResp.status : 500;
       const error = aiResp.status === 429
-        ? "Limite de requisições atingido. Tente em alguns segundos."
-        : "Erro no serviço de IA";
+        ? "Limite de requisições do Google atingido. Tente em alguns segundos."
+        : aiResp.status === 403
+          ? "Chave do Google AI inválida ou sem permissão."
+          : "Erro no serviço de IA";
       return new Response(JSON.stringify({ error, details: txt.slice(0, 300) }), {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -242,21 +260,31 @@ Gere a estrutura completa.`;
     }
 
     const aiJson = await aiResp.json();
-    const toolCall = aiJson.choices?.[0]?.message?.tool_calls?.[0];
     // deno-lint-ignore no-explicit-any
-    let plan: any = null;
-    if (toolCall?.function?.arguments) {
-      try {
-        plan = JSON.parse(toolCall.function.arguments);
-      } catch {
-        console.error("Falha ao parsear tool_call:", toolCall.function.arguments?.slice(0, 400));
-      }
-    }
+    const parts: any[] = aiJson.candidates?.[0]?.content?.parts ?? [];
+
+    // functionCall.args já vem como OBJETO no Google — diferente do gateway,
+    // onde function.arguments era string JSON. Aplicar JSON.parse aqui lançaria
+    // e o plano cairia silenciosamente no fallback de texto.
+    // deno-lint-ignore no-explicit-any
+    let plan: any = parts.find((p) => p?.functionCall?.args)?.functionCall?.args ?? null;
+
     if (!plan) {
-      const rawContent = String(aiJson.choices?.[0]?.message?.content ?? "");
+      // Fallback: o modelo respondeu texto em vez de chamar a função.
+      const rawContent = parts
+        .map((p) => (typeof p?.text === "string" ? p.text : ""))
+        .join("");
       const match = rawContent.match(/\{[\s\S]*\}/);
       if (match) {
         try { plan = JSON.parse(match[0]); } catch { /* ignore */ }
+      }
+      if (!plan) {
+        console.error(
+          "Planner sem functionCall. finishReason:",
+          aiJson.candidates?.[0]?.finishReason,
+          "| texto:",
+          rawContent.slice(0, 400),
+        );
       }
     }
     if (!plan || !Array.isArray(plan.slides) || plan.slides.length === 0) {
@@ -306,10 +334,11 @@ Gere a estrutura completa.`;
     await admin.from("imagery_logs").insert({
       post_id: post.id,
       step: "plan",
-      provider: "lovable",
-      model: "google/gemini-2.5-pro",
+      provider: "google_direct",
+      model: MODEL_PLANNER,
       prompt_excerpt: userPrompt.slice(0, 500),
-      response_summary: { n_slides: normalizedSlides.length },
+      response_summary: { n_slides: normalizedSlides.length, usage: aiJson.usageMetadata ?? null },
+      custo_usd: plannerCost(aiJson.usageMetadata),
       duracao_ms: Date.now() - t0,
       success: true,
     });
