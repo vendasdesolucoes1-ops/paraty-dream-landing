@@ -2,8 +2,12 @@
 // Os valores espelham o que imagery-generate-image e imagery-validate-image
 // realmente registram em imagery_logs.custo_usd — se um mudar lá, mude aqui.
 
-export const COST_IMAGE_PRO = 0.04; // google/gemini-3-pro-image
-export const COST_IMAGE_FLASH = 0.015; // google/gemini-2.5-flash-image
+// Imagem: preço de tabela do Google (API direta), verificado em 2026-07-29.
+// Em 1K/2K os dois modelos custam o mesmo — o split deixou de ser econômico.
+// Confira em ai.google.dev/gemini-api/docs/pricing ao revisar.
+export const COST_IMAGE_PRO = 0.134;
+export const COST_IMAGE_FLASH = 0.134;
+// Texto: seguem no gateway Lovable, valores de conversão de crédito.
 export const COST_VALIDATE = 0.003;
 export const COST_PLAN = 0.002; // planner (texto)
 
@@ -11,7 +15,7 @@ export const COST_PLAN = 0.002; // planner (texto)
 export const PRO_IMAGE_TYPES = ["paisagem", "arquitetura", "agua"];
 
 // Acima disto a UI exige confirmação explícita do usuário.
-export const CONFIRM_THRESHOLD_USD = 0.3;
+export const CONFIRM_THRESHOLD_USD = 0.8;
 // Teto de gasto por usuário em 24h.
 export const DAILY_BUDGET_USD = 5;
 

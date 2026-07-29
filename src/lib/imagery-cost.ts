@@ -3,15 +3,17 @@
 // constantes são duplicadas — a fonte da verdade é o arquivo do backend, que é
 // quem de fato aplica a cota. Ao mudar um valor lá, mude aqui também.
 
-export const COST_IMAGE_PRO = 0.04;
-export const COST_IMAGE_FLASH = 0.015;
+// Preço de tabela do Google (API direta), verificado em 2026-07-29.
+// Espelha supabase/functions/_shared/imagery-cost.ts.
+export const COST_IMAGE_PRO = 0.134;
+export const COST_IMAGE_FLASH = 0.134;
 export const COST_VALIDATE = 0.003;
 export const COST_PLAN = 0.002;
 
 export const PRO_IMAGE_TYPES = ["paisagem", "arquitetura", "agua"];
 
 /** Comparado contra o PIOR caso da estimativa, não contra o provável. */
-export const CONFIRM_THRESHOLD_USD = 0.3;
+export const CONFIRM_THRESHOLD_USD = 0.8;
 export const DAILY_BUDGET_USD = 5;
 
 export interface CostEstimate {

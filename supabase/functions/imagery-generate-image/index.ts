@@ -1,15 +1,31 @@
 // Imagery Engine — Gerador de imagem
-// Recebe { slide_id } → monta o prompt a partir do brief, gera a foto pelo
-// Lovable AI Gateway, sobe no bucket privado e devolve URL assinada.
+// Recebe { slide_id } → monta o prompt a partir do brief, gera a foto pela API
+// direta do Google Gemini, sobe no bucket privado e devolve URL assinada.
+// O texto (plan-post, validate-image) segue no gateway Lovable.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { guardInternalCall } from "../_shared/internal-auth.ts";
 import { VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { base64ToBytes, uploadSigned } from "../_shared/imagery.ts";
+import { COST_IMAGE_FLASH, COST_IMAGE_PRO, PRO_IMAGE_TYPES } from "../_shared/imagery-cost.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+// IDs da API direta não levam o prefixo "google/" usado pelo gateway.
+const MODEL_FLASH_IMAGE = "gemini-2.5-flash-image";
+// TODO(confirmar): o ID do modelo pro de imagem na API direta não pôde ser
+// verificado na doc oficial (ai.google.dev responde 403 daqui). Enquanto não
+// for confirmado, todo tipo de imagem usa o flash — que tem o mesmo preço de
+// tabela em 1K/2K, então isso não muda o custo, só a fidelidade.
+const MODEL_PRO_IMAGE = MODEL_FLASH_IMAGE;
+
+function modelForImageType(imageType: string): string {
+  return PRO_IMAGE_TYPES.includes(imageType) ? MODEL_PRO_IMAGE : MODEL_FLASH_IMAGE;
+}
 
 const NEGATIVE =
   "stock photo, people smiling at camera, silhouette couple at sunset, 3d render, illustration, cartoon, vector art, watermark, text overlay, letters, logos, oversaturated HDR, purple sky, tropical caribbean cliche, low quality, distorted hands, extra fingers, lens flare, heavy instagram filter";
@@ -77,21 +93,27 @@ Deno.serve(async (req) => {
       `Avoid: ${NEGATIVE}`,
     ].join("\n\n");
 
-    // Capa e paisagens usam o modelo de maior fidelidade; detalhes usam o rápido.
-    const model = ["paisagem", "arquitetura", "agua"].includes(imageType)
-      ? "google/gemini-3-pro-image"
-      : "google/gemini-2.5-flash-image";
-    const cost = model === "google/gemini-3-pro-image" ? 0.04 : 0.015;
+    const model = modelForImageType(imageType);
+    const cost = PRO_IMAGE_TYPES.includes(imageType) ? COST_IMAGE_PRO : COST_IMAGE_FLASH;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
+    // API direta do Google (Generative Language). Difere do gateway em três
+    // pontos: auth por x-goog-api-key, modelo no path, e a imagem volta em
+    // candidates[].content.parts[].inlineData em vez de data[0].b64_json.
+    const resp = await fetch(
+      `${GOOGLE_AI_BASE}/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": GOOGLE_AI_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+        signal: AbortSignal.timeout(90_000),
+      },
+    );
 
     if (!resp.ok) {
       const txt = await resp.text();
@@ -99,8 +121,16 @@ Deno.serve(async (req) => {
     }
 
     const json = await resp.json();
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error(`${model}: nenhuma imagem retornada`);
+    // A resposta mistura partes de texto e de imagem; pegamos a primeira que
+    // traga inlineData.
+    const parts = json.candidates?.[0]?.content?.parts ?? [];
+    const b64 = parts.find(
+      (p: { inlineData?: { data?: string } }) => p?.inlineData?.data,
+    )?.inlineData?.data;
+    if (!b64) {
+      const motivo = json.candidates?.[0]?.finishReason ?? json.promptFeedback?.blockReason ?? "";
+      throw new Error(`${model}: nenhuma imagem retornada${motivo ? ` (${motivo})` : ""}`);
+    }
 
     const path = `${slide.post_id}/${slide.id}_raw_${Date.now()}.png`;
     const signedUrl = await uploadSigned(admin, path, base64ToBytes(b64), "image/png");
@@ -114,7 +144,7 @@ Deno.serve(async (req) => {
       slide_id: slideId,
       post_id: slide.post_id,
       step: "generate_image",
-      provider: "lovable_gateway",
+      provider: "google_direct",
       model,
       prompt_excerpt: prompt.slice(0, 500),
       response_summary: { image_type: imageType },
