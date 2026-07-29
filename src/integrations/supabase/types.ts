@@ -512,6 +512,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "imagery_slides_acervo_id_fkey"
+            columns: ["acervo_id"]
+            isOneToOne: false
+            referencedRelation: "imagery_acervo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "imagery_slides_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
@@ -1055,6 +1062,32 @@ export type Database = {
       }
       get_my_vendedor_id: { Args: never; Returns: string }
       get_next_round_robin_salesperson: { Args: never; Returns: string }
+      pick_acervo_image: {
+        Args: { p_brand_slug?: string; p_tag: string }
+        Returns: {
+          ativo: boolean
+          brand_slug: string
+          contem_pessoas: boolean
+          created_at: string
+          file_path: string
+          file_url: string
+          id: string
+          last_used_at: string | null
+          origem: string
+          slide_id: string | null
+          tag_tipo: string
+          titulo: string | null
+          updated_at: string
+          uso_count: number
+          validation_media: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "imagery_acervo"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       user_role: "admin" | "gestor" | "vendedor"
