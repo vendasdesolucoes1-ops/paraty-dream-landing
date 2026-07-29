@@ -135,40 +135,51 @@ export function DocumentoUploadDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Selecione um arquivo.");
-      if (!titulo.trim()) throw new Error("Informe um título.");
+      if (files.length === 0) throw new Error("Selecione ao menos um arquivo.");
+      if (files.length === 1 && !titulo.trim()) throw new Error("Informe um título.");
 
       const processoId = await resolveProcessoId(processo);
-
-      const ext = extensionFromFile(file);
-      const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
-      const contentType = resolveContentType(file, ext);
-
-      const { error: uploadError } = await supabase.storage
-        .from(DOCUMENTOS_BUCKET)
-        .upload(storagePath, file, { contentType });
-      if (uploadError) throw uploadError;
 
       const tagList = tags
         .split(",")
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      const { error: insertError } = await supabase.from("documentos").insert({
-        titulo: titulo.trim(),
-        categoria,
-        lead_id: leadId || null,
-        processo_id: processoId,
-        storage_path: storagePath,
-        tipo_arquivo: ext,
-        tamanho_bytes: file.size,
-        uploaded_by: user?.id ?? null,
-        tags: tagList.length > 0 ? tagList : null,
-      });
-      if (insertError) throw insertError;
+      for (const [index, file] of files.entries()) {
+        const ext = extensionFromFile(file);
+        const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
+        const contentType = resolveContentType(file, ext);
+
+        const { error: uploadError } = await supabase.storage
+          .from(DOCUMENTOS_BUCKET)
+          .upload(storagePath, file, { contentType });
+        if (uploadError) throw uploadError;
+
+        const docTitulo =
+          files.length === 1
+            ? titulo.trim()
+            : index === 0 && titulo.trim()
+              ? titulo.trim()
+              : titleFromFileName(file.name) || file.name;
+
+        const { error: insertError } = await supabase.from("documentos").insert({
+          titulo: docTitulo,
+          categoria,
+          lead_id: leadId || null,
+          processo_id: processoId,
+          storage_path: storagePath,
+          tipo_arquivo: ext,
+          tamanho_bytes: file.size,
+          uploaded_by: user?.id ?? null,
+          tags: tagList.length > 0 ? tagList : null,
+        });
+        if (insertError) throw insertError;
+      }
+
+      return files.length;
     },
-    onSuccess: () => {
-      toast.success("Documento enviado.");
+    onSuccess: (count) => {
+      toast.success(count === 1 ? "Documento enviado." : `${count} documentos enviados.`);
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
       queryClient.invalidateQueries({ queryKey: ["processos"] });
       resetForm();
@@ -176,6 +187,7 @@ export function DocumentoUploadDialog({
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao enviar o documento."),
   });
+
 
   return (
     <Dialog
