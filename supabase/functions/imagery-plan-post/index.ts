@@ -67,6 +67,35 @@ REGRAS DE TEXTO:
 - Sem emoji, sem hashtag nos slides (hashtag só na caption).
 - caption_final: 90 a 180 palavras, prosa fluida, sem bullets, sem emoji, UM CTA no fim.
 
+EQUILÍBRIO EMOÇÃO + INFORMAÇÃO (regra central):
+Um post só contemplativo é bonito e não vende. Um post só comercial é panfleto.
+O arco correto ABRE no desejo e FECHA na informação concreta + convite.
+- Primeiro terço do carrossel: gancho emocional, o lugar, a sensação.
+- Miolo: pelo menos UMA âncora de valor concreta (ver abaixo).
+- Último slide e a caption: informação + CTA.
+Num post de 1 slide, o mesmo arco cabe na caption: gancho, âncora, convite.
+
+ÂNCORAS DE VALOR (use as que fizerem sentido para o tema, nunca todas de uma vez):
+- Lotes de 250 m² a 450 m².
+- Entrada de 10% + saldo em até 180x, direto com a loteadora — sem banco, sem burocracia.
+- A 9 minutos do Centro Histórico de Paraty.
+- Loteamento pronto para construir.
+- Em meio à Mata Atlântica e ao Rio Perequê-Açu.
+Escreva a âncora com a voz da marca, não como tabela de preço. "Entrada de 10% e o
+saldo em até 180 vezes, direto com quem loteou" é melhor que "10% + 180X SEM JUROS".
+
+SELOS (campo selos, 0 a 3 por slide, só onde reforçar):
+Frases curtíssimas, 2 a 4 palavras, reaproveitáveis:
+"Investimento seguro", "Localização privilegiada", "Em meio à natureza",
+"Pronto para construir", "Direto com a loteadora".
+Não repita o mesmo selo em dois slides do mesmo post.
+
+CTA (campo cta, obrigatório no último slide; opcional nos demais):
+Convite curto e direto, 2 a 5 palavras. VARIE entre os posts, não use sempre o mesmo:
+"Consulte-nos", "Chame no direct", "Agende sua visita", "Fale com a gente",
+"Conheça os lotes disponíveis", "Venha conhecer".
+O CTA da caption pode ser o mesmo do último slide ou uma variação dele.
+
 DISTRIBUIÇÃO:
 - n_slides = 1: exatamente 1 slide T01_CAPA.
 - n_slides > 1: slide 1 = T01_CAPA, último = T05_CTA, miolo mistura T02_CENA, T03_DADO e T04_LISTA.
@@ -233,6 +262,18 @@ Gere a estrutura completa.`;
                         enum: ["aerea", "paisagem", "detalhe", "arquitetura", "agua", "vida"],
                       },
                       image_brief: { type: "string", description: "Brief visual em inglês, 40-80 palavras" },
+                      // Consumidos pelo compose quando a identidade visual estiver
+                      // definida; por ora só são gerados e gravados.
+                      selos: {
+                        type: "array",
+                        items: { type: "string" },
+                        maxItems: 3,
+                        description: "0 a 3 selos curtos (2-4 palavras) para este slide",
+                      },
+                      cta: {
+                        type: "string",
+                        description: "Chamada curta (2-5 palavras). Obrigatório no último slide.",
+                      },
                     },
                     required: ["slide_n", "template_id", "headline", "needs_image"],
                   },
@@ -354,7 +395,13 @@ Gere a estrutura completa.`;
         image_source: imageSource,
         acervo_id: acervoId,
         raw_image_url: rawImageUrl,
-        copy_data: { headline: s.headline, sub_text: s.sub_text ?? null },
+        copy_data: {
+          headline: s.headline,
+          sub_text: s.sub_text ?? null,
+          // Guardados desde já; o compose passa a renderizá-los na Frente A.
+          selos: Array.isArray(s.selos) ? s.selos.slice(0, 3) : [],
+          cta: s.cta ?? null,
+        },
         status: "pending",
       });
     }
