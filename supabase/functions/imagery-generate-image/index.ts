@@ -7,7 +7,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { guardInternalCall } from "../_shared/internal-auth.ts";
 import { VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { base64ToBytes, uploadSigned } from "../_shared/imagery.ts";
-import { COST_IMAGE_FLASH, COST_IMAGE_PRO, PRO_IMAGE_TYPES } from "../_shared/imagery-cost.ts";
+import { COST_IMAGE_FLASH, COST_IMAGE_PRO, isProTemplate } from "../_shared/imagery-cost.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -17,15 +17,7 @@ const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // IDs da API direta não levam o prefixo "google/" usado pelo gateway.
 const MODEL_FLASH_IMAGE = "gemini-2.5-flash-image";
-// TODO(confirmar): o ID do modelo pro de imagem na API direta não pôde ser
-// verificado na doc oficial (ai.google.dev responde 403 daqui). Enquanto não
-// for confirmado, todo tipo de imagem usa o flash — que tem o mesmo preço de
-// tabela em 1K/2K, então isso não muda o custo, só a fidelidade.
-const MODEL_PRO_IMAGE = MODEL_FLASH_IMAGE;
-
-function modelForImageType(imageType: string): string {
-  return PRO_IMAGE_TYPES.includes(imageType) ? MODEL_PRO_IMAGE : MODEL_FLASH_IMAGE;
-}
+const MODEL_PRO_IMAGE = "gemini-3-pro-image";
 
 const NEGATIVE =
   "stock photo, people smiling at camera, silhouette couple at sunset, 3d render, illustration, cartoon, vector art, watermark, text overlay, letters, logos, oversaturated HDR, purple sky, tropical caribbean cliche, low quality, distorted hands, extra fingers, lens flare, heavy instagram filter";
@@ -93,8 +85,10 @@ Deno.serve(async (req) => {
       `Avoid: ${NEGATIVE}`,
     ].join("\n\n");
 
-    const model = modelForImageType(imageType);
-    const cost = PRO_IMAGE_TYPES.includes(imageType) ? COST_IMAGE_PRO : COST_IMAGE_FLASH;
+    // O modelo caro fica só na capa (T01), que é o slide exibido no feed.
+    const usaPro = isProTemplate(slide.template_id);
+    const model = usaPro ? MODEL_PRO_IMAGE : MODEL_FLASH_IMAGE;
+    const cost = usaPro ? COST_IMAGE_PRO : COST_IMAGE_FLASH;
 
     // API direta do Google (Generative Language). Difere do gateway em três
     // pontos: auth por x-goog-api-key, modelo no path, e a imagem volta em
@@ -147,7 +141,7 @@ Deno.serve(async (req) => {
       provider: "google_direct",
       model,
       prompt_excerpt: prompt.slice(0, 500),
-      response_summary: { image_type: imageType },
+      response_summary: { image_type: imageType, template_id: slide.template_id },
       custo_usd: cost,
       duracao_ms: Date.now() - t0,
       success: true,

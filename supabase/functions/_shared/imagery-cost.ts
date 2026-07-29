@@ -2,17 +2,24 @@
 // Os valores espelham o que imagery-generate-image e imagery-validate-image
 // realmente registram em imagery_logs.custo_usd — se um mudar lá, mude aqui.
 
-// Imagem: preço de tabela do Google (API direta), verificado em 2026-07-29.
-// Em 1K/2K os dois modelos custam o mesmo — o split deixou de ser econômico.
-// Confira em ai.google.dev/gemini-api/docs/pricing ao revisar.
+// Imagem: preço de tabela oficial do Google (API direta).
+// Google list price oficial, verificado 2026-07-29.
+//   flash: $30/1M tokens de output, 1290 tok/img  -> $0,039
+//   pro:  $120/1M tokens de output, 1120 tok/img  -> $0,134
 export const COST_IMAGE_PRO = 0.134;
-export const COST_IMAGE_FLASH = 0.134;
+export const COST_IMAGE_FLASH = 0.039;
 // Texto: seguem no gateway Lovable, valores de conversão de crédito.
 export const COST_VALIDATE = 0.003;
 export const COST_PLAN = 0.002; // planner (texto)
 
-// Tipos de imagem que o gerador roteia para o modelo de maior fidelidade.
-export const PRO_IMAGE_TYPES = ["paisagem", "arquitetura", "agua"];
+// O modelo caro fica só na capa: é o slide que aparece no feed. Os internos
+// ficam atrás de um swipe e sob sobreposição de texto, onde a diferença de
+// fidelidade não compensa 3,4x o preço.
+export const PRO_TEMPLATE_IDS = ["T01_CAPA"];
+
+export function isProTemplate(templateId: string | null | undefined): boolean {
+  return PRO_TEMPLATE_IDS.includes(templateId ?? "");
+}
 
 // Acima disto a UI exige confirmação explícita do usuário.
 export const CONFIRM_THRESHOLD_USD = 0.8;
@@ -28,21 +35,18 @@ export interface CostEstimate {
 
 /**
  * O planner é quem decide o tipo de cada imagem, então antes de planejar só dá
- * para estimar por faixa. O piso assume o modelo rápido; o teto assume o modelo
- * caro em todos os slides mais 1 retry cada (o limite que o orchestrate impõe).
+ * para estimar por faixa: sempre uma capa no modelo caro e o restante no
+ * rápido. O teto soma 1 retry por slide (o limite que o orchestrate impõe).
  */
 export function estimatePostCost(nSlides: number): CostEstimate {
   const slides = Math.max(1, Math.min(8, Math.floor(nSlides) || 1));
 
-  // Mistura realista: as capas/paisagens caem no modelo caro, os detalhes não.
-  const proSlides = Math.ceil(slides / 2);
-  const flashSlides = slides - proSlides;
-  const estimado =
-    COST_PLAN +
-    proSlides * (COST_IMAGE_PRO + COST_VALIDATE) +
-    flashSlides * (COST_IMAGE_FLASH + COST_VALIDATE);
+  const flashSlides = slides - 1;
+  const capa = COST_IMAGE_PRO + COST_VALIDATE;
+  const interno = COST_IMAGE_FLASH + COST_VALIDATE;
 
-  const maximo = COST_PLAN + slides * (COST_IMAGE_PRO + COST_VALIDATE) * 2;
+  const estimado = COST_PLAN + capa + flashSlides * interno;
+  const maximo = COST_PLAN + (capa + flashSlides * interno) * 2;
 
   return {
     estimado: Number(estimado.toFixed(4)),
