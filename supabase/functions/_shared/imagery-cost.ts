@@ -10,10 +10,10 @@ export const COST_IMAGE_PRO = 0.134;
 export const COST_IMAGE_FLASH = 0.039;
 // Validação: segue no gateway Lovable (conversão de crédito).
 export const COST_VALIDATE = 0.003;
-// Planner (gemini-2.5-pro, Google direto): estimativa a priori conservadora.
-// O valor REAL é calculado no plan-post via usageMetadata e gravado em
-// imagery_logs — o thinking do modelo faz o custo variar bastante.
-export const COST_PLAN = 0.05;
+// Planner (gemini-3-flash-preview, Google direto): estimativa a priori
+// conservadora. O valor REAL é calculado no plan-post via usageMetadata e
+// gravado em imagery_logs — o thinking do modelo faz o custo variar.
+export const COST_PLAN = 0.02;
 
 // O modelo caro fica só na capa: é o slide que aparece no feed. Os internos
 // ficam atrás de um swipe e sob sobreposição de texto, onde a diferença de

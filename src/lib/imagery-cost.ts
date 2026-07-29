@@ -10,8 +10,9 @@
 export const COST_IMAGE_PRO = 0.134;
 export const COST_IMAGE_FLASH = 0.039;
 export const COST_VALIDATE = 0.003;
-// Planner: estimativa a priori; o custo real vem do usageMetadata.
-export const COST_PLAN = 0.05;
+// Planner (gemini-3-flash-preview): estimativa a priori; o real vem do
+// usageMetadata.
+export const COST_PLAN = 0.02;
 
 // O modelo caro fica só na capa: é o slide que aparece no feed. Os internos
 // ficam atrás de um swipe e sob sobreposição de texto, onde a diferença de

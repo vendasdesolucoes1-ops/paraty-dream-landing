@@ -11,15 +11,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL_PLANNER = "gemini-2.5-pro";
+const MODEL_PLANNER = "gemini-3-flash-preview";
 
-// Preço de tabela do Google, verificado 2026-07-29 (contexto <= 200k).
-const PLANNER_IN_PER_1M = 1.25;
-const PLANNER_OUT_PER_1M = 10.0;
+// Google list price oficial, gemini-3-flash-preview, verificado 2026-07-29.
+const PLANNER_IN_PER_1M = 0.5;
+const PLANNER_OUT_PER_1M = 3.0;
 
 /**
- * Custo real da chamada a partir do usageMetadata. O gemini-2.5-pro é modelo de
- * raciocínio: thoughtsTokenCount é cobrado como output e costuma superar a
+ * Custo real da chamada a partir do usageMetadata. A família Gemini 3 também
+ * raciocina: thoughtsTokenCount é cobrado como output e costuma superar a
  * resposta em si, então ignorá-lo subestimaria o gasto por larga margem.
  */
 function plannerCost(usage: Record<string, number> | undefined): number {
