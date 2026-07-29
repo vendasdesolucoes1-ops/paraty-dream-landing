@@ -51,13 +51,14 @@ function ProcessoSection({
   onEdit: (documento: DocumentoWithLead) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const isRealProcesso = group.key !== "__sem_processo__";
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card className="shadow-sm">
-        <CollapsibleTrigger asChild>
-          <button type="button" className="w-full text-left">
-            <CardContent className="p-4 flex items-center gap-3">
+        <CardContent className="p-4 flex items-center gap-3">
+          <CollapsibleTrigger asChild>
+            <button type="button" className="flex items-center gap-3 min-w-0 flex-1 text-left">
               <Folder className="h-5 w-5 text-primary shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-display text-lg text-primary truncate">{group.titulo}</p>
@@ -76,9 +77,20 @@ function ProcessoSection({
                   open && "rotate-180",
                 )}
               />
-            </CardContent>
-          </button>
-        </CollapsibleTrigger>
+            </button>
+          </CollapsibleTrigger>
+          {isRealProcesso ? (
+            <DocumentoUploadDialog
+              defaultProcesso={{ id: group.key, titulo: group.titulo }}
+              trigger={
+                <Button variant="outline" size="sm" className="shrink-0">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar
+                </Button>
+              }
+            />
+          ) : null}
+        </CardContent>
         <CollapsibleContent>
           <CardContent className="pt-0 pb-4 px-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -97,6 +109,7 @@ function ProcessoSection({
     </Collapsible>
   );
 }
+
 
 function DocumentosPage() {
   const [categoriaFilter, setCategoriaFilter] = useState<DocumentoCategoria | "">("");
