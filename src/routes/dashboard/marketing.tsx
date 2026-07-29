@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CreatePostTab } from "@/components/marketing/create-post-tab";
 import { PostsGalleryTab } from "@/components/marketing/posts-gallery-tab";
 import { BrandAssetsPanel } from "@/components/marketing/brand-assets-panel";
+import { AcervoPanel } from "@/components/marketing/acervo-panel";
 import { InstagramSettingsCard } from "@/components/marketing/instagram-settings-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleGuard } from "@/components/dashboard/role-guard";
@@ -54,6 +55,7 @@ function MarketingPage() {
           </TabsContent>
 
           <TabsContent value="marca" className="space-y-6">
+            <AcervoPanel />
             <BrandAssetsPanel />
             <InstagramSettingsCard />
           </TabsContent>

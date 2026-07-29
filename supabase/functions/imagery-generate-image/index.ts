@@ -24,6 +24,8 @@ const NEGATIVE =
 
 function typeHint(imageType: string): string {
   switch (imageType) {
+    case "aerea":
+      return "Aerial drone view of a hillside residential land development in Paraty, Brazil: gently terraced plots following the natural topography, native Atlantic Forest kept between them, a clear river winding along the edge, Serra do Mar ridges behind. Respectful of the terrain, no dense construction.";
     case "paisagem":
       return "Wide environmental shot of the Atlantic Forest hills meeting the sea in Paraty, layered mountains, low mist between the trees, calm horizon.";
     case "detalhe":
@@ -67,9 +69,43 @@ Deno.serve(async (req) => {
       .single();
     if (error || !slide) throw new Error("Slide não encontrado");
 
-    if (!slide.needs_image || !slide.image_brief) {
+    // Slide de texto puro: nada a gerar.
+    if (!slide.needs_image) {
       await admin.from("imagery_slides").update({ status: "ready" }).eq("id", slideId);
-      return new Response(JSON.stringify({ skipped: true }), {
+      return new Response(JSON.stringify({ skipped: true, source: "nenhuma" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fundo veio do acervo (foto real do empreendimento): o planner já gravou a
+    // URL. Nada é gerado, nada é cobrado, e o orchestrate pula a validação.
+    if (slide.image_source === "acervo" && slide.raw_image_url) {
+      await admin
+        .from("imagery_slides")
+        .update({ status: "ready", error_message: null })
+        .eq("id", slideId);
+
+      await admin.from("imagery_logs").insert({
+        slide_id: slideId,
+        post_id: slide.post_id,
+        step: "generate_image",
+        provider: "acervo",
+        model: null,
+        response_summary: { image_type: slide.image_type, acervo_id: slide.acervo_id },
+        custo_usd: 0,
+        duracao_ms: Date.now() - t0,
+        success: true,
+      });
+
+      return new Response(
+        JSON.stringify({ url: slide.raw_image_url, source: "acervo", cost: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (!slide.image_brief) {
+      await admin.from("imagery_slides").update({ status: "ready" }).eq("id", slideId);
+      return new Response(JSON.stringify({ skipped: true, source: "sem_brief" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -147,7 +183,7 @@ Deno.serve(async (req) => {
       success: true,
     });
 
-    return new Response(JSON.stringify({ url: signedUrl, model, cost }), {
+    return new Response(JSON.stringify({ url: signedUrl, model, cost, source: "gerado" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

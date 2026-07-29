@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
+import { BRAND_SLUG } from "../_shared/acervo.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -69,6 +70,16 @@ REGRAS DE TEXTO:
 DISTRIBUIÇÃO:
 - n_slides = 1: exatamente 1 slide T01_CAPA.
 - n_slides > 1: slide 1 = T01_CAPA, último = T05_CTA, miolo mistura T02_CENA, T03_DADO e T04_LISTA.
+
+TIPOS DE IMAGEM (image_type) — escolha o que a cena pede:
+- aerea: vista de drone do loteamento, a malha de lotes na encosta, a mata em volta,
+  o rio cortando o terreno. PREFIRA ESTE quando o slide fala do empreendimento em si,
+  da localização ou da dimensão do projeto — é o acervo mais forte da marca.
+- paisagem: a serra, a mata, o horizonte, sem foco no loteamento.
+- arquitetura: Paraty histórica, casario colonial, ruas de pedra.
+- agua: o rio Perequê-Açu, cachoeiras, poços.
+- detalhe: close tátil — pedra molhada, samambaia, madeira, telha.
+- vida: o cotidiano de quem mora aqui, sem rostos para a câmera.
 
 image_brief (40-80 palavras, em inglês, para o gerador de imagem):
 - Cena concreta e específica do tema, em Paraty ou na Mata Atlântica.
@@ -219,7 +230,7 @@ Gere a estrutura completa.`;
                       needs_image: { type: "boolean" },
                       image_type: {
                         type: "string",
-                        enum: ["paisagem", "detalhe", "arquitetura", "agua", "vida"],
+                        enum: ["aerea", "paisagem", "detalhe", "arquitetura", "agua", "vida"],
                       },
                       image_brief: { type: "string", description: "Brief visual em inglês, 40-80 palavras" },
                     },
@@ -302,20 +313,52 @@ Gere a estrutura completa.`;
           : idx === requestedSlides - 1
             ? "T05_CTA"
             : (s.template_id ?? "T02_CENA"),
-      needs_image: true,
     }));
 
-    // deno-lint-ignore no-explicit-any
-    const slidesRows = normalizedSlides.map((s: any) => ({
-      post_id: post.id,
-      slide_n: s.slide_n,
-      template_id: s.template_id,
-      needs_image: true,
-      image_type: s.image_type ?? "paisagem",
-      image_brief: s.image_brief ?? null,
-      copy_data: { headline: s.headline, sub_text: s.sub_text ?? null },
-      status: "pending",
-    }));
+    // A origem da imagem é decidida AQUI, no servidor — não pelo modelo. Para
+    // cada slide que precisa de imagem, tentamos primeiro o acervo de fotos
+    // reais do empreendimento; gerar por IA é a exceção.
+    const slidesRows = [];
+    for (const s of normalizedSlides) {
+      const precisaImagem = s.needs_image !== false;
+      const imageType = s.image_type ?? "paisagem";
+
+      let imageSource = precisaImagem ? "gerar" : "nenhuma";
+      let acervoId: string | null = null;
+      let rawImageUrl: string | null = null;
+
+      if (precisaImagem) {
+        // pick_acervo_image já filtra por brand_slug, ignora contem_pessoas e
+        // incrementa o uso atomicamente (rotação menos-usado-recentemente).
+        const { data: fundo, error: acervoErr } = await admin.rpc("pick_acervo_image", {
+          p_tag: imageType,
+          p_brand_slug: BRAND_SLUG,
+        });
+        if (acervoErr) {
+          // Falha no acervo não pode derrubar o post: cai para geração.
+          console.error("pick_acervo_image falhou:", acervoErr.message);
+        } else if (fundo?.file_url) {
+          imageSource = "acervo";
+          acervoId = fundo.id;
+          rawImageUrl = fundo.file_url;
+        }
+      }
+
+      slidesRows.push({
+        post_id: post.id,
+        slide_n: s.slide_n,
+        template_id: s.template_id,
+        needs_image: precisaImagem,
+        image_type: imageType,
+        image_brief: s.image_brief ?? null,
+        image_source: imageSource,
+        acervo_id: acervoId,
+        raw_image_url: rawImageUrl,
+        copy_data: { headline: s.headline, sub_text: s.sub_text ?? null },
+        status: "pending",
+      });
+    }
+
     const { error: slidesErr } = await admin.from("imagery_slides").insert(slidesRows);
     if (slidesErr) throw slidesErr;
 

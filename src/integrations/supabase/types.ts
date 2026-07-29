@@ -255,6 +255,68 @@ export type Database = {
           },
         ]
       }
+      imagery_acervo: {
+        Row: {
+          ativo: boolean
+          brand_slug: string
+          contem_pessoas: boolean
+          created_at: string
+          file_path: string
+          file_url: string
+          id: string
+          last_used_at: string | null
+          origem: string
+          slide_id: string | null
+          tag_tipo: string
+          titulo: string | null
+          updated_at: string
+          uso_count: number
+          validation_media: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          brand_slug?: string
+          contem_pessoas?: boolean
+          created_at?: string
+          file_path: string
+          file_url: string
+          id?: string
+          last_used_at?: string | null
+          origem: string
+          slide_id?: string | null
+          tag_tipo: string
+          titulo?: string | null
+          updated_at?: string
+          uso_count?: number
+          validation_media?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          brand_slug?: string
+          contem_pessoas?: boolean
+          created_at?: string
+          file_path?: string
+          file_url?: string
+          id?: string
+          last_used_at?: string | null
+          origem?: string
+          slide_id?: string | null
+          tag_tipo?: string
+          titulo?: string | null
+          updated_at?: string
+          uso_count?: number
+          validation_media?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imagery_acervo_slide_id_fkey"
+            columns: ["slide_id"]
+            isOneToOne: false
+            referencedRelation: "imagery_slides"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imagery_logs: {
         Row: {
           created_at: string
@@ -386,12 +448,14 @@ export type Database = {
       }
       imagery_slides: {
         Row: {
+          acervo_id: string | null
           copy_data: Json | null
           created_at: string
           error_message: string | null
           final_png_url: string | null
           id: string
           image_brief: string | null
+          image_source: string | null
           image_type: string | null
           needs_image: boolean
           post_id: string
@@ -405,12 +469,14 @@ export type Database = {
           validation_score: Json | null
         }
         Insert: {
+          acervo_id?: string | null
           copy_data?: Json | null
           created_at?: string
           error_message?: string | null
           final_png_url?: string | null
           id?: string
           image_brief?: string | null
+          image_source?: string | null
           image_type?: string | null
           needs_image?: boolean
           post_id: string
@@ -424,12 +490,14 @@ export type Database = {
           validation_score?: Json | null
         }
         Update: {
+          acervo_id?: string | null
           copy_data?: Json | null
           created_at?: string
           error_message?: string | null
           final_png_url?: string | null
           id?: string
           image_brief?: string | null
+          image_source?: string | null
           image_type?: string | null
           needs_image?: boolean
           post_id?: string

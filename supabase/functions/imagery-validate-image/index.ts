@@ -3,6 +3,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { guardInternalCall } from "../_shared/internal-auth.ts";
+import {
+  ACERVO_PREFIX,
+  AUTO_ARQUIVO_NOTA_MINIMA,
+  AUTO_ARQUIVO_TAGS,
+  BRAND_SLUG,
+} from "../_shared/acervo.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -124,6 +130,35 @@ Deno.serve(async (req) => {
       duracao_ms: Date.now() - t0,
       success: true,
     });
+
+    // Auto-arquivamento: imagem gerada que passou com nota alta vira fundo
+    // reutilizável, poupando uma geração futura. "vida" fica de fora — é a
+    // única direção que descreve pessoas, e o acervo automático não deve
+    // acumular material com gente identificável.
+    if (
+      score.decisao === "keep" &&
+      score.media >= AUTO_ARQUIVO_NOTA_MINIMA &&
+      AUTO_ARQUIVO_TAGS.includes(slide.image_type ?? "") &&
+      slide.raw_image_url
+    ) {
+      // O caminho original fica sob {post_id}/; registramos com prefixo de
+      // acervo para o inventário ficar distinguível do material do post.
+      const filePath = `${ACERVO_PREFIX}/gerado/${slide.id}.png`;
+      const { error: acervoErr } = await admin.from("imagery_acervo").insert({
+        brand_slug: BRAND_SLUG,
+        file_path: filePath,
+        file_url: slide.raw_image_url,
+        tag_tipo: slide.image_type,
+        origem: "gerado_aprovado",
+        titulo: `Gerada · ${slide.image_type} · nota ${score.media}`,
+        slide_id,
+        validation_media: score.media,
+      });
+      // Conflito de file_path = já arquivada; qualquer falha aqui é acessória.
+      if (acervoErr && acervoErr.code !== "23505") {
+        console.error("auto-arquivamento no acervo falhou:", acervoErr.message);
+      }
+    }
 
     return new Response(JSON.stringify(score), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

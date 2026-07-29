@@ -66,6 +66,7 @@ type SlideRow = {
   status: string;
   needs_image: boolean | null;
   image_type: string | null;
+  image_source: string | null;
   final_png_url: string | null;
   raw_image_url: string | null;
   error_message: string | null;
@@ -570,8 +571,13 @@ export function CreatePostTab() {
                   uma segunda tentativa.
                 </p>
                 <p>
-                  São {slides.filter((s) => s.needs_image !== false).length} imagem(ns) geradas por
-                  IA. O valor é cobrado mesmo que você descarte o resultado.
+                  São{" "}
+                  {
+                    slides.filter((s) => s.needs_image !== false && s.image_source === "gerar")
+                      .length
+                  }{" "}
+                  imagem(ns) geradas por IA — as demais vêm do acervo, sem custo. O valor é cobrado
+                  mesmo que você descarte o resultado.
                 </p>
               </div>
             </AlertDialogDescription>

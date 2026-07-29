@@ -27,7 +27,16 @@ async function callFn(name: string, body: unknown, authHeader: string) {
 }
 
 // deno-lint-ignore no-explicit-any
-async function processSlide(slideId: string, needsImage: boolean, authHeader: string, admin: any) {
+async function processSlide(
+  slideId: string,
+  needsImage: boolean,
+  imageSource: string | null,
+  authHeader: string,
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+) {
+  // Fundo de acervo não passa por validação: é foto real, já curada por humano.
+  const validaImagem = needsImage && imageSource !== "acervo";
   if (needsImage) {
     const gen = await callFn("imagery-generate-image", { slide_id: slideId }, authHeader);
     if (!gen.ok) {
@@ -38,7 +47,9 @@ async function processSlide(slideId: string, needsImage: boolean, authHeader: st
       return;
     }
 
-    const val = await callFn("imagery-validate-image", { slide_id: slideId }, authHeader);
+    const val = validaImagem
+      ? await callFn("imagery-validate-image", { slide_id: slideId }, authHeader)
+      : { ok: true, status: 200, json: { decisao: "keep" }, text: "" };
     if (!val.ok) {
       console.warn("validação falhou, seguindo:", val.text.slice(0, 200));
     } else if (val.json?.decisao === "retry") {
@@ -87,13 +98,13 @@ async function processPost(postId: string, authHeader: string) {
   try {
     const { data: slides, error } = await admin
       .from("imagery_slides")
-      .select("id, needs_image, slide_n")
+      .select("id, needs_image, slide_n, image_source")
       .eq("post_id", postId)
       .order("slide_n");
     if (error) throw error;
 
     for (const slide of slides ?? []) {
-      await processSlide(slide.id, slide.needs_image, authHeader, admin);
+      await processSlide(slide.id, slide.needs_image, slide.image_source, authHeader, admin);
     }
 
     // Aguarda o compose assíncrono assentar antes de fechar o post

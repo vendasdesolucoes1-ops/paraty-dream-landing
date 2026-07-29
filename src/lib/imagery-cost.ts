@@ -50,12 +50,20 @@ export function estimatePostCost(nSlides: number): CostEstimate {
  * pedem imagem e qual modelo cada tipo aciona.
  */
 export function estimatePlannedCost(
-  slides: { needs_image?: boolean | null; template_id?: string | null }[],
+  slides: {
+    needs_image?: boolean | null;
+    template_id?: string | null;
+    image_source?: string | null;
+  }[],
 ): CostEstimate {
   let estimado = 0;
   let maximo = 0;
   for (const slide of slides) {
+    // Texto puro não pede imagem; fundo de acervo é foto real já paga, e nem
+    // passa pela validação. Nenhum dos dois entra na conta.
     if (slide.needs_image === false) continue;
+    if (slide.image_source === "acervo" || slide.image_source === "nenhuma") continue;
+
     const imageCost = isProTemplate(slide.template_id) ? COST_IMAGE_PRO : COST_IMAGE_FLASH;
     estimado += imageCost + COST_VALIDATE;
     // O orchestrate permite no máximo 1 retry por slide.
