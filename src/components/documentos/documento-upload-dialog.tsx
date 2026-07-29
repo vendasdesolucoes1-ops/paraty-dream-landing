@@ -218,26 +218,58 @@ export function DocumentoUploadDialog({
             )}
           >
             <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-            {file ? (
-              <p className="text-sm font-medium">{file.name}</p>
+            {files.length > 0 ? (
+              <p className="text-sm font-medium">
+                {files.length} arquivo{files.length === 1 ? "" : "s"} selecionado
+                {files.length === 1 ? "" : "s"} — clique para adicionar mais
+              </p>
             ) : (
               <>
-                <p className="text-sm">Arraste um arquivo aqui ou clique para selecionar</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG</p>
+                <p className="text-sm">Arraste arquivos aqui ou clique para selecionar</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PDF, JPG ou PNG — pode escolher vários
+                </p>
               </>
             )}
             <input
               ref={fileInputRef}
               type="file"
               accept="application/pdf,image/*"
-              capture="environment"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const chosen = e.target.files?.[0];
-                if (chosen) handleFileChosen(chosen);
+                handleFilesChosen(Array.from(e.target.files ?? []));
+                e.target.value = "";
               }}
             />
           </div>
+
+          {files.length > 0 ? (
+            <ul className="space-y-1">
+              {files.map((f, index) => (
+                <li
+                  key={`${f.name}-${f.size}-${index}`}
+                  className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <span className="truncate flex-1">{f.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {(f.size / 1024).toFixed(0)} KB
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => removeFile(index)}
+                    aria-label={`Remover ${f.name}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
 
           <div className="space-y-2">
             <Label htmlFor="doc-titulo">Título</Label>
