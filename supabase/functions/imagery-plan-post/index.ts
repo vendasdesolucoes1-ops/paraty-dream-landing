@@ -222,12 +222,19 @@ Gere a estrutura completa.`;
         .from("imagery_posts")
         .update({ status: "failed", error_message: `Planner: ${aiResp.status} ${txt.slice(0, 200)}` })
         .eq("id", post.id);
-      const status = aiResp.status === 429 || aiResp.status === 402 ? aiResp.status : 500;
+      if (aiResp.status === 402) {
+        return new Response(
+          JSON.stringify({
+            error: "Créditos de IA esgotados. Adicione créditos no workspace.",
+            details: txt,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const status = aiResp.status === 429 ? aiResp.status : 500;
       const error = aiResp.status === 429
         ? "Limite de requisições atingido. Tente em alguns segundos."
-        : aiResp.status === 402
-          ? "Créditos de IA esgotados. Adicione créditos no workspace."
-          : "Erro no serviço de IA";
+        : "Erro no serviço de IA";
       return new Response(JSON.stringify({ error, details: txt.slice(0, 300) }), {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
