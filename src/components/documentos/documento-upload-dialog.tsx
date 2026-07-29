@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Upload } from "lucide-react";
+import { Check, ChevronsUpDown, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -394,7 +394,7 @@ export function DocumentoUploadDialog({
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={!file || mutation.isPending}>
+          <Button onClick={() => mutation.mutate()} disabled={files.length === 0 || mutation.isPending}>
             {mutation.isPending ? "Enviando..." : "Enviar"}
           </Button>
         </DialogFooter>
