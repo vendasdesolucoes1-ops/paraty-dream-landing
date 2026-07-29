@@ -1,13 +1,22 @@
 // Aba "Galeria" — KPIs do Imagery Engine e histórico de posts gerados.
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Instagram, Loader2, Trash2, ExternalLink } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Instagram,
+  Loader2,
+  Maximize2,
+  Trash2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +42,13 @@ type PostRow = {
   copy_data: { titulo?: string; caption?: string } | null;
 };
 
+type SlideRow = {
+  id: string;
+  slide_n: number;
+  final_png_url: string | null;
+  raw_image_url: string | null;
+};
+
 const STATUS_STYLE: Record<string, string> = {
   planning: "bg-muted text-muted-foreground",
   draft: "bg-muted text-muted-foreground",
@@ -54,6 +70,11 @@ const STATUS_LABEL: Record<string, string> = {
 export function PostsGalleryTab() {
   const queryClient = useQueryClient();
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  // Lightbox: só o post aberto tem os slides buscados, para não carregar as
+  // artes de toda a galeria de uma vez.
+  const [previewPostId, setPreviewPostId] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["imagery-posts"],
@@ -76,7 +97,10 @@ export function PostsGalleryTab() {
       const { data, error } = await supabase
         .from("imagery_slides")
         .select("post_id, slide_n, final_png_url")
-        .in("post_id", (posts ?? []).map((p) => p.id))
+        .in(
+          "post_id",
+          (posts ?? []).map((p) => p.id),
+        )
         .eq("slide_n", 1);
       if (error) throw error;
       return Object.fromEntries(
@@ -84,6 +108,52 @@ export function PostsGalleryTab() {
       );
     },
   });
+
+  const { data: previewSlides, isLoading: previewLoading } = useQuery({
+    queryKey: ["imagery-preview-slides", previewPostId],
+    enabled: !!previewPostId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("imagery_slides")
+        .select("id, slide_n, final_png_url, raw_image_url")
+        .eq("post_id", previewPostId!)
+        .order("slide_n");
+      if (error) throw error;
+      // A arte composta é o final_png_url; a foto crua serve de fallback para
+      // slides que ainda não passaram pelo compose.
+      return (data as unknown as SlideRow[]).filter((s) => s.final_png_url || s.raw_image_url);
+    },
+  });
+
+  const previewPost = (posts ?? []).find((p) => p.id === previewPostId) ?? null;
+  const previewTotal = previewSlides?.length ?? 0;
+  const currentSlide = previewSlides?.[previewIndex] ?? null;
+
+  const goPrev = useCallback(
+    () => setPreviewIndex((i) => (previewTotal ? (i - 1 + previewTotal) % previewTotal : 0)),
+    [previewTotal],
+  );
+  const goNext = useCallback(
+    () => setPreviewIndex((i) => (previewTotal ? (i + 1) % previewTotal : 0)),
+    [previewTotal],
+  );
+
+  // Setas do teclado navegam o carrossel. ESC e clique fora já são tratados
+  // pelo Dialog.
+  useEffect(() => {
+    if (!previewPostId || previewTotal < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewPostId, previewTotal, goPrev, goNext]);
+
+  function openPreview(postId: string) {
+    setPreviewIndex(0);
+    setPreviewPostId(postId);
+  }
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -158,15 +228,25 @@ export function PostsGalleryTab() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {(posts ?? []).map((post) => (
                 <Card key={post.id} className="overflow-hidden shadow-sm">
-                  <div className="aspect-square bg-muted">
-                    {covers?.[post.id] ? (
+                  {covers?.[post.id] ? (
+                    <button
+                      type="button"
+                      onClick={() => openPreview(post.id)}
+                      className="group relative block aspect-square w-full overflow-hidden bg-muted"
+                      title="Ver a arte em tamanho cheio"
+                    >
                       <img
                         src={covers[post.id]!}
                         alt={post.copy_data?.titulo ?? post.tema}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                       />
-                    ) : null}
-                  </div>
+                      <span className="absolute inset-0 flex items-center justify-center bg-forest-deep/0 opacity-0 transition-all duration-200 group-hover:bg-forest-deep/40 group-hover:opacity-100 group-focus-visible:bg-forest-deep/40 group-focus-visible:opacity-100">
+                        <Maximize2 className="h-7 w-7 text-ivory" />
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="aspect-square bg-muted" />
+                  )}
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <Badge className={`font-normal ${STATUS_STYLE[post.status] ?? ""}`}>
@@ -199,9 +279,11 @@ export function PostsGalleryTab() {
                           disabled={publishingId === post.id}
                           onClick={() => publish(post.id)}
                         >
-                          {publishingId === post.id
-                            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                            : <Instagram className="h-3.5 w-3.5 mr-1" />}
+                          {publishingId === post.id ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <Instagram className="h-3.5 w-3.5 mr-1" />
+                          )}
                           Publicar
                         </Button>
                       ) : null}
@@ -236,6 +318,97 @@ export function PostsGalleryTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Lightbox — usa a MESMA signed URL já gravada em imagery_slides.
+          Nenhum acesso novo é gerado e o bucket segue privado. */}
+      <Dialog
+        open={!!previewPostId}
+        onOpenChange={(open) => {
+          if (!open) setPreviewPostId(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-display pr-6">
+              {previewPost?.copy_data?.titulo || previewPost?.tema || "Arte gerada"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div
+            className="relative flex items-center justify-center"
+            onTouchStart={(e) => {
+              touchStartX.current = e.touches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              const start = touchStartX.current;
+              touchStartX.current = null;
+              if (start == null || previewTotal < 2) return;
+              const delta = (e.changedTouches[0]?.clientX ?? start) - start;
+              if (Math.abs(delta) < 40) return;
+              if (delta > 0) goPrev();
+              else goNext();
+            }}
+          >
+            {previewLoading ? (
+              <Skeleton className="aspect-square w-full max-w-xl rounded-lg" />
+            ) : currentSlide ? (
+              <img
+                src={(currentSlide.final_png_url ?? currentSlide.raw_image_url)!}
+                alt={`Slide ${currentSlide.slide_n}`}
+                className="max-h-[70vh] w-auto max-w-full rounded-lg object-contain"
+              />
+            ) : (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                Este post ainda não tem arte gerada.
+              </p>
+            )}
+
+            {previewTotal > 1 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={goPrev}
+                  aria-label="Slide anterior"
+                  className="absolute left-2 h-9 w-9 rounded-full bg-card/90 shadow-sm"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={goNext}
+                  aria-label="Próximo slide"
+                  className="absolute right-2 h-9 w-9 rounded-full bg-card/90 shadow-sm"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </>
+            ) : null}
+          </div>
+
+          {previewTotal > 1 ? (
+            <div className="flex items-center justify-center gap-2">
+              {previewSlides!.map((slide, i) => (
+                <button
+                  key={slide.id}
+                  type="button"
+                  onClick={() => setPreviewIndex(i)}
+                  aria-label={`Ir para o slide ${i + 1}`}
+                  className={`h-2 rounded-full transition-all ${
+                    i === previewIndex ? "w-6 bg-primary" : "w-2 bg-muted-foreground/30"
+                  }`}
+                />
+              ))}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {previewIndex + 1} / {previewTotal}
+              </span>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
