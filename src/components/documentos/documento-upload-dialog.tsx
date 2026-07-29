@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Upload } from "lucide-react";
+import { Check, ChevronsUpDown, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -48,18 +48,34 @@ function titleFromFileName(name: string) {
 
 export function DocumentoUploadDialog({
   defaultLead,
+  defaultProcesso,
   trigger,
+  open: openProp,
+  onOpenChange,
 }: {
   defaultLead?: Pick<Lead, "id" | "nome">;
+  defaultProcesso?: { id: string; titulo: string };
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [open, setOpen] = useState(false);
+  const initialProcesso: ProcessoFieldValue = defaultProcesso
+    ? {
+        ...EMPTY_PROCESSO_VALUE,
+        processoId: defaultProcesso.id,
+        processoLabel: defaultProcesso.titulo,
+      }
+    : EMPTY_PROCESSO_VALUE;
+
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [dragActive, setDragActive] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [titulo, setTitulo] = useState("");
   const [categoria, setCategoria] = useState<DocumentoCategoria>("outro");
   const [leadId, setLeadId] = useState<string>(defaultLead?.id ?? "");
@@ -67,29 +83,39 @@ export function DocumentoUploadDialog({
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [tags, setTags] = useState("");
-  const [processo, setProcesso] = useState<ProcessoFieldValue>(EMPTY_PROCESSO_VALUE);
+  const [processo, setProcesso] = useState<ProcessoFieldValue>(initialProcesso);
 
   function resetForm() {
-    setFile(null);
+    setFiles([]);
     setTitulo("");
     setCategoria("outro");
     setLeadId(defaultLead?.id ?? "");
     setLeadLabel(defaultLead?.nome ?? "");
     setTags("");
     setLeadSearch("");
-    setProcesso(EMPTY_PROCESSO_VALUE);
+    setProcesso(initialProcesso);
   }
 
-  function handleFileChosen(chosen: File) {
-    setFile(chosen);
-    setTitulo((current) => current || titleFromFileName(chosen.name));
+  function handleFilesChosen(chosen: File[]) {
+    if (chosen.length === 0) return;
+    setFiles((current) => {
+      const merged = [...current];
+      for (const f of chosen) {
+        if (!merged.some((m) => m.name === f.name && m.size === f.size)) merged.push(f);
+      }
+      return merged;
+    });
+    setTitulo((current) => current || titleFromFileName(chosen[0].name));
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, i) => i !== index));
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragActive(false);
-    const dropped = event.dataTransfer.files?.[0];
-    if (dropped) handleFileChosen(dropped);
+    handleFilesChosen(Array.from(event.dataTransfer.files ?? []));
   }
 
   const { data: leadResults } = useQuery({
@@ -109,40 +135,51 @@ export function DocumentoUploadDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Selecione um arquivo.");
-      if (!titulo.trim()) throw new Error("Informe um título.");
+      if (files.length === 0) throw new Error("Selecione ao menos um arquivo.");
+      if (files.length === 1 && !titulo.trim()) throw new Error("Informe um título.");
 
       const processoId = await resolveProcessoId(processo);
-
-      const ext = extensionFromFile(file);
-      const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
-      const contentType = resolveContentType(file, ext);
-
-      const { error: uploadError } = await supabase.storage
-        .from(DOCUMENTOS_BUCKET)
-        .upload(storagePath, file, { contentType });
-      if (uploadError) throw uploadError;
 
       const tagList = tags
         .split(",")
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      const { error: insertError } = await supabase.from("documentos").insert({
-        titulo: titulo.trim(),
-        categoria,
-        lead_id: leadId || null,
-        processo_id: processoId,
-        storage_path: storagePath,
-        tipo_arquivo: ext,
-        tamanho_bytes: file.size,
-        uploaded_by: user?.id ?? null,
-        tags: tagList.length > 0 ? tagList : null,
-      });
-      if (insertError) throw insertError;
+      for (const [index, file] of files.entries()) {
+        const ext = extensionFromFile(file);
+        const storagePath = `${categoria}/${crypto.randomUUID()}.${ext}`;
+        const contentType = resolveContentType(file, ext);
+
+        const { error: uploadError } = await supabase.storage
+          .from(DOCUMENTOS_BUCKET)
+          .upload(storagePath, file, { contentType });
+        if (uploadError) throw uploadError;
+
+        const docTitulo =
+          files.length === 1
+            ? titulo.trim()
+            : index === 0 && titulo.trim()
+              ? titulo.trim()
+              : titleFromFileName(file.name) || file.name;
+
+        const { error: insertError } = await supabase.from("documentos").insert({
+          titulo: docTitulo,
+          categoria,
+          lead_id: leadId || null,
+          processo_id: processoId,
+          storage_path: storagePath,
+          tipo_arquivo: ext,
+          tamanho_bytes: file.size,
+          uploaded_by: user?.id ?? null,
+          tags: tagList.length > 0 ? tagList : null,
+        });
+        if (insertError) throw insertError;
+      }
+
+      return files.length;
     },
-    onSuccess: () => {
-      toast.success("Documento enviado.");
+    onSuccess: (count) => {
+      toast.success(count === 1 ? "Documento enviado." : `${count} documentos enviados.`);
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
       queryClient.invalidateQueries({ queryKey: ["processos"] });
       resetForm();
@@ -150,6 +187,7 @@ export function DocumentoUploadDialog({
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao enviar o documento."),
   });
+
 
   return (
     <Dialog
@@ -162,7 +200,7 @@ export function DocumentoUploadDialog({
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar documento</DialogTitle>
+          <DialogTitle>Enviar documentos</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -180,26 +218,58 @@ export function DocumentoUploadDialog({
             )}
           >
             <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-            {file ? (
-              <p className="text-sm font-medium">{file.name}</p>
+            {files.length > 0 ? (
+              <p className="text-sm font-medium">
+                {files.length} arquivo{files.length === 1 ? "" : "s"} selecionado
+                {files.length === 1 ? "" : "s"} — clique para adicionar mais
+              </p>
             ) : (
               <>
-                <p className="text-sm">Arraste um arquivo aqui ou clique para selecionar</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG</p>
+                <p className="text-sm">Arraste arquivos aqui ou clique para selecionar</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  PDF, JPG ou PNG — pode escolher vários
+                </p>
               </>
             )}
             <input
               ref={fileInputRef}
               type="file"
               accept="application/pdf,image/*"
-              capture="environment"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const chosen = e.target.files?.[0];
-                if (chosen) handleFileChosen(chosen);
+                handleFilesChosen(Array.from(e.target.files ?? []));
+                e.target.value = "";
               }}
             />
           </div>
+
+          {files.length > 0 ? (
+            <ul className="space-y-1">
+              {files.map((f, index) => (
+                <li
+                  key={`${f.name}-${f.size}-${index}`}
+                  className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <span className="truncate flex-1">{f.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {(f.size / 1024).toFixed(0)} KB
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => removeFile(index)}
+                    aria-label={`Remover ${f.name}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
 
           <div className="space-y-2">
             <Label htmlFor="doc-titulo">Título</Label>
@@ -324,7 +394,7 @@ export function DocumentoUploadDialog({
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={!file || mutation.isPending}>
+          <Button onClick={() => mutation.mutate()} disabled={files.length === 0 || mutation.isPending}>
             {mutation.isPending ? "Enviando..." : "Enviar"}
           </Button>
         </DialogFooter>
