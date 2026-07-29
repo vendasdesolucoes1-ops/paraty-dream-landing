@@ -12,6 +12,7 @@ import {
   Wrench,
   Megaphone,
   Settings,
+  UserCheck,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -25,6 +26,8 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
+  // Carteira de comprador: pós-venda é responsabilidade de admin/gestor.
+  { to: "/dashboard/clientes", label: "Clientes", icon: UserCheck, hideFor: ["vendedor"] },
   { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
   { to: "/dashboard/lotes", label: "Lotes", icon: Map },
   {

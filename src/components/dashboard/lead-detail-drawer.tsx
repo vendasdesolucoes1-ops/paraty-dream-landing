@@ -59,6 +59,7 @@ import { VisitaCard } from "@/components/agenda/visita-card";
 import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-dialog";
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
+import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -760,6 +761,8 @@ export function LeadDetailDrawer({
   const { profile } = useProfile();
   const canSeeDocumentos = profile?.role === "admin" || profile?.role === "gestor";
   const canDelete = profile?.role === "admin" || profile?.role === "gestor";
+  // Carteira de comprador é restrita: vendedor não converte nem enxerga cliente.
+  const canSeeClientes = profile?.role === "admin" || profile?.role === "gestor";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -813,6 +816,8 @@ export function LeadDetailDrawer({
                 <VisitasTab lead={lead} />
               </TabsContent>
             </Tabs>
+
+            {canSeeClientes ? <LeadClienteSection lead={lead} /> : null}
 
             {canDelete ? (
               <LeadDeleteSection lead={lead} onDeleted={() => onOpenChange(false)} />

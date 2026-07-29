@@ -19,6 +19,7 @@ import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/fer
 import { Route as DashboardDocumentosRouteImport } from './routes/dashboard/documentos'
 import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
 import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
+import { Route as DashboardClientesRouteImport } from './routes/dashboard/clientes'
 import { Route as DashboardAgendaRouteImport } from './routes/dashboard/agenda'
 
 const LoginRoute = LoginRouteImport.update({
@@ -71,6 +72,11 @@ const DashboardConfiguracoesRoute = DashboardConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardClientesRoute = DashboardClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardAgendaRoute = DashboardAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
   '/dashboard/documentos': typeof DashboardDocumentosRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
   '/dashboard/documentos': typeof DashboardDocumentosRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
   '/dashboard/documentos': typeof DashboardDocumentosRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
     | '/dashboard/documentos'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
     | '/dashboard/documentos'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
     | '/dashboard/documentos'
@@ -235,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardConfiguracoesRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/clientes': {
+      id: '/dashboard/clientes'
+      path: '/clientes'
+      fullPath: '/dashboard/clientes'
+      preLoaderRoute: typeof DashboardClientesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/agenda': {
       id: '/dashboard/agenda'
       path: '/agenda'
@@ -247,6 +266,7 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteRouteChildren {
   DashboardAgendaRoute: typeof DashboardAgendaRoute
+  DashboardClientesRoute: typeof DashboardClientesRoute
   DashboardConfiguracoesRoute: typeof DashboardConfiguracoesRoute
   DashboardCrmRoute: typeof DashboardCrmRoute
   DashboardDocumentosRoute: typeof DashboardDocumentosRoute
@@ -258,6 +278,7 @@ interface DashboardRouteRouteChildren {
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAgendaRoute: DashboardAgendaRoute,
+  DashboardClientesRoute: DashboardClientesRoute,
   DashboardConfiguracoesRoute: DashboardConfiguracoesRoute,
   DashboardCrmRoute: DashboardCrmRoute,
   DashboardDocumentosRoute: DashboardDocumentosRoute,
@@ -279,3 +300,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

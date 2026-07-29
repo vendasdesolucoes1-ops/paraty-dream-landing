@@ -49,12 +49,15 @@ function titleFromFileName(name: string) {
 export function DocumentoUploadDialog({
   defaultLead,
   defaultProcesso,
+  defaultCompraId,
   trigger,
   open: openProp,
   onOpenChange,
 }: {
   defaultLead?: Pick<Lead, "id" | "nome">;
   defaultProcesso?: { id: string; titulo: string };
+  /** Amarra o documento a uma compra (lote), para a ficha do cliente. */
+  defaultCompraId?: string;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -167,6 +170,7 @@ export function DocumentoUploadDialog({
           categoria,
           lead_id: leadId || null,
           processo_id: processoId,
+          compra_id: defaultCompraId ?? null,
           storage_path: storagePath,
           tipo_arquivo: ext,
           tamanho_bytes: file.size,
@@ -187,7 +191,6 @@ export function DocumentoUploadDialog({
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao enviar o documento."),
   });
-
 
   return (
     <Dialog
@@ -269,7 +272,6 @@ export function DocumentoUploadDialog({
               ))}
             </ul>
           ) : null}
-
 
           <div className="space-y-2">
             <Label htmlFor="doc-titulo">Título</Label>
@@ -394,7 +396,10 @@ export function DocumentoUploadDialog({
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={files.length === 0 || mutation.isPending}>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={files.length === 0 || mutation.isPending}
+          >
             {mutation.isPending ? "Enviando..." : "Enviar"}
           </Button>
         </DialogFooter>

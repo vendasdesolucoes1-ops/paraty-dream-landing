@@ -95,6 +95,7 @@ export interface Documento {
   categoria: DocumentoCategoria;
   lead_id: string | null;
   processo_id: string | null;
+  compra_id: string | null;
   storage_path: string;
   tipo_arquivo: string;
   tamanho_bytes: number | null;
@@ -103,6 +104,70 @@ export interface Documento {
   observacoes: string | null;
   created_at: string;
 }
+
+// Cliente comprador: já comprou. Diferente de lead, que ainda percorre o funil.
+export interface Cliente {
+  id: string;
+  lead_id: string | null;
+  nome: string;
+  cpf: string | null;
+  rg: string | null;
+  telefone: string | null;
+  email: string | null;
+  data_nascimento: string | null;
+  estado_civil: string | null;
+  profissao: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  cep: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CompraStatus = "ativo" | "quitado" | "distratado" | "inadimplente";
+
+export interface Compra {
+  id: string;
+  cliente_id: string;
+  lote_id: string | null;
+  numero_contrato: string | null;
+  data_compra: string | null;
+  valor_total: number | null;
+  valor_entrada: number | null;
+  num_parcelas: number | null;
+  valor_parcela: number | null;
+  dia_vencimento: number | null;
+  data_primeira_parcela: string | null;
+  status: CompraStatus;
+  escritura_emitida: boolean;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompraWithLote extends Compra {
+  lote: Pick<Lote, "id" | "numero_lote" | "quadra" | "metragem"> | null;
+}
+
+export const COMPRA_STATUS_OPTIONS: { value: CompraStatus; label: string }[] = [
+  { value: "ativo", label: "Ativo" },
+  { value: "quitado", label: "Quitado" },
+  { value: "inadimplente", label: "Inadimplente" },
+  { value: "distratado", label: "Distratado" },
+];
+
+export const ESTADO_CIVIL_OPTIONS = [
+  "Solteiro(a)",
+  "Casado(a)",
+  "Divorciado(a)",
+  "Viúvo(a)",
+  "União estável",
+];
 
 export interface DocumentoWithLead extends Documento {
   lead: Pick<Lead, "id" | "nome"> | null;

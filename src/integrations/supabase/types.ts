@@ -188,9 +188,159 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          email: string | null
+          endereco: string | null
+          estado_civil: string | null
+          id: string
+          lead_id: string | null
+          nome: string
+          numero: string | null
+          observacoes: string | null
+          profissao: string | null
+          rg: string | null
+          telefone: string | null
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado_civil?: string | null
+          id?: string
+          lead_id?: string | null
+          nome: string
+          numero?: string | null
+          observacoes?: string | null
+          profissao?: string | null
+          rg?: string | null
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado_civil?: string | null
+          id?: string
+          lead_id?: string | null
+          nome?: string
+          numero?: string | null
+          observacoes?: string | null
+          profissao?: string | null
+          rg?: string | null
+          telefone?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compras: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_compra: string | null
+          data_primeira_parcela: string | null
+          dia_vencimento: number | null
+          escritura_emitida: boolean
+          id: string
+          lote_id: string | null
+          num_parcelas: number | null
+          numero_contrato: string | null
+          observacoes: string | null
+          status: string
+          updated_at: string
+          valor_entrada: number | null
+          valor_parcela: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_compra?: string | null
+          data_primeira_parcela?: string | null
+          dia_vencimento?: number | null
+          escritura_emitida?: boolean
+          id?: string
+          lote_id?: string | null
+          num_parcelas?: number | null
+          numero_contrato?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          valor_entrada?: number | null
+          valor_parcela?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_compra?: string | null
+          data_primeira_parcela?: string | null
+          dia_vencimento?: number | null
+          escritura_emitida?: boolean
+          id?: string
+          lote_id?: string | null
+          num_parcelas?: number | null
+          numero_contrato?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          valor_entrada?: number | null
+          valor_parcela?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
           categoria: string
+          compra_id: string | null
           created_at: string | null
           id: string
           lead_id: string | null
@@ -205,6 +355,7 @@ export type Database = {
         }
         Insert: {
           categoria: string
+          compra_id?: string | null
           created_at?: string | null
           id?: string
           lead_id?: string | null
@@ -219,6 +370,7 @@ export type Database = {
         }
         Update: {
           categoria?: string
+          compra_id?: string | null
           created_at?: string | null
           id?: string
           lead_id?: string | null
@@ -232,6 +384,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documentos_compra_id_fkey"
+            columns: ["compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documentos_lead_id_fkey"
             columns: ["lead_id"]
@@ -745,6 +904,7 @@ export type Database = {
       processos: {
         Row: {
           categoria: string
+          compra_id: string | null
           created_at: string | null
           id: string
           lead_id: string | null
@@ -753,6 +913,7 @@ export type Database = {
         }
         Insert: {
           categoria?: string
+          compra_id?: string | null
           created_at?: string | null
           id?: string
           lead_id?: string | null
@@ -761,6 +922,7 @@ export type Database = {
         }
         Update: {
           categoria?: string
+          compra_id?: string | null
           created_at?: string | null
           id?: string
           lead_id?: string | null
@@ -768,6 +930,13 @@ export type Database = {
           titulo?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "processos_compra_id_fkey"
+            columns: ["compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "processos_lead_id_fkey"
             columns: ["lead_id"]
