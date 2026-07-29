@@ -10,7 +10,7 @@ import {
   isPdfTipo,
 } from "@/lib/documento-utils";
 import { supabase } from "@/lib/supabase";
-import type { DocumentoWithLead } from "@/lib/types";
+import { compraLabel, type DocumentoWithLead } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +117,11 @@ export function DocumentoCard({
             {documento.lead ? (
               <Badge variant="outline" className="text-xs font-normal">
                 {documento.lead.nome}
+              </Badge>
+            ) : null}
+            {documento.compra ? (
+              <Badge variant="outline" className="text-xs font-normal border-gold text-forest-deep">
+                {compraLabel(documento.compra)}
               </Badge>
             ) : null}
           </div>

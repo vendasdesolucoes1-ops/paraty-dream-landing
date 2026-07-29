@@ -7,7 +7,9 @@ import {
   type DocumentoCategoria,
   type DocumentoWithLead,
 } from "@/lib/types";
+import { compraLabel } from "@/lib/types";
 import { ProcessoField } from "@/components/documentos/processo-field";
+import { CompraField } from "@/components/documentos/compra-field";
 import {
   EMPTY_PROCESSO_VALUE,
   resolveProcessoId,
@@ -44,11 +46,15 @@ export function DocumentoEditDialog({
   const [titulo, setTitulo] = useState("");
   const [categoria, setCategoria] = useState<DocumentoCategoria>("outro");
   const [processo, setProcesso] = useState<ProcessoFieldValue>(EMPTY_PROCESSO_VALUE);
+  const [compraId, setCompraId] = useState<string | null>(null);
+  const [compraRotulo, setCompraRotulo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !documento) return;
     setTitulo(documento.titulo);
     setCategoria(documento.categoria);
+    setCompraId(documento.compra_id);
+    setCompraRotulo(documento.compra ? compraLabel(documento.compra) : null);
     setProcesso(
       documento.processo_id
         ? {
@@ -73,6 +79,7 @@ export function DocumentoEditDialog({
           titulo: titulo.trim(),
           categoria,
           processo_id: processoId,
+          compra_id: compraId,
         })
         .eq("id", documento.id);
       if (error) throw error;
@@ -125,6 +132,15 @@ export function DocumentoEditDialog({
               </div>
 
               <ProcessoField value={processo} onChange={setProcesso} />
+
+              <CompraField
+                value={compraId}
+                label={compraRotulo}
+                onChange={(id, rotulo) => {
+                  setCompraId(id);
+                  setCompraRotulo(rotulo);
+                }}
+              />
             </div>
 
             <DialogFooter>

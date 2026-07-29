@@ -79,8 +79,18 @@ export interface Interacao {
   created_at: string;
 }
 
+// A coluna documentos.categoria é TEXT livre, sem CHECK no banco — esta lista é
+// a única fonte de verdade. Acrescentar valor aqui não pede migration; o que
+// não pode é remover valor já gravado, senão o rótulo do card fica vazio.
 export type DocumentoCategoria =
-  "institucional" | "contrato" | "documento_pessoal" | "proposta" | "outro";
+  | "institucional"
+  | "contrato"
+  | "escritura"
+  | "planta"
+  | "comprovante"
+  | "documento_pessoal"
+  | "proposta"
+  | "outro";
 
 export interface Processo {
   id: string;
@@ -172,13 +182,32 @@ export const ESTADO_CIVIL_OPTIONS = [
 export interface DocumentoWithLead extends Documento {
   lead: Pick<Lead, "id" | "nome"> | null;
   processo?: Pick<Processo, "id" | "titulo" | "categoria"> | null;
+  compra?: {
+    id: string;
+    lote: Pick<Lote, "numero_lote" | "quadra"> | null;
+    cliente: Pick<Cliente, "id" | "nome"> | null;
+  } | null;
+}
+
+/** Rótulo de uma compra nos seletores e badges: "Marcelo Max · Lote 69". */
+export function compraLabel(compra: {
+  lote?: Pick<Lote, "numero_lote" | "quadra"> | null;
+  cliente?: Pick<Cliente, "nome"> | null;
+}): string {
+  const lote = compra.lote
+    ? `Lote ${compra.lote.numero_lote}${compra.lote.quadra ? `/${compra.lote.quadra}` : ""}`
+    : "sem lote";
+  return `${compra.cliente?.nome ?? "Cliente"} · ${lote}`;
 }
 
 export const DOCUMENTO_CATEGORIA_OPTIONS: { value: DocumentoCategoria; label: string }[] = [
-  { value: "institucional", label: "Institucional" },
   { value: "contrato", label: "Contrato" },
-  { value: "documento_pessoal", label: "Documento Pessoal" },
+  { value: "escritura", label: "Escritura" },
+  { value: "planta", label: "Planta do lote" },
+  { value: "comprovante", label: "Comprovante" },
+  { value: "documento_pessoal", label: "RG / CPF / Documento pessoal" },
   { value: "proposta", label: "Proposta" },
+  { value: "institucional", label: "Institucional" },
   { value: "outro", label: "Outro" },
 ];
 

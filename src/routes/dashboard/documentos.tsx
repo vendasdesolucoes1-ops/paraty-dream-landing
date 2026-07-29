@@ -110,7 +110,6 @@ function ProcessoSection({
   );
 }
 
-
 function DocumentosPage() {
   const [categoriaFilter, setCategoriaFilter] = useState<DocumentoCategoria | "">("");
   const [search, setSearch] = useState("");
@@ -126,7 +125,9 @@ function DocumentosPage() {
     queryFn: async () => {
       let query = supabase
         .from("documentos")
-        .select("*, lead:leads(id, nome), processo:processos(id, titulo, categoria)")
+        .select(
+          "*, lead:leads(id, nome), processo:processos(id, titulo, categoria), compra:compras(id, lote:lotes(numero_lote, quadra), cliente:clientes(id, nome))",
+        )
         .order("created_at", { ascending: false });
 
       if (categoriaFilter) query = query.eq("categoria", categoriaFilter);

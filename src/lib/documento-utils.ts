@@ -51,7 +51,10 @@ export function formatBytes(bytes: number | null): string {
 export const DOCUMENTO_CATEGORIA_LABELS: Record<DocumentoCategoria, string> = {
   institucional: "Institucional",
   contrato: "Contrato",
-  documento_pessoal: "Documento Pessoal",
+  escritura: "Escritura",
+  planta: "Planta do lote",
+  comprovante: "Comprovante",
+  documento_pessoal: "RG / CPF",
   proposta: "Proposta",
   outro: "Outro",
 };
