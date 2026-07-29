@@ -200,7 +200,7 @@ export function DocumentoUploadDialog({
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar documento</DialogTitle>
+          <DialogTitle>Enviar documentos</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
