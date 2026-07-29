@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Wand2, RefreshCw, Instagram, Download, Wallet } from "lucide-react";
+import { AlertTriangle, Loader2, Sparkles, Wand2, RefreshCw, Instagram, Download, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,18 @@ type PostRow = {
   copy_data: { titulo?: string; caption?: string; hashtags?: string[] } | null;
 };
 
+type EdgeErrorPayload = {
+  error?: string;
+  message?: string;
+  details?: string;
+};
+
+type MarketingErrorState = {
+  title: string;
+  message: string;
+  requestId?: string;
+};
+
 const STATUS_LABEL: Record<string, string> = {
   pending: "Na fila",
   queued: "Na fila",
@@ -81,6 +93,31 @@ const STATUS_LABEL: Record<string, string> = {
   ready: "Pronto",
   failed: "Falhou",
 };
+
+function extractRequestId(details?: string): string | undefined {
+  if (!details) return undefined;
+  try {
+    const parsed = JSON.parse(details) as { request_id?: string };
+    return parsed.request_id;
+  } catch {
+    return undefined;
+  }
+}
+
+function isCreditsError(status?: number, payload?: EdgeErrorPayload) {
+  const text = `${payload?.error ?? ""} ${payload?.message ?? ""} ${payload?.details ?? ""}`;
+  return status === 402 || /créditos|creditos|not enough credits|payment_required/i.test(text);
+}
+
+async function readFunctionError(error: unknown): Promise<{ status?: number; payload?: EdgeErrorPayload; message: string }> {
+  const ctx = (error as { context?: Response })?.context;
+  const payload = ctx?.json ? ((await ctx.json().catch(() => null)) as EdgeErrorPayload | null) : null;
+  return {
+    status: ctx?.status,
+    payload: payload ?? undefined,
+    message: payload?.message ?? payload?.error ?? (error instanceof Error ? error.message : "Erro na função"),
+  };
+}
 
 export function CreatePostTab() {
   const queryClient = useQueryClient();
@@ -94,6 +131,7 @@ export function CreatePostTab() {
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [billingError, setBillingError] = useState<MarketingErrorState | null>(null);
 
   const [postId, setPostId] = useState<string | null>(null);
   const [post, setPost] = useState<PostRow | null>(null);
@@ -152,6 +190,7 @@ export function CreatePostTab() {
     setPost(null);
     setSlides([]);
     setPostId(null);
+    setBillingError(null);
     try {
       const { data, error } = await supabase.functions.invoke("imagery-plan-post", {
         body: {
@@ -165,11 +204,34 @@ export function CreatePostTab() {
       // A recusa por cota vem como 429 com um texto pronto para o usuário; sem
       // isto o invoke só reportaria "non-2xx status code".
       if (error) {
-        const ctx = (error as { context?: Response }).context;
-        const detalhe = ctx?.json ? await ctx.json().catch(() => null) : null;
-        throw new Error(detalhe?.message ?? detalhe?.error ?? error.message);
+        const fnError = await readFunctionError(error);
+        if (isCreditsError(fnError.status, fnError.payload)) {
+          const requestId = extractRequestId(fnError.payload?.details);
+          setBillingError({
+            title: "Créditos de IA esgotados",
+            message:
+              "O planejamento usa o AI Gateway do Lovable e foi recusado por falta de saldo no workspace. Adicione créditos em Settings → Plans & credits → Buy credits e tente novamente.",
+            requestId,
+          });
+          toast.error("Créditos de IA esgotados. Adicione créditos no workspace.");
+          return;
+        }
+        throw new Error(fnError.message);
       }
-      if (data?.error) throw new Error(data.message ?? data.error);
+      if (data?.error) {
+        if (isCreditsError(undefined, data)) {
+          setBillingError({
+            title: "Créditos de IA esgotados",
+            message:
+              data.message ??
+              "Adicione créditos em Settings → Plans & credits → Buy credits e tente novamente.",
+            requestId: extractRequestId(data.details),
+          });
+          toast.error("Créditos de IA esgotados. Adicione créditos no workspace.");
+          return;
+        }
+        throw new Error(data.message ?? data.error);
+      }
       setPostId(data.post_id);
       await refresh(data.post_id);
       toast.success("Plano editorial pronto. Revise e gere as artes.");
@@ -334,6 +396,23 @@ export function CreatePostTab() {
               slide precisar de uma segunda tentativa.
             </span>
           </div>
+
+          {billingError ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">{billingError.title}</p>
+                  <p className="text-xs leading-relaxed text-destructive/90">{billingError.message}</p>
+                  {billingError.requestId ? (
+                    <p className="text-[11px] text-destructive/80">
+                      Request ID: {billingError.requestId}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <Button onClick={handlePlan} disabled={planning || generating} className="w-full">
             {planning ? (
