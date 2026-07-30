@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
+import { DashboardThemeToggle } from "@/components/dashboard/dashboard-theme-toggle";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
