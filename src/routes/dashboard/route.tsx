@@ -30,6 +30,9 @@ function DashboardLayout() {
       <div className="min-h-screen flex bg-muted/30">
         <DashboardSidebar />
         <main className="flex-1 min-w-0 p-6 md:p-8">
+          <div className="hidden md:flex justify-end mb-4">
+            <DashboardThemeToggle />
+          </div>
           <Outlet />
         </main>
         <Toaster />
