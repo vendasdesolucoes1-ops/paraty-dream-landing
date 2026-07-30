@@ -35,13 +35,20 @@ async function listContacts(instanceName: string) {
 
   return contacts
     .map((c: Record<string, unknown>) => {
-      const jid = String(c.id ?? c.jid ?? "");
+      const jid = String(c.id ?? c.jid ?? c.remoteJid ?? "");
       // Grupos, broadcast lists e LIDs (identificador interno do WhatsApp
-      // multi-device, formato numérico@lid) também aparecem em findContacts;
-      // nenhum dos três é um telefone de pessoa disparável.
-      if (jid.endsWith("@g.us") || jid.endsWith("@broadcast") || jid.endsWith("@lid")) return null;
+      // multi-device) também aparecem em findContacts; nenhum dos três é um
+      // telefone de pessoa disparável. .includes() em vez de .endsWith() por
+      // segurança — algumas respostas da Evolution trazem sufixo de device
+      // (":12@g.us") antes do domínio.
+      if (jid.includes("@g.us") || jid.includes("@broadcast") || jid.includes("@lid")) return null;
       const number = jid.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
-      if (!number) return null;
+      // Rede de segurança independente do formato do JID: um telefone real
+      // (com DDI) tem entre 10 e 15 dígitos. Um grupo cujo campo de
+      // identificação não bateu com os sufixos acima ainda cai fora aqui —
+      // foi assim que grupos como "Fut dos amigos" vazaram como números de
+      // 7-9 dígitos no incidente que motivou este filtro.
+      if (number.length < 10 || number.length > 15) return null;
       return {
         number,
         // pushName vem vazio para parte dos contatos (bug conhecido da
