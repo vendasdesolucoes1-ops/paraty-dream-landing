@@ -76,6 +76,10 @@ export function ContactExtractorCard() {
   const [existingPhones, setExistingPhones] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  // Qual aparelho de fato respondeu — deixa explícito que a agenda é do celular
+  // que está com o QR ativo, não de uma conexão anterior da mesma instância.
+  const [owner, setOwner] = useState<{ number: string | null; name: string | null } | null>(null);
+
 
   const { data: instances } = useQuery({
     queryKey: ["whatsapp-instances"],
