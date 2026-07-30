@@ -15,7 +15,13 @@ export interface Lote {
   created_at: string;
 }
 
-export type LeadOrigem = "lp" | "whatsapp" | "indicacao" | "instagram" | "google_maps";
+// leads.origem é TEXT livre no banco (sem CHECK) — este union é só o contrato
+// do frontend. "whatsapp_contato" é separado de "whatsapp" de propósito: o
+// primeiro vem da agenda telefônica da instância (Extrator de contatos), o
+// segundo é histórico/genérico; manter os dois distintos facilita limpeza
+// futura sem misturar as duas origens.
+export type LeadOrigem =
+  "lp" | "whatsapp" | "whatsapp_contato" | "indicacao" | "instagram" | "google_maps";
 export type LeadStatus =
   "novo" | "qualificado" | "agendado" | "visitou" | "proposta" | "fechado" | "perdido";
 
