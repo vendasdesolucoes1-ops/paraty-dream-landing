@@ -97,14 +97,21 @@ async function listContacts(instanceName: string) {
       const number = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
       // Rede de segurança: um telefone real (com DDI) tem 10 a 15 dígitos.
       if (number.length < 10 || number.length > 15) return null;
+      // O próprio número do aparelho conectado não é lead.
+      if (session.ownerNumber && number === session.ownerNumber) return null;
       return { number, name, numeroIndisponivel: false };
-
     })
     .filter(
       (c: unknown): c is { number: string | null; name: string; numeroIndisponivel: boolean } =>
         c !== null,
     );
+
+  return {
+    contacts: parsed,
+    owner: { number: session.ownerNumber, name: session.profileName },
+  };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
