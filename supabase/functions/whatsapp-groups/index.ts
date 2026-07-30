@@ -46,7 +46,7 @@ async function listGroups(instanceName: string) {
 }
 
 async function listParticipants(instanceName: string, groupJid: string) {
-  const instance = await getInstance(instanceName);
+  const instance = await getConnectedInstance(instanceName);
 
   const response = await fetch(
     `${instance.api_url}/group/participants/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
