@@ -34,18 +34,19 @@ async function listContacts(instanceName: string) {
   const contacts = Array.isArray(result) ? result : (result.contacts ?? []);
 
   return contacts
-    .map((c: Record<string, any>) => {
-      const jid: string = c.id ?? c.jid ?? "";
-      // Grupos e broadcast lists também aparecem em findContacts; não são
-      // contatos de pessoa e não têm telefone para disparo.
-      if (jid.endsWith("@g.us") || jid.endsWith("@broadcast")) return null;
+    .map((c: Record<string, unknown>) => {
+      const jid = String(c.id ?? c.jid ?? "");
+      // Grupos, broadcast lists e LIDs (identificador interno do WhatsApp
+      // multi-device, formato numérico@lid) também aparecem em findContacts;
+      // nenhum dos três é um telefone de pessoa disparável.
+      if (jid.endsWith("@g.us") || jid.endsWith("@broadcast") || jid.endsWith("@lid")) return null;
       const number = jid.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
       if (!number) return null;
       return {
         number,
         // pushName vem vazio para parte dos contatos (bug conhecido da
         // Evolution API); cai pro próprio número, igual ao extrator de grupos.
-        name: c.pushName || c.name || number,
+        name: String(c.pushName || c.name || number),
       };
     })
     .filter((c: unknown): c is { number: string; name: string } => c !== null);

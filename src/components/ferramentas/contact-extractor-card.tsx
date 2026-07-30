@@ -54,6 +54,16 @@ interface WhatsappContact {
 }
 
 const PAGE_SIZE = 50;
+// Telefone BR com DDI ocupa ~14 chars; um .in() com centenas de valores
+// estoura o limite de tamanho de URL do GET e o PostgREST devolve 400. 150
+// por lote mantém a query bem abaixo do limite mesmo em agendas grandes.
+const DUPLICATE_CHECK_CHUNK_SIZE = 150;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
 
 export function ContactExtractorCard() {
   const queryClient = useQueryClient();
@@ -88,29 +98,43 @@ export function ContactExtractorCard() {
 
       // Checagem prévia de duplicata: só informativa aqui (mostra badge na
       // prévia); quem de fato impede duplicar no banco é o índice único de
-      // leads.telefone, checado de novo no momento da importação.
-      let existing = new Set<string>();
-      if (fetched.length > 0) {
+      // leads.telefone, checado de novo no momento da importação. Por isso
+      // uma falha aqui não pode travar a busca — na pior hipótese a prévia
+      // aparece sem o badge, e o índice único ainda protege na importação.
+      const existing = new Set<string>();
+      let duplicateCheckFailed = false;
+      const numbers = fetched.map((c) => c.number).filter(Boolean);
+
+      for (const batch of chunk(numbers, DUPLICATE_CHECK_CHUNK_SIZE)) {
         const { data: existentes, error: leadsError } = await supabase
           .from("leads")
           .select("telefone")
-          .in(
-            "telefone",
-            fetched.map((c) => c.number),
-          );
-        if (leadsError) throw leadsError;
-        existing = new Set((existentes ?? []).map((l) => l.telefone as string));
+          .in("telefone", batch);
+        if (leadsError) {
+          console.error("[whatsapp-contacts] checagem de duplicatas falhou:", {
+            code: leadsError.code,
+            message: leadsError.message,
+          });
+          duplicateCheckFailed = true;
+          break;
+        }
+        for (const l of existentes ?? []) existing.add(l.telefone as string);
       }
 
-      return { fetched, existing };
+      return { fetched, existing, duplicateCheckFailed };
     },
-    onSuccess: ({ fetched, existing }) => {
+    onSuccess: ({ fetched, existing, duplicateCheckFailed }) => {
       setContacts(fetched);
       setExistingPhones(existing);
       // Pré-seleciona só quem ainda não existe no CRM — é o caso comum, e
       // evita que "selecionar todos" precise ser desmarcado contato a contato.
       setSelected(new Set(fetched.filter((c) => !existing.has(c.number)).map((c) => c.number)));
       setPage(1);
+      if (duplicateCheckFailed) {
+        toast.warning(
+          "Não foi possível verificar quais contatos já existem no CRM. A prévia aparece sem essa indicação, mas duplicados continuam bloqueados na importação.",
+        );
+      }
     },
     onError: (error: Error) => toast.error(error.message || "Erro ao buscar contatos."),
   });
