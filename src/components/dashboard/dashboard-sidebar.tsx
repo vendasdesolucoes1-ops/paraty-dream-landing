@@ -136,7 +136,11 @@ export function DashboardSidebar() {
 
   return (
     <>
-      <aside className="hidden md:block w-64 shrink-0 min-h-screen">
+      {/* h-full (não min-h-screen): o pai já está travado em h-screen, então
+          h-full faz a sidebar ocupar exatamente a viewport e nunca crescer
+          com o conteúdo. overflow-y-auto dá scroll próprio se o menu um dia
+          ficar mais alto que a tela — sem arrastar o conteúdo principal. */}
+      <aside className="hidden md:block w-64 shrink-0 h-full overflow-y-auto">
         <SidebarContent />
       </aside>
 

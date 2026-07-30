@@ -28,9 +28,13 @@ function DashboardLayout() {
 
   return (
     <DashboardThemeProvider>
-      <div className="min-h-screen flex bg-muted/30">
+      {/* h-screen + overflow-hidden trava a altura no viewport: sem isso o
+          documento inteiro rola e a sidebar sai de vista junto com o conteúdo
+          (é o que acontecia com min-h-screen, que só cresce). Sidebar e main
+          rolam cada um por conta própria, abaixo. */}
+      <div className="h-screen flex overflow-hidden bg-muted/30">
         <DashboardSidebar />
-        <main className="flex-1 min-w-0 p-6 md:p-8">
+        <main className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8">
           <div className="hidden md:flex justify-end mb-4">
             <DashboardThemeToggle />
           </div>
