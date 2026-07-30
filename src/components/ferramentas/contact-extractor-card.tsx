@@ -130,11 +130,18 @@ export function ContactExtractorCard() {
         for (const l of existentes ?? []) existing.add(l.telefone as string);
       }
 
-      return { fetched, existing, duplicateCheckFailed };
+      return {
+        fetched,
+        existing,
+        duplicateCheckFailed,
+        owner: (data.owner ?? null) as { number: string | null; name: string | null } | null,
+      };
     },
-    onSuccess: ({ fetched, existing, duplicateCheckFailed }) => {
+    onSuccess: ({ fetched, existing, duplicateCheckFailed, owner: donoDaSessao }) => {
       setContacts(fetched);
       setExistingPhones(existing);
+      setOwner(donoDaSessao);
+
       // Pré-seleciona só quem ainda não existe no CRM e tem telefone
       // utilizável — contato @lid sem número resolvido nasce desmarcado.
       setSelected(
