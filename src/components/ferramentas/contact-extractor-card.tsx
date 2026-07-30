@@ -255,7 +255,14 @@ export function ContactExtractorCard() {
       setContacts(null);
       setSelected(new Set());
     },
-    onError: () => toast.error("Erro ao importar contatos para o CRM."),
+    onError: (error: unknown) => {
+      // Mostra a mensagem real do banco (ex.: violação de constraint) em vez de
+      // um texto genérico — sem isso o erro fica invisível para diagnóstico.
+      const message =
+        (error as { message?: string })?.message ?? "Erro ao importar contatos para o CRM.";
+      console.error("[contact-extractor] falha ao importar:", error);
+      toast.error(`Erro ao importar contatos para o CRM: ${message}`);
+    },
   });
 
   function exportCsv() {
