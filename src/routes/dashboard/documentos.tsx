@@ -85,6 +85,22 @@ function ProcessoSection({
               />
             </button>
           </CollapsibleTrigger>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() =>
+              onEditProcesso({
+                id: isRealProcesso ? group.key : null,
+                titulo: group.titulo,
+                categoria: group.categoria,
+                documentoIds: group.documentos.map((d) => d.id),
+              })
+            }
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            {isRealProcesso ? "Renomear" : "Nomear"}
+          </Button>
           {isRealProcesso ? (
             <DocumentoUploadDialog
               defaultProcesso={{ id: group.key, titulo: group.titulo }}
