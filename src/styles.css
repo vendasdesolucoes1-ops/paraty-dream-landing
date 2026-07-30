@@ -84,6 +84,41 @@
   --planta-lote-text: var(--forest-deep);
 }
 
+/* Escopo: só o dashboard aplica a classe .dark (DashboardThemeProvider); a
+   landing pública nunca recebe essa classe, então estas variáveis nunca a
+   afetam. */
+.dark {
+  --background: oklch(0.19 0.015 155);
+  --foreground: oklch(0.94 0.008 85);
+  --card: oklch(0.23 0.018 155);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.23 0.018 155);
+  --popover-foreground: var(--foreground);
+  --primary: var(--gold);
+  --primary-foreground: oklch(0.19 0.015 155);
+  --secondary: oklch(0.27 0.02 155);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.26 0.018 155);
+  --muted-foreground: oklch(0.68 0.02 85);
+  --accent: var(--gold);
+  --accent-foreground: oklch(0.19 0.015 155);
+  --destructive: oklch(0.6 0.2 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.32 0.02 155);
+  --input: oklch(0.3 0.02 155);
+  --ring: var(--gold);
+
+  --lote-disponivel: oklch(0.3 0.02 155);
+  --lote-reservado: var(--gold);
+  --lote-vendido: oklch(0.5 0.09 155);
+  --planta-bg: oklch(0.23 0.018 155);
+  --planta-title: var(--ivory);
+  --planta-quadra-border: oklch(0.4 0.03 155);
+  --planta-quadra-label: var(--ivory);
+  --planta-lote-border: oklch(0.45 0.04 155);
+  --planta-lote-text: var(--ivory);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

@@ -15,11 +15,14 @@ import {
   UserCheck,
   LogOut,
   Menu,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
+import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
@@ -50,6 +53,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useProfile();
+  const { theme, toggle: toggleTheme } = useDashboardTheme();
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -92,7 +96,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="px-3 py-6 border-t border-ivory/10">
+      <div className="px-3 py-6 border-t border-ivory/10 space-y-1">
+        <button
+          onClick={toggleTheme}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-ivory/80 hover:bg-ivory/10 hover:text-ivory transition-colors"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === "dark" ? "Modo claro" : "Modo escuro"}
+        </button>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-ivory/80 hover:bg-ivory/10 hover:text-ivory transition-colors"
@@ -102,6 +113,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </button>
       </div>
     </div>
+  );
+}
+
+function MobileThemeToggle() {
+  const { theme, toggle } = useDashboardTheme();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      className="text-ivory hover:bg-ivory/10 hover:text-ivory"
+      aria-label={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+    >
+      {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </Button>
   );
 }
 
@@ -116,20 +142,23 @@ export function DashboardSidebar() {
 
       <div className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between bg-forest-deep text-ivory px-4 py-3">
         <span className="font-display text-lg">Moradas de Paraty</span>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-ivory hover:bg-ivory/10 hover:text-ivory"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 border-0">
-            <SidebarContent onNavigate={() => setOpen(false)} />
-          </SheetContent>
-        </Sheet>
+        <div className="flex items-center gap-1">
+          <MobileThemeToggle />
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-ivory hover:bg-ivory/10 hover:text-ivory"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64 border-0">
+              <SidebarContent onNavigate={() => setOpen(false)} />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
       <div className="md:hidden h-14" />
     </>

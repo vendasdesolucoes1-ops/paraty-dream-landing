@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -25,13 +26,15 @@ function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-muted/30">
-      <DashboardSidebar />
-      <main className="flex-1 min-w-0 p-6 md:p-8">
-        <Outlet />
-      </main>
-      <Toaster />
-    </div>
+    <DashboardThemeProvider>
+      <div className="min-h-screen flex bg-muted/30">
+        <DashboardSidebar />
+        <main className="flex-1 min-w-0 p-6 md:p-8">
+          <Outlet />
+        </main>
+        <Toaster />
+      </div>
+    </DashboardThemeProvider>
   );
 }
 
