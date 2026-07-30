@@ -36,8 +36,12 @@ Deno.serve(async (req) => {
       .eq("instance_name", instance_name)
       .single();
     if (error || !instance) throw new Error("instance not found");
+    // Nunca dispara por uma instância desconectada: a Evolution aceitaria a
+    // chamada e a mensagem sumiria, ou sairia pelo aparelho errado.
+    assertConnected(await getEvolutionSession(instance));
 
     const text = renderTemplate(message, { nome: nome ?? "", telefone: phone });
+
 
     const evolutionResponse = await fetch(
       `${instance.api_url}/message/sendText/${instance_name}`,
