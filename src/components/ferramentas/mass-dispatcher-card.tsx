@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +47,7 @@ type DispatchState = "idle" | "running" | "paused" | "done";
 interface Contact {
   nome: string;
   telefone: string;
+  leadId?: string;
 }
 
 interface LogEntry {
@@ -60,6 +61,7 @@ function sleep(ms: number) {
 }
 
 export function MassDispatcherCard() {
+  const queryClient = useQueryClient();
   const [instanceId, setInstanceId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [source, setSource] = useState<ContactSource>("crm");
@@ -108,7 +110,7 @@ export function MassDispatcherCard() {
     if (source === "crm") {
       return (crmLeads ?? [])
         .filter((l) => l.telefone)
-        .map((l) => ({ nome: l.nome, telefone: l.telefone as string }));
+        .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
     }
     if (source === "csv") return csvContacts;
     return manualContacts;
@@ -148,6 +150,53 @@ export function MassDispatcherCard() {
     setSentCount(0);
     setLog([]);
 
+    // Snapshot da instância e do filtro no momento do início: se o usuário
+    // mudar a fonte/filtro na tela enquanto a campanha corre, o registro já
+    // gravado não deve mudar de baixo dela.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: campanha, error: campanhaError } = await supabase
+      .from("disparos_campanha")
+      .insert({
+        instancia_id: selectedInstance.id,
+        instancia_nome: selectedInstance.instance_name,
+        mensagem_template: message,
+        fonte_contatos: source,
+        filtro_status: source === "crm" && crmStatusFilter !== "todos" ? crmStatusFilter : null,
+        intervalo_segundos: interval,
+        total_contatos: contacts.length,
+        disparado_por: user?.id ?? null,
+      })
+      .select()
+      .single();
+
+    if (campanhaError || !campanha) {
+      toast.error("Não foi possível registrar a campanha de disparo.");
+      setDispatchState("idle");
+      return;
+    }
+
+    // IDs gerados no cliente: o update por item depois do envio precisa saber
+    // qual linha é qual sem depender da ordem de retorno do insert em lote.
+    const itemIds = contacts.map(() => crypto.randomUUID());
+    const { error: itensError } = await supabase.from("disparos_itens").insert(
+      contacts.map((contact, i) => ({
+        id: itemIds[i],
+        campanha_id: campanha.id,
+        lead_id: contact.leadId ?? null,
+        nome: contact.nome,
+        telefone: contact.telefone,
+      })),
+    );
+    if (itensError) {
+      toast.error("Não foi possível registrar os contatos da campanha.");
+    }
+    queryClient.invalidateQueries({ queryKey: ["disparos-campanhas"] });
+
+    let totalEnviado = 0;
+    let totalFalhou = 0;
+
     for (let i = 0; i < contacts.length; i++) {
       if (stopRef.current) break;
 
@@ -158,6 +207,7 @@ export function MassDispatcherCard() {
 
       const contact = contacts[i];
       const horario = new Date().toLocaleTimeString("pt-BR");
+      const agora = new Date().toISOString();
 
       try {
         const { data, error } = await supabase.functions.invoke("mass-dispatcher", {
@@ -170,8 +220,22 @@ export function MassDispatcherCard() {
         });
         if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "erro");
         setLog((l) => [...l, { telefone: contact.telefone, status: "Enviado", horario }]);
-      } catch {
+        totalEnviado++;
+        await supabase
+          .from("disparos_itens")
+          .update({ status: "enviado", enviado_em: agora })
+          .eq("id", itemIds[i]);
+      } catch (err) {
         setLog((l) => [...l, { telefone: contact.telefone, status: "Erro", horario }]);
+        totalFalhou++;
+        await supabase
+          .from("disparos_itens")
+          .update({
+            status: "falhou",
+            erro: err instanceof Error ? err.message : String(err),
+            enviado_em: agora,
+          })
+          .eq("id", itemIds[i]);
       }
 
       setSentCount(i + 1);
@@ -183,6 +247,17 @@ export function MassDispatcherCard() {
         }
       }
     }
+
+    await supabase
+      .from("disparos_campanha")
+      .update({
+        total_enviado: totalEnviado,
+        total_falhou: totalFalhou,
+        status: stopRef.current ? "interrompido" : "concluido",
+        finalizado_em: new Date().toISOString(),
+      })
+      .eq("id", campanha.id);
+    queryClient.invalidateQueries({ queryKey: ["disparos-campanhas"] });
 
     setDispatchState("done");
   }

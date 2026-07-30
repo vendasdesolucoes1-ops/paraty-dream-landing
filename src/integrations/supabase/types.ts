@@ -337,6 +337,123 @@ export type Database = {
         }
         Relationships: []
       }
+      disparos_campanha: {
+        Row: {
+          disparado_por: string | null
+          filtro_status: string | null
+          finalizado_em: string | null
+          fonte_contatos: string
+          id: string
+          iniciado_em: string
+          instancia_id: string | null
+          instancia_nome: string
+          intervalo_segundos: number
+          mensagem_template: string
+          status: string
+          total_contatos: number
+          total_enviado: number
+          total_falhou: number
+        }
+        Insert: {
+          disparado_por?: string | null
+          filtro_status?: string | null
+          finalizado_em?: string | null
+          fonte_contatos: string
+          id?: string
+          iniciado_em?: string
+          instancia_id?: string | null
+          instancia_nome: string
+          intervalo_segundos: number
+          mensagem_template: string
+          status?: string
+          total_contatos: number
+          total_enviado?: number
+          total_falhou?: number
+        }
+        Update: {
+          disparado_por?: string | null
+          filtro_status?: string | null
+          finalizado_em?: string | null
+          fonte_contatos?: string
+          id?: string
+          iniciado_em?: string
+          instancia_id?: string | null
+          instancia_nome?: string
+          intervalo_segundos?: number
+          mensagem_template?: string
+          status?: string
+          total_contatos?: number
+          total_enviado?: number
+          total_falhou?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disparos_campanha_disparado_por_fkey"
+            columns: ["disparado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disparos_campanha_instancia_id_fkey"
+            columns: ["instancia_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disparos_itens: {
+        Row: {
+          campanha_id: string
+          created_at: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          lead_id: string | null
+          nome: string | null
+          status: string
+          telefone: string
+        }
+        Insert: {
+          campanha_id: string
+          created_at?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          nome?: string | null
+          status?: string
+          telefone: string
+        }
+        Update: {
+          campanha_id?: string
+          created_at?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          nome?: string | null
+          status?: string
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disparos_itens_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "disparos_campanha"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disparos_itens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
           categoria: string

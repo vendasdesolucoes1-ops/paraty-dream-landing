@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MassDispatcherCard } from "@/components/ferramentas/mass-dispatcher-card";
+import { DispatchHistoryCard } from "@/components/ferramentas/dispatch-history-card";
 import { GroupExtractorCard } from "@/components/ferramentas/group-extractor-card";
 import { GooglePlacesCard } from "@/components/ferramentas/google-places-card";
 
@@ -18,6 +19,7 @@ function FerramentasPage() {
 
       <div className="space-y-4">
         <MassDispatcherCard />
+        <DispatchHistoryCard />
         <GroupExtractorCard />
         <GooglePlacesCard />
       </div>

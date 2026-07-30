@@ -309,6 +309,39 @@ export interface PostMarketing {
   created_at: string;
 }
 
+export type DisparoFonteContatos = "crm" | "csv" | "manual";
+export type DisparoCampanhaStatus = "em_andamento" | "concluido" | "interrompido";
+export type DisparoItemStatus = "pendente" | "enviado" | "falhou";
+
+export interface DisparoCampanha {
+  id: string;
+  instancia_id: string | null;
+  instancia_nome: string;
+  mensagem_template: string;
+  fonte_contatos: DisparoFonteContatos;
+  filtro_status: string | null;
+  intervalo_segundos: number;
+  total_contatos: number;
+  total_enviado: number;
+  total_falhou: number;
+  status: DisparoCampanhaStatus;
+  iniciado_em: string;
+  finalizado_em: string | null;
+  disparado_por: string | null;
+}
+
+export interface DisparoItem {
+  id: string;
+  campanha_id: string;
+  lead_id: string | null;
+  nome: string | null;
+  telefone: string;
+  status: DisparoItemStatus;
+  erro: string | null;
+  enviado_em: string | null;
+  created_at: string;
+}
+
 export interface WhatsappMessage {
   id: string;
   instance_id: string | null;
