@@ -302,7 +302,14 @@ export function ContactExtractorCard() {
         <p className="text-sm text-muted-foreground">Nenhum contato encontrado na instância.</p>
       ) : contacts ? (
         <div className="space-y-3">
+          {owner?.number ? (
+            <p className="text-xs text-muted-foreground">
+              Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
+              {owner.number}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
+
             <p className="text-sm">
               <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
               <span className="font-medium">{selected.size}</span> selecionados
