@@ -1,9 +1,18 @@
 // Supabase Edge Function — lists all saved/chatted contacts of a WhatsApp
 // instance via the Evolution API (the phone's own contact list, NOT group
 // members — see whatsapp-groups for that).
+//
+// A agenda vem do banco da Evolution, que NÃO é limpo quando o QR é lido por
+// outro aparelho. Por isso filtramos tudo que foi gravado antes do início da
+// sessão atual — ver _shared/evolution-instance.ts.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  assertConnected,
+  getEvolutionSession,
+  isFromPreviousSession,
+} from "../_shared/evolution-instance.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -22,6 +31,8 @@ async function getInstance(instanceName: string) {
 
 async function listContacts(instanceName: string) {
   const instance = await getInstance(instanceName);
+  const session = await getEvolutionSession(instance);
+  assertConnected(session);
 
   const response = await fetch(`${instance.api_url}/chat/findContacts/${instanceName}`, {
     method: "POST",
@@ -33,7 +44,12 @@ async function listContacts(instanceName: string) {
   const result = await response.json();
   const contacts = Array.isArray(result) ? result : (result.contacts ?? []);
 
-  return contacts
+  const doAparelhoAtual = contacts.filter(
+    (c: Record<string, unknown>) => !isFromPreviousSession(session, c),
+  );
+
+  const parsed = doAparelhoAtual
+
     .map((c: Record<string, unknown>) => {
       // ATENÇÃO: nesta versão da Evolution, `c.id` é o id interno do banco
       // dela (cuid tipo "cmrxu4c5h2z3fpe4q3i2iyblh"). Remover os não-dígitos
