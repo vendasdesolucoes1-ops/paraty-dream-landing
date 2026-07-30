@@ -13,9 +13,12 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const SIZE = 1080;
 
-// Paleta do projeto convertida de OKLCH para hex
-const FOREST_DEEP = "#1F3A2E";
-const FOREST_SOFT = "#2C4E3D";
+// Paleta do projeto convertida de OKLCH para hex. FOREST_DEEP/FOREST_SOFT
+// espelham src/styles.css --forest-deep/--forest (azul-marinho desde a troca
+// de cor) — este arquivo é uma função Deno separada do frontend, sem acesso
+// às variáveis CSS, então os hex têm que ser mantidos em sincronia manual.
+const FOREST_DEEP = "#00234C";
+const FOREST_SOFT = "#123E6A";
 const IVORY = "#F7F3EA";
 const SAND = "#E4D9C3";
 const GOLD = "#C9A24A";
@@ -27,6 +30,9 @@ const FONT_URLS = {
     "https://cdn.jsdelivr.net/fontsource/fonts/cormorant-garamond@latest/latin-600-normal.ttf",
   body: "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf",
   bodyMedium: "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-500-normal.ttf",
+  // Anton: peso único 400, já ultra-bold/condensado por natureza — é o
+  // "título de cartaz" pedido, sem precisar carregar pesos extras.
+  impact: "https://cdn.jsdelivr.net/fontsource/fonts/anton@latest/latin-400-normal.ttf",
 };
 
 let fontCache: Array<{ name: string; data: ArrayBuffer; weight: number; style: "normal" }> | null =
@@ -35,7 +41,7 @@ let wasmReady = false;
 
 async function loadFonts() {
   if (fontCache) return fontCache;
-  const [dr, db, b, bm] = await Promise.all(
+  const [dr, db, b, bm, im] = await Promise.all(
     Object.values(FONT_URLS).map((u) => fetch(u).then((r) => r.arrayBuffer())),
   );
   fontCache = [
@@ -43,6 +49,7 @@ async function loadFonts() {
     { name: "Display", data: db, weight: 600, style: "normal" },
     { name: "Body", data: b, weight: 400, style: "normal" },
     { name: "Body", data: bm, weight: 500, style: "normal" },
+    { name: "Impact", data: im, weight: 400, style: "normal" },
   ];
   return fontCache;
 }
@@ -99,41 +106,219 @@ function headlineSize(text: string): number {
   return 60;
 }
 
-function templateCapa(image: string, headline: string, sub?: string): Node {
+// "Comercial" = tem selos e/ou cta gerados pelo planner. Não existe campo de
+// pilar temático gravado — esta é a distinção que fica disponível sem mexer
+// no schema: um post de pilar Lugar puro naturalmente não pede selo/CTA no
+// slide, então continua no modo limpo atual.
+function isComercial(selos: string[], cta: string | null): boolean {
+  return selos.length > 0 || !!cta;
+}
+
+// Não existe asset de logo (imagem) em nenhum lugar do projeto — _shared/brand.ts
+// é só texto de tom de voz, sem arquivo visual. A "marca aplicada num canto" vira
+// este selo tipográfico: friso dourado + wordmark em versalete, o mesmo padrão que
+// já existia isolado em T01_CAPA, agora reutilizável em qualquer template.
+function wordmark(color: string = SAND): Node {
+  return {
+    type: "div",
+    props: {
+      style: { display: "flex", flexDirection: "column", gap: 14 },
+      children: [
+        goldRule(72),
+        {
+          type: "div",
+          props: {
+            style: {
+              fontFamily: "Body",
+              fontSize: 18,
+              letterSpacing: 5,
+              color,
+              textTransform: "uppercase",
+            },
+            children: "Moradas de Paraty",
+          },
+        },
+      ],
+    },
+  };
+}
+
+// Grid 2x2 (ou linha, se ≤2) de badges curtos. "✓" num círculo dourado
+// translúcido faz de ícone — Satori não carrega ícone SVG externo sem mais uma
+// fonte/asset, e o glifo já lê bem em 1080px.
+function selosGrid(selos: string[]): Node {
+  const items = selos.slice(0, 4);
+  return {
+    type: "div",
+    props: {
+      style: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 14,
+        width: 720,
+      },
+      children: items.map((selo) => ({
+        type: "div",
+        props: {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            backgroundColor: "rgba(247,243,234,0.12)",
+            border: `1px solid rgba(201,162,74,0.55)`,
+            borderRadius: 999,
+            padding: "10px 20px 10px 14px",
+          },
+          children: [
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 26,
+                  height: 26,
+                  borderRadius: 999,
+                  backgroundColor: GOLD,
+                  color: FOREST_DEEP,
+                  fontFamily: "Body",
+                  fontWeight: 500,
+                  fontSize: 16,
+                },
+                children: "✓",
+              },
+            },
+            {
+              type: "div",
+              props: {
+                style: { fontFamily: "Body", fontWeight: 500, fontSize: 24, color: IVORY },
+                children: selo,
+              },
+            },
+          ],
+        },
+      })),
+    },
+  };
+}
+
+// Mesma badge, tonalidade invertida para fundo claro (templateCena usa
+// painel ivory) — texto/borda em forest, sem o fundo translúcido que só
+// funciona sobre imagem/fundo escuro.
+function selosDarkOnLight(selos: string[]): Node {
+  const items = selos.slice(0, 4);
+  return {
+    type: "div",
+    props: {
+      style: { display: "flex", flexWrap: "wrap", gap: 12, width: 420 },
+      children: items.map((selo) => ({
+        type: "div",
+        props: {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: "rgba(0,35,76,0.06)",
+            border: `1px solid rgba(201,162,74,0.7)`,
+            borderRadius: 999,
+            padding: "8px 16px 8px 10px",
+          },
+          children: [
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 22,
+                  height: 22,
+                  borderRadius: 999,
+                  backgroundColor: GOLD,
+                  color: FOREST_DEEP,
+                  fontFamily: "Body",
+                  fontWeight: 500,
+                  fontSize: 13,
+                },
+                children: "✓",
+              },
+            },
+            {
+              type: "div",
+              props: {
+                style: { fontFamily: "Body", fontWeight: 500, fontSize: 19, color: FOREST_DEEP },
+                children: selo,
+              },
+            },
+          ],
+        },
+      })),
+    },
+  };
+}
+
+// Faixa dourada de rodapé com o CTA real do planner — generaliza a faixa que
+// já existia (hardcoded) só no T05_CTA.
+function ctaBand(cta: string): Node {
+  return {
+    type: "div",
+    props: {
+      style: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: SIZE,
+        height: 108,
+        backgroundColor: GOLD,
+      },
+      children: [
+        {
+          type: "div",
+          props: {
+            style: {
+              fontFamily: "Body",
+              fontWeight: 500,
+              fontSize: 30,
+              letterSpacing: 3,
+              color: FOREST_DEEP,
+              textTransform: "uppercase",
+            },
+            children: cta,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function templateCapa(
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  selos: string[],
+  cta: string | null,
+): Node {
+  const comercial = isComercial(selos, cta);
+  // Modo comercial ganha faixa de CTA no rodapé — o bloco de texto sobe para
+  // não colidir com ela.
+  const bottomOffset = comercial && cta ? 88 + 108 : 88;
+
   return {
     type: "div",
     props: {
       style: { display: "flex", position: "relative", width: SIZE, height: SIZE },
       children: [
         coverImage(image, { position: "absolute", top: 0, left: 0 }),
-        scrim("rgba(31,58,46,0.05)", "rgba(31,58,46,0.86)"),
+        scrim(`rgba(0,35,76,0.08)`, `rgba(0,35,76,0.88)`),
         {
           type: "div",
           props: {
-            style: {
-              position: "absolute",
-              top: 72,
-              left: 80,
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-            },
-            children: [
-              goldRule(96),
-              {
-                type: "div",
-                props: {
-                  style: {
-                    fontFamily: "Body",
-                    fontSize: 20,
-                    letterSpacing: 6,
-                    color: SAND,
-                    textTransform: "uppercase",
-                  },
-                  children: "Moradas de Paraty",
-                },
-              },
-            ],
+            style: { display: "flex", position: "absolute", top: 72, left: 80 },
+            children: [wordmark()],
           },
         },
         {
@@ -141,7 +326,7 @@ function templateCapa(image: string, headline: string, sub?: string): Node {
           props: {
             style: {
               position: "absolute",
-              bottom: 88,
+              bottom: bottomOffset,
               left: 80,
               width: SIZE - 160,
               display: "flex",
@@ -152,53 +337,80 @@ function templateCapa(image: string, headline: string, sub?: string): Node {
               {
                 type: "div",
                 props: {
-                  style: {
-                    fontFamily: "Display",
-                    fontWeight: 600,
-                    fontSize: headlineSize(headline),
-                    lineHeight: 1.05,
-                    color: IVORY,
-                  },
+                  style: comercial
+                    ? {
+                        fontFamily: "Impact",
+                        fontSize: headlineSize(headline) * 0.86,
+                        lineHeight: 1,
+                        color: IVORY,
+                        textTransform: "uppercase",
+                      }
+                    : {
+                        fontFamily: "Display",
+                        fontWeight: 600,
+                        fontSize: headlineSize(headline),
+                        lineHeight: 1.05,
+                        color: IVORY,
+                      },
                   children: headline,
                 },
               },
               ...(sub
-                ? [{
-                  type: "div",
-                  props: {
-                    style: {
-                      fontFamily: "Body",
-                      fontSize: 30,
-                      lineHeight: 1.4,
-                      color: SAND,
-                      maxWidth: 760,
+                ? [
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          fontFamily: "Body",
+                          fontSize: 30,
+                          lineHeight: 1.4,
+                          color: SAND,
+                          maxWidth: 760,
+                        },
+                        children: sub,
+                      },
                     },
-                    children: sub,
-                  },
-                }]
+                  ]
                 : []),
+              ...(selos.length > 0 ? [selosGrid(selos)] : []),
             ],
           },
         },
+        ...(comercial && cta ? [ctaBand(cta)] : []),
       ],
     },
   };
 }
 
-function templateCena(image: string, headline: string, sub?: string): Node {
+function templateCena(
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  selos: string[],
+  cta: string | null,
+): Node {
+  const comercial = isComercial(selos, cta);
   return {
     type: "div",
     props: {
-      style: { display: "flex", width: SIZE, height: SIZE, backgroundColor: IVORY },
+      style: {
+        display: "flex",
+        position: "relative",
+        width: SIZE,
+        height: SIZE,
+        backgroundColor: IVORY,
+      },
       children: [
         {
           type: "div",
           props: {
             style: { display: "flex", width: 594, height: SIZE, overflow: "hidden" },
-            children: [{
-              type: "img",
-              props: { src: image, width: 594, height: SIZE, style: { objectFit: "cover" } },
-            }],
+            children: [
+              {
+                type: "img",
+                props: { src: image, width: 594, height: SIZE, style: { objectFit: "cover" } },
+              },
+            ],
           },
         },
         {
@@ -212,58 +424,86 @@ function templateCena(image: string, headline: string, sub?: string): Node {
               width: 486,
               height: SIZE,
               padding: 64,
+              paddingBottom: comercial && cta ? 64 + 108 : 64,
             },
             children: [
-              goldRule(72),
+              wordmark(FOREST_SOFT),
               {
                 type: "div",
                 props: {
-                  style: {
-                    fontFamily: "Display",
-                    fontWeight: 600,
-                    fontSize: 62,
-                    lineHeight: 1.08,
-                    color: FOREST_DEEP,
-                  },
+                  style: comercial
+                    ? {
+                        fontFamily: "Impact",
+                        fontSize: 52,
+                        lineHeight: 1.02,
+                        color: FOREST_DEEP,
+                        textTransform: "uppercase",
+                      }
+                    : {
+                        fontFamily: "Display",
+                        fontWeight: 600,
+                        fontSize: 62,
+                        lineHeight: 1.08,
+                        color: FOREST_DEEP,
+                      },
                   children: headline,
                 },
               },
               ...(sub
-                ? [{
-                  type: "div",
-                  props: {
-                    style: {
-                      fontFamily: "Body",
-                      fontSize: 26,
-                      lineHeight: 1.5,
-                      color: FOREST_SOFT,
+                ? [
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          fontFamily: "Body",
+                          fontSize: 26,
+                          lineHeight: 1.5,
+                          color: FOREST_SOFT,
+                        },
+                        children: sub,
+                      },
                     },
-                    children: sub,
-                  },
-                }]
+                  ]
                 : []),
+              ...(selos.length > 0 ? [selosDarkOnLight(selos)] : []),
             ],
           },
         },
+        ...(comercial && cta ? [ctaBand(cta)] : []),
       ],
     },
   };
 }
 
-function templateDado(image: string, headline: string, sub?: string): Node {
+function templateDado(
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  selos: string[],
+  cta: string | null,
+): Node {
+  const comercial = isComercial(selos, cta);
   return {
     type: "div",
     props: {
-      style: { display: "flex", width: SIZE, height: SIZE, backgroundColor: FOREST_DEEP },
+      style: {
+        display: "flex",
+        position: "relative",
+        width: SIZE,
+        height: SIZE,
+        backgroundColor: FOREST_DEEP,
+      },
       children: [
         {
           type: "div",
           props: {
             style: { display: "flex", width: 540, height: SIZE, overflow: "hidden" },
-            children: [{
-              type: "img",
-              props: { src: image, width: 540, height: SIZE, style: { objectFit: "cover" } },
-            }],
+            children: [
+              {
+                type: "img",
+                props: { src: image, width: 540, height: SIZE, style: { objectFit: "cover" } },
+              },
+            ],
           },
         },
         {
@@ -277,40 +517,53 @@ function templateDado(image: string, headline: string, sub?: string): Node {
               width: 540,
               height: SIZE,
               padding: 64,
+              paddingBottom: comercial && cta ? 64 + 108 : 64,
             },
             children: [
+              wordmark(),
               {
                 type: "div",
                 props: {
                   style: {
-                    fontFamily: "Display",
-                    fontWeight: 600,
+                    fontFamily: comercial ? "Impact" : "Display",
+                    fontWeight: comercial ? 400 : 600,
                     fontSize: headline.length <= 8 ? 132 : 92,
                     lineHeight: 1,
                     color: GOLD,
+                    textTransform: comercial ? "uppercase" : "none",
                   },
                   children: headline,
                 },
               },
               goldRule(88),
               ...(sub
-                ? [{
-                  type: "div",
-                  props: {
-                    style: { fontFamily: "Body", fontSize: 28, lineHeight: 1.5, color: SAND },
-                    children: sub,
-                  },
-                }]
+                ? [
+                    {
+                      type: "div",
+                      props: {
+                        style: { fontFamily: "Body", fontSize: 28, lineHeight: 1.5, color: SAND },
+                        children: sub,
+                      },
+                    },
+                  ]
                 : []),
+              ...(selos.length > 0 ? [selosGrid(selos)] : []),
             ],
           },
         },
+        ...(comercial && cta ? [ctaBand(cta)] : []),
       ],
     },
   };
 }
 
-function templateLista(image: string, headline: string, sub?: string): Node {
+function templateLista(
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  _selos: string[],
+  cta: string | null,
+): Node {
   const parts = (sub ?? "").split("||").map((p) => p.split("|"));
   const items = parts
     .filter((p) => p.length >= 2)
@@ -342,8 +595,10 @@ function templateLista(image: string, headline: string, sub?: string): Node {
               width: SIZE,
               height: SIZE,
               padding: 88,
+              paddingBottom: cta ? 88 + 108 : 88,
             },
             children: [
+              wordmark(),
               {
                 type: "div",
                 props: {
@@ -369,7 +624,12 @@ function templateLista(image: string, headline: string, sub?: string): Node {
               ...items.map((item) => ({
                 type: "div",
                 props: {
-                  style: { display: "flex", flexDirection: "row", gap: 26, alignItems: "flex-start" },
+                  style: {
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 26,
+                    alignItems: "flex-start",
+                  },
                   children: [
                     {
                       type: "div",
@@ -402,18 +662,20 @@ function templateLista(image: string, headline: string, sub?: string): Node {
                             },
                           },
                           ...(item.apoio
-                            ? [{
-                              type: "div",
-                              props: {
-                                style: {
-                                  fontFamily: "Body",
-                                  fontSize: 25,
-                                  lineHeight: 1.45,
-                                  color: SAND,
+                            ? [
+                                {
+                                  type: "div",
+                                  props: {
+                                    style: {
+                                      fontFamily: "Body",
+                                      fontSize: 25,
+                                      lineHeight: 1.45,
+                                      color: SAND,
+                                    },
+                                    children: item.apoio,
+                                  },
                                 },
-                                children: item.apoio,
-                              },
-                            }]
+                              ]
                             : []),
                         ],
                       },
@@ -424,12 +686,19 @@ function templateLista(image: string, headline: string, sub?: string): Node {
             ],
           },
         },
+        ...(cta ? [ctaBand(cta)] : []),
       ],
     },
   };
 }
 
-function templateCta(image: string, headline: string, sub?: string): Node {
+function templateCta(
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  selos: string[],
+  cta: string | null,
+): Node {
   return {
     type: "div",
     props: {
@@ -470,71 +739,52 @@ function templateCta(image: string, headline: string, sub?: string): Node {
                 },
               },
               ...(sub
-                ? [{
-                  type: "div",
-                  props: {
-                    style: {
-                      fontFamily: "Body",
-                      fontSize: 28,
-                      lineHeight: 1.5,
-                      color: SAND,
-                      textAlign: "center",
-                      maxWidth: 720,
+                ? [
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          fontFamily: "Body",
+                          fontSize: 28,
+                          lineHeight: 1.5,
+                          color: SAND,
+                          textAlign: "center",
+                          maxWidth: 720,
+                        },
+                        children: sub,
+                      },
                     },
-                    children: sub,
-                  },
-                }]
+                  ]
                 : []),
+              ...(selos.length > 0 ? [selosGrid(selos)] : []),
             ],
           },
         },
-        {
-          type: "div",
-          props: {
-            style: {
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: SIZE,
-              height: 108,
-              backgroundColor: GOLD,
-            },
-            children: [{
-              type: "div",
-              props: {
-                style: {
-                  fontFamily: "Body",
-                  fontWeight: 500,
-                  fontSize: 26,
-                  letterSpacing: 5,
-                  color: FOREST_DEEP,
-                  textTransform: "uppercase",
-                },
-                children: "Moradas de Paraty  ·  Fale com a gente",
-              },
-            }],
-          },
-        },
+        ctaBand(cta ?? "Moradas de Paraty · Fale com a gente"),
       ],
     },
   };
 }
 
-function buildTree(templateId: string, image: string, headline: string, sub?: string): Node {
+function buildTree(
+  templateId: string,
+  image: string,
+  headline: string,
+  sub: string | undefined,
+  selos: string[],
+  cta: string | null,
+): Node {
   switch (templateId) {
     case "T02_CENA":
-      return templateCena(image, headline, sub);
+      return templateCena(image, headline, sub, selos, cta);
     case "T03_DADO":
-      return templateDado(image, headline, sub);
+      return templateDado(image, headline, sub, selos, cta);
     case "T04_LISTA":
-      return templateLista(image, headline, sub);
+      return templateLista(image, headline, sub, selos, cta);
     case "T05_CTA":
-      return templateCta(image, headline, sub);
+      return templateCta(image, headline, sub, selos, cta);
     default:
-      return templateCapa(image, headline, sub);
+      return templateCapa(image, headline, sub, selos, cta);
   }
 }
 
@@ -571,12 +821,19 @@ Deno.serve(async (req) => {
     const sourceUrl = slide.treated_image_url || slide.raw_image_url;
     if (!sourceUrl) throw new Error("Slide sem imagem base");
 
-    const copy = (slide.copy_data ?? {}) as { headline?: string; sub_text?: string };
+    const copy = (slide.copy_data ?? {}) as {
+      headline?: string;
+      sub_text?: string;
+      selos?: string[];
+      cta?: string | null;
+    };
     const headline = copy.headline ?? "Moradas de Paraty";
     const sub = copy.sub_text ?? undefined;
+    const selos = Array.isArray(copy.selos) ? copy.selos.filter(Boolean) : [];
+    const cta = copy.cta ?? null;
 
     const [fonts, imageData] = await Promise.all([loadFonts(), toDataUrl(sourceUrl)]);
-    const tree = buildTree(slide.template_id, imageData, headline, sub);
+    const tree = buildTree(slide.template_id, imageData, headline, sub, selos, cta);
 
     const svg = await satori(tree, { width: SIZE, height: SIZE, fonts });
 
@@ -618,7 +875,9 @@ Deno.serve(async (req) => {
           .from("imagery_slides")
           .update({ status: "failed", error_message: msg.slice(0, 500) })
           .eq("id", slideId);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
