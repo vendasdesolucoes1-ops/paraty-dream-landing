@@ -83,6 +83,16 @@ function LoginPage() {
             {loading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
+
+        <div className="text-center">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para o site
+          </Link>
+        </div>
       </div>
     </div>
   );
