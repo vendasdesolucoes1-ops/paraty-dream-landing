@@ -88,35 +88,39 @@
    landing pública nunca recebe essa classe, então estas variáveis nunca a
    afetam. */
 .dark {
-  --background: oklch(0.19 0.015 155);
-  --foreground: oklch(0.94 0.008 85);
-  --card: oklch(0.23 0.018 155);
+  /* Neutro tipo ChatGPT: cinzas quase pretos, sem verde. */
+  --forest-deep: oklch(0.205 0 0); /* sidebar */
+  --forest: oklch(0.32 0 0);
+
+  --background: oklch(0.255 0 0);
+  --foreground: oklch(0.94 0 0);
+  --card: oklch(0.3 0 0);
   --card-foreground: var(--foreground);
-  --popover: oklch(0.23 0.018 155);
+  --popover: oklch(0.3 0 0);
   --popover-foreground: var(--foreground);
   --primary: var(--gold);
-  --primary-foreground: oklch(0.19 0.015 155);
-  --secondary: oklch(0.27 0.02 155);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.33 0 0);
   --secondary-foreground: var(--foreground);
-  --muted: oklch(0.26 0.018 155);
-  --muted-foreground: oklch(0.68 0.02 85);
+  --muted: oklch(0.31 0 0);
+  --muted-foreground: oklch(0.7 0 0);
   --accent: var(--gold);
-  --accent-foreground: oklch(0.19 0.015 155);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.6 0.2 27);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.32 0.02 155);
-  --input: oklch(0.3 0.02 155);
+  --border: oklch(0.37 0 0);
+  --input: oklch(0.35 0 0);
   --ring: var(--gold);
 
-  --lote-disponivel: oklch(0.3 0.02 155);
+  --lote-disponivel: oklch(0.35 0 0);
   --lote-reservado: var(--gold);
-  --lote-vendido: oklch(0.5 0.09 155);
-  --planta-bg: oklch(0.23 0.018 155);
-  --planta-title: var(--ivory);
-  --planta-quadra-border: oklch(0.4 0.03 155);
-  --planta-quadra-label: var(--ivory);
-  --planta-lote-border: oklch(0.45 0.04 155);
-  --planta-lote-text: var(--ivory);
+  --lote-vendido: oklch(0.52 0 0);
+  --planta-bg: oklch(0.3 0 0);
+  --planta-title: oklch(0.94 0 0);
+  --planta-quadra-border: oklch(0.45 0 0);
+  --planta-quadra-label: oklch(0.94 0 0);
+  --planta-lote-border: oklch(0.48 0 0);
+  --planta-lote-text: oklch(0.94 0 0);
 }
 
 @layer base {
