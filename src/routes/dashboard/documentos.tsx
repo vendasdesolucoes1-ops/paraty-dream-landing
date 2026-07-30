@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ChevronDown, Folder, Plus, Upload } from "lucide-react";
+import { ChevronDown, Folder, Pencil, Plus, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +26,10 @@ import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
 import { DocumentoEditDialog } from "@/components/documentos/documento-edit-dialog";
+import {
+  ProcessoEditDialog,
+  type ProcessoEditTarget,
+} from "@/components/documentos/processo-edit-dialog";
 
 export const Route = createFileRoute("/dashboard/documentos")({
   head: () => ({ meta: [{ title: "Documentos — Moradas de Paraty" }] }),
