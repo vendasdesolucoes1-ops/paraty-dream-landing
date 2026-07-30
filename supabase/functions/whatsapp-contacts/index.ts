@@ -122,11 +122,12 @@ Deno.serve(async (req) => {
     const { instance_name } = await req.json();
     if (!instance_name) throw new Error("instance_name is required");
 
-    const result = await listContacts(instance_name);
+    const { contacts, owner } = await listContacts(instance_name);
 
-    return new Response(JSON.stringify({ ok: true, data: result }), {
+    return new Response(JSON.stringify({ ok: true, data: contacts, owner }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error) }), {
       status: 500,
