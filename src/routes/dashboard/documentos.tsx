@@ -284,6 +284,15 @@ function DocumentosPage() {
         }}
       />
 
+      <ProcessoEditDialog
+        target={editingProcesso}
+        open={!!editingProcesso}
+        onOpenChange={(open) => {
+          if (!open) setEditingProcesso(null);
+        }}
+      />
+
+
       <DocumentoEditDialog
         documento={editingDocumento}
         open={!!editingDocumento}
