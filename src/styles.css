@@ -44,16 +44,21 @@
 :root {
   --radius: 0.25rem;
 
-  /* Premium palette — Atlantic forest greens, sand, ivory, soft gold */
-  --forest-deep: oklch(0.28 0.04 155);
-  --forest: oklch(0.38 0.06 152);
+  /* Premium palette — deep navy, sand, ivory, soft gold.
+     forest-deep/forest mantêm o nome histórico (evita renomear toda a base
+     de classes bg-forest-deep/text-forest espalhada no projeto), mas agora
+     são tons de azul-marinho — hue deslocado de ~150-155 (verde) para ~252-255
+     (azul), luminosidade/chroma preservando a mesma relação clara/escura que
+     já existia entre os dois tokens. */
+  --forest-deep: oklch(0.26 0.085 255);
+  --forest: oklch(0.36 0.09 252);
   --sand: oklch(0.78 0.04 75);
   --sand-light: oklch(0.93 0.02 80);
   --ivory: oklch(0.975 0.008 85);
   --gold: oklch(0.72 0.11 75);
 
   --background: var(--ivory);
-  --foreground: oklch(0.22 0.03 150);
+  --foreground: oklch(0.22 0.03 250);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
@@ -63,7 +68,7 @@
   --secondary: var(--sand-light);
   --secondary-foreground: var(--forest-deep);
   --muted: oklch(0.95 0.012 80);
-  --muted-foreground: oklch(0.48 0.02 150);
+  --muted-foreground: oklch(0.48 0.02 250);
   --accent: var(--gold);
   --accent-foreground: var(--forest-deep);
   --destructive: oklch(0.55 0.2 27);
