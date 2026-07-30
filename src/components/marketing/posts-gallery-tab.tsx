@@ -1,10 +1,11 @@
 // Aba "Galeria" — KPIs do Imagery Engine e histórico de posts gerados.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronRight,
+  Copy,
   ExternalLink,
   Instagram,
   Loader2,
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -39,7 +41,7 @@ type PostRow = {
   ig_error: string | null;
   custo_total_usd: number;
   created_at: string;
-  copy_data: { titulo?: string; caption?: string } | null;
+  copy_data: { titulo?: string; caption?: string; hashtags?: string[] } | null;
 };
 
 type SlideRow = {
@@ -128,6 +130,16 @@ export function PostsGalleryTab() {
   const previewPost = (posts ?? []).find((p) => p.id === previewPostId) ?? null;
   const previewTotal = previewSlides?.length ?? 0;
   const currentSlide = previewSlides?.[previewIndex] ?? null;
+
+  // Mesma montagem de create-post-tab.tsx: texto + hashtags, separados por
+  // linha em branco — a legenda já está gravada em copy_data, isto só monta
+  // o texto pronto para copiar.
+  const previewCaption = useMemo(() => {
+    const c = previewPost?.copy_data;
+    if (!c) return "";
+    const tags = (c.hashtags ?? []).map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
+    return [c.caption, tags].filter(Boolean).join("\n\n");
+  }, [previewPost]);
 
   const goPrev = useCallback(
     () => setPreviewIndex((i) => (previewTotal ? (i - 1 + previewTotal) % previewTotal : 0)),
@@ -228,25 +240,27 @@ export function PostsGalleryTab() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {(posts ?? []).map((post) => (
                 <Card key={post.id} className="overflow-hidden shadow-sm">
-                  {covers?.[post.id] ? (
-                    <button
-                      type="button"
-                      onClick={() => openPreview(post.id)}
-                      className="group relative block aspect-square w-full overflow-hidden bg-muted"
-                      title="Ver a arte em tamanho cheio"
-                    >
+                  {/* Sempre clicável, mesmo sem capa: um post Falhou/Rascunho
+                      sem imagem ainda tem legenda paga e gerada, e o modal
+                      precisa ficar acessível para consultá-la — antes o card
+                      sem capa nem abria o preview. */}
+                  <button
+                    type="button"
+                    onClick={() => openPreview(post.id)}
+                    className="group relative block aspect-square w-full overflow-hidden bg-muted"
+                    title={covers?.[post.id] ? "Ver a arte em tamanho cheio" : "Ver legenda"}
+                  >
+                    {covers?.[post.id] ? (
                       <img
                         src={covers[post.id]!}
                         alt={post.copy_data?.titulo ?? post.tema}
                         className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                       />
-                      <span className="absolute inset-0 flex items-center justify-center bg-forest-deep/0 opacity-0 transition-all duration-200 group-hover:bg-forest-deep/40 group-hover:opacity-100 group-focus-visible:bg-forest-deep/40 group-focus-visible:opacity-100">
-                        <Maximize2 className="h-7 w-7 text-ivory" />
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="aspect-square bg-muted" />
-                  )}
+                    ) : null}
+                    <span className="absolute inset-0 flex items-center justify-center bg-forest-deep/0 opacity-0 transition-all duration-200 group-hover:bg-forest-deep/40 group-hover:opacity-100 group-focus-visible:bg-forest-deep/40 group-focus-visible:opacity-100">
+                      <Maximize2 className="h-7 w-7 text-ivory" />
+                    </span>
+                  </button>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <Badge className={`font-normal ${STATUS_STYLE[post.status] ?? ""}`}>
@@ -359,7 +373,7 @@ export function PostsGalleryTab() {
               />
             ) : (
               <p className="py-16 text-center text-sm text-muted-foreground">
-                Este post ainda não tem arte gerada.
+                Imagem ainda não gerada.
               </p>
             )}
 
@@ -405,6 +419,28 @@ export function PostsGalleryTab() {
               <span className="ml-2 text-xs text-muted-foreground">
                 {previewIndex + 1} / {previewTotal}
               </span>
+            </div>
+          ) : null}
+
+          {/* Legenda: já gravada em imagery_posts.copy_data, independente do
+              status do post — Rascunho/Falhou também têm legenda paga e
+              gerada, só não tiveram (ou perderam) a imagem. */}
+          {previewCaption ? (
+            <div className="space-y-2 border-t pt-4">
+              <p className="text-sm font-medium text-primary">Legenda</p>
+              <Textarea rows={6} readOnly value={previewCaption} className="text-sm" />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(previewCaption);
+                  toast.success("Legenda copiada.");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Copiar legenda
+              </Button>
             </div>
           ) : null}
         </DialogContent>
