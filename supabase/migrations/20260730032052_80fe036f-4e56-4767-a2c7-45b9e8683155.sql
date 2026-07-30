@@ -1,0 +1,2 @@
+ALTER TABLE public.leads DROP CONSTRAINT leads_origem_check;
+ALTER TABLE public.leads ADD CONSTRAINT leads_origem_check CHECK (origem = ANY (ARRAY['lp','whatsapp','whatsapp_contato','indicacao','instagram','google_maps']));
