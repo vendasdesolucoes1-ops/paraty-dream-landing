@@ -1,31 +1,37 @@
 // Supabase Edge Function — lists WhatsApp groups and their participants via the Evolution API.
 // Actions: { action: "list", instance_name } | { action: "participants", instance_name, group_jid }
+//
+// Toda ação exige aparelho conectado: sem isso a Evolution devolveria dado
+// remanescente do celular anterior — ver _shared/evolution-instance.ts.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { assertConnected, getEvolutionSession } from "../_shared/evolution-instance.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-async function getInstance(instanceName: string) {
+async function getConnectedInstance(instanceName: string) {
   const { data: instance, error } = await supabase
     .from("whatsapp_instances")
     .select("*")
     .eq("instance_name", instanceName)
     .single();
   if (error || !instance) throw new Error("instance not found");
+  assertConnected(await getEvolutionSession(instance));
   return instance;
 }
 
 async function listGroups(instanceName: string) {
-  const instance = await getInstance(instanceName);
+  const instance = await getConnectedInstance(instanceName);
 
   const response = await fetch(
     `${instance.api_url}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
     { method: "GET", headers: { apikey: instance.api_key } },
   );
+
   if (!response.ok) throw new Error(`Evolution API fetchAllGroups error: ${await response.text()}`);
 
   const result = await response.json();
