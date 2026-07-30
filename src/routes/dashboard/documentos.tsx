@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ChevronDown, Folder, Plus, Upload } from "lucide-react";
+import { ChevronDown, Folder, Pencil, Plus, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +26,10 @@ import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
 import { DocumentoEditDialog } from "@/components/documentos/documento-edit-dialog";
+import {
+  ProcessoEditDialog,
+  type ProcessoEditTarget,
+} from "@/components/documentos/processo-edit-dialog";
 
 export const Route = createFileRoute("/dashboard/documentos")({
   head: () => ({ meta: [{ title: "Documentos — Moradas de Paraty" }] }),
@@ -45,10 +49,12 @@ function ProcessoSection({
   group,
   onSelect,
   onEdit,
+  onEditProcesso,
 }: {
   group: ProcessoGroup;
   onSelect: (documento: DocumentoWithLead) => void;
   onEdit: (documento: DocumentoWithLead) => void;
+  onEditProcesso: (target: ProcessoEditTarget) => void;
 }) {
   const [open, setOpen] = useState(true);
   const isRealProcesso = group.key !== "__sem_processo__";
@@ -79,6 +85,22 @@ function ProcessoSection({
               />
             </button>
           </CollapsibleTrigger>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() =>
+              onEditProcesso({
+                id: isRealProcesso ? group.key : null,
+                titulo: group.titulo,
+                categoria: group.categoria,
+                documentoIds: group.documentos.map((d) => d.id),
+              })
+            }
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            {isRealProcesso ? "Renomear" : "Nomear"}
+          </Button>
           {isRealProcesso ? (
             <DocumentoUploadDialog
               defaultProcesso={{ id: group.key, titulo: group.titulo }}
@@ -115,6 +137,7 @@ function DocumentosPage() {
   const [search, setSearch] = useState("");
   const [selectedDocumento, setSelectedDocumento] = useState<DocumentoWithLead | null>(null);
   const [editingDocumento, setEditingDocumento] = useState<DocumentoWithLead | null>(null);
+  const [editingProcesso, setEditingProcesso] = useState<ProcessoEditTarget | null>(null);
 
   const {
     data: documentos,
@@ -247,6 +270,7 @@ function DocumentosPage() {
               group={group}
               onSelect={setSelectedDocumento}
               onEdit={setEditingDocumento}
+              onEditProcesso={setEditingProcesso}
             />
           ))}
         </div>
@@ -259,6 +283,15 @@ function DocumentosPage() {
           if (!open) setSelectedDocumento(null);
         }}
       />
+
+      <ProcessoEditDialog
+        target={editingProcesso}
+        open={!!editingProcesso}
+        onOpenChange={(open) => {
+          if (!open) setEditingProcesso(null);
+        }}
+      />
+
 
       <DocumentoEditDialog
         documento={editingDocumento}

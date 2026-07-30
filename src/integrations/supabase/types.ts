@@ -167,27 +167,6 @@ export type Database = {
         }
         Relationships: []
       }
-      configuracoes: {
-        Row: {
-          chave: string
-          created_at: string
-          id: string
-          valor: string | null
-        }
-        Insert: {
-          chave: string
-          created_at?: string
-          id?: string
-          valor?: string | null
-        }
-        Update: {
-          chave?: string
-          created_at?: string
-          id?: string
-          valor?: string | null
-        }
-        Relationships: []
-      }
       clientes: {
         Row: {
           bairro: string | null
@@ -336,6 +315,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      configuracoes: {
+        Row: {
+          chave: string
+          created_at: string
+          id: string
+          valor: string | null
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          id?: string
+          valor?: string | null
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          id?: string
+          valor?: string | null
+        }
+        Relationships: []
       }
       documentos: {
         Row: {
