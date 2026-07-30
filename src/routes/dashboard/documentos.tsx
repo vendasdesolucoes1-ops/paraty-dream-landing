@@ -49,10 +49,12 @@ function ProcessoSection({
   group,
   onSelect,
   onEdit,
+  onEditProcesso,
 }: {
   group: ProcessoGroup;
   onSelect: (documento: DocumentoWithLead) => void;
   onEdit: (documento: DocumentoWithLead) => void;
+  onEditProcesso: (target: ProcessoEditTarget) => void;
 }) {
   const [open, setOpen] = useState(true);
   const isRealProcesso = group.key !== "__sem_processo__";
