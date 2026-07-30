@@ -76,6 +76,10 @@ export function ContactExtractorCard() {
   const [existingPhones, setExistingPhones] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  // Qual aparelho de fato respondeu — deixa explícito que a agenda é do celular
+  // que está com o QR ativo, não de uma conexão anterior da mesma instância.
+  const [owner, setOwner] = useState<{ number: string | null; name: string | null } | null>(null);
+
 
   const { data: instances } = useQuery({
     queryKey: ["whatsapp-instances"],
@@ -126,11 +130,18 @@ export function ContactExtractorCard() {
         for (const l of existentes ?? []) existing.add(l.telefone as string);
       }
 
-      return { fetched, existing, duplicateCheckFailed };
+      return {
+        fetched,
+        existing,
+        duplicateCheckFailed,
+        owner: (data.owner ?? null) as { number: string | null; name: string | null } | null,
+      };
     },
-    onSuccess: ({ fetched, existing, duplicateCheckFailed }) => {
+    onSuccess: ({ fetched, existing, duplicateCheckFailed, owner: donoDaSessao }) => {
       setContacts(fetched);
       setExistingPhones(existing);
+      setOwner(donoDaSessao);
+
       // Pré-seleciona só quem ainda não existe no CRM e tem telefone
       // utilizável — contato @lid sem número resolvido nasce desmarcado.
       setSelected(
@@ -291,7 +302,14 @@ export function ContactExtractorCard() {
         <p className="text-sm text-muted-foreground">Nenhum contato encontrado na instância.</p>
       ) : contacts ? (
         <div className="space-y-3">
+          {owner?.number ? (
+            <p className="text-xs text-muted-foreground">
+              Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
+              {owner.number}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
+
             <p className="text-sm">
               <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
               <span className="font-medium">{selected.size}</span> selecionados
