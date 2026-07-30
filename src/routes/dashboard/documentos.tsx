@@ -269,6 +269,7 @@ function DocumentosPage() {
               group={group}
               onSelect={setSelectedDocumento}
               onEdit={setEditingDocumento}
+              onEditProcesso={setEditingProcesso}
             />
           ))}
         </div>
