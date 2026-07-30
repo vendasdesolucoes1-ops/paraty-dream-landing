@@ -35,13 +35,23 @@ async function listContacts(instanceName: string) {
 
   return contacts
     .map((c: Record<string, unknown>) => {
-      const jid = String(c.id ?? c.jid ?? c.remoteJid ?? "");
+      // ATENÇÃO: nesta versão da Evolution, `c.id` é o id interno do banco
+      // dela (cuid tipo "cmrxu4c5h2z3fpe4q3i2iyblh"). Remover os não-dígitos
+      // dele produzia "números" inventados (45298422409, 2004946450...) —
+      // exatamente o bug relatado. O JID de verdade está em `remoteJid`.
+      const jid = String(c.remoteJid ?? c.jid ?? "");
+      if (!jid.includes("@")) return null;
+
       // Grupos e broadcast lists não são telefone de pessoa disparável.
       // .includes() em vez de .endsWith() por segurança — algumas respostas
       // da Evolution trazem sufixo de device (":12@g.us") antes do domínio.
-      if (jid.includes("@g.us") || jid.includes("@broadcast")) return null;
+      if (c.isGroup === true || c.type === "group") return null;
+      if (jid.includes("@g.us") || jid.includes("@broadcast") || jid.includes("@newsletter"))
+        return null;
 
       const name = String(c.pushName || c.name || jid);
+
+
 
       // WhatsApp LID (issue conhecida EvolutionAPI/Baileys #1872): parte dos
       // contatos (majoritariamente Android) tem o id como um identificador
@@ -65,14 +75,14 @@ async function listContacts(instanceName: string) {
         return { number: null, name, numeroIndisponivel: true };
       }
 
-      const number = jid.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
-      // Rede de segurança independente do formato do JID: um telefone real
-      // (com DDI) tem entre 10 e 15 dígitos. Um grupo cujo campo de
-      // identificação não bateu com os sufixos acima ainda cai fora aqui —
-      // foi assim que grupos como "Fut dos amigos" vazaram como números de
-      // 7-9 dígitos no incidente que motivou este filtro.
+      // Só aceita o JID de usuário real; qualquer outro domínio não é telefone.
+      if (!jid.includes("@s.whatsapp.net")) return null;
+      // Remove o domínio e um eventual sufixo de device (":12") antes dele.
+      const number = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+      // Rede de segurança: um telefone real (com DDI) tem 10 a 15 dígitos.
       if (number.length < 10 || number.length > 15) return null;
       return { number, name, numeroIndisponivel: false };
+
     })
     .filter(
       (c: unknown): c is { number: string | null; name: string; numeroIndisponivel: boolean } =>
