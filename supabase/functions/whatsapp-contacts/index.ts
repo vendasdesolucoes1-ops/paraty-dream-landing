@@ -36,12 +36,35 @@ async function listContacts(instanceName: string) {
   return contacts
     .map((c: Record<string, unknown>) => {
       const jid = String(c.id ?? c.jid ?? c.remoteJid ?? "");
-      // Grupos, broadcast lists e LIDs (identificador interno do WhatsApp
-      // multi-device) também aparecem em findContacts; nenhum dos três é um
-      // telefone de pessoa disparável. .includes() em vez de .endsWith() por
-      // segurança — algumas respostas da Evolution trazem sufixo de device
-      // (":12@g.us") antes do domínio.
-      if (jid.includes("@g.us") || jid.includes("@broadcast") || jid.includes("@lid")) return null;
+      // Grupos e broadcast lists não são telefone de pessoa disparável.
+      // .includes() em vez de .endsWith() por segurança — algumas respostas
+      // da Evolution trazem sufixo de device (":12@g.us") antes do domínio.
+      if (jid.includes("@g.us") || jid.includes("@broadcast")) return null;
+
+      const name = String(c.pushName || c.name || jid);
+
+      // WhatsApp LID (issue conhecida EvolutionAPI/Baileys #1872): parte dos
+      // contatos (majoritariamente Android) tem o id como um identificador
+      // interno "@lid" em vez do telefone real. O Baileys expõe um campo
+      // phoneNumber separado nesse caso, mas ele só vem preenchido se a
+      // configuração de privacidade do contato permitir — não é garantido, e
+      // não sabemos com certeza o nome exato do campo que a Evolution repassa
+      // (a issue trata justamente da tradução @lid→telefone ser inconsistente
+      // entre versões). Por isso tentamos os nomes plausíveis e, se nenhum
+      // vier com um telefone de verdade, marcamos como indisponível em vez de
+      // importar o LID como se fosse número — foi isso que vazou como
+      // "números" de 7-9 dígitos no incidente anterior.
+      if (jid.includes("@lid")) {
+        const candidato = String(
+          c.phoneNumber ?? c.phone_number ?? c.pnJid ?? c.pn ?? c.remoteJidAlt ?? "",
+        );
+        const numeroReal = candidato.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
+        if (numeroReal.length >= 10 && numeroReal.length <= 15) {
+          return { number: numeroReal, name, numeroIndisponivel: false };
+        }
+        return { number: null, name, numeroIndisponivel: true };
+      }
+
       const number = jid.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
       // Rede de segurança independente do formato do JID: um telefone real
       // (com DDI) tem entre 10 e 15 dígitos. Um grupo cujo campo de
@@ -49,14 +72,12 @@ async function listContacts(instanceName: string) {
       // foi assim que grupos como "Fut dos amigos" vazaram como números de
       // 7-9 dígitos no incidente que motivou este filtro.
       if (number.length < 10 || number.length > 15) return null;
-      return {
-        number,
-        // pushName vem vazio para parte dos contatos (bug conhecido da
-        // Evolution API); cai pro próprio número, igual ao extrator de grupos.
-        name: String(c.pushName || c.name || number),
-      };
+      return { number, name, numeroIndisponivel: false };
     })
-    .filter((c: unknown): c is { number: string; name: string } => c !== null);
+    .filter(
+      (c: unknown): c is { number: string | null; name: string; numeroIndisponivel: boolean } =>
+        c !== null,
+    );
 }
 
 Deno.serve(async (req) => {

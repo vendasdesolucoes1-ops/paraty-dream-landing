@@ -49,8 +49,12 @@ import {
 } from "@/components/ui/pagination";
 
 interface WhatsappContact {
-  number: string;
+  // Identidade estável para seleção/paginação: number pode ser null (LID sem
+  // telefone resolvido) e não é garantidamente único nesse caso.
+  id: string;
+  number: string | null;
   name: string;
+  numeroIndisponivel: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -94,7 +98,8 @@ export function ContactExtractorCard() {
         body: { instance_name: selectedInstance.instance_name },
       });
       if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "erro");
-      const fetched = data.data as WhatsappContact[];
+      const raw = data.data as Omit<WhatsappContact, "id">[];
+      const fetched: WhatsappContact[] = raw.map((c, i) => ({ ...c, id: `${i}` }));
 
       // Checagem prévia de duplicata: só informativa aqui (mostra badge na
       // prévia); quem de fato impede duplicar no banco é o índice único de
@@ -103,7 +108,7 @@ export function ContactExtractorCard() {
       // aparece sem o badge, e o índice único ainda protege na importação.
       const existing = new Set<string>();
       let duplicateCheckFailed = false;
-      const numbers = fetched.map((c) => c.number).filter(Boolean);
+      const numbers = fetched.map((c) => c.number).filter((n): n is string => Boolean(n));
 
       for (const batch of chunk(numbers, DUPLICATE_CHECK_CHUNK_SIZE)) {
         const { data: existentes, error: leadsError } = await supabase
@@ -126,9 +131,15 @@ export function ContactExtractorCard() {
     onSuccess: ({ fetched, existing, duplicateCheckFailed }) => {
       setContacts(fetched);
       setExistingPhones(existing);
-      // Pré-seleciona só quem ainda não existe no CRM — é o caso comum, e
-      // evita que "selecionar todos" precise ser desmarcado contato a contato.
-      setSelected(new Set(fetched.filter((c) => !existing.has(c.number)).map((c) => c.number)));
+      // Pré-seleciona só quem ainda não existe no CRM e tem telefone
+      // utilizável — contato @lid sem número resolvido nasce desmarcado.
+      setSelected(
+        new Set(
+          fetched
+            .filter((c) => !c.numeroIndisponivel && c.number && !existing.has(c.number))
+            .map((c) => c.id),
+        ),
+      );
       setPage(1);
       if (duplicateCheckFailed) {
         toast.warning(
@@ -146,29 +157,35 @@ export function ContactExtractorCard() {
     return contacts.slice(start, start + PAGE_SIZE);
   }, [contacts, page]);
 
-  const allSelected = contacts !== null && contacts.length > 0 && selected.size === contacts.length;
+  // "Selecionável" exclui os @lid sem telefone resolvido: não faz sentido
+  // contar nem oferecer marcar o que não pode ser importado de jeito nenhum.
+  const selectableContacts = useMemo(
+    () => (contacts ?? []).filter((c) => !c.numeroIndisponivel),
+    [contacts],
+  );
+  const allSelected = selectableContacts.length > 0 && selected.size === selectableContacts.length;
   const someSelected = selected.size > 0 && !allSelected;
 
-  function toggleOne(number: string) {
+  function toggleOne(id: string) {
     setSelected((current) => {
       const next = new Set(current);
-      if (next.has(number)) next.delete(number);
-      else next.add(number);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
 
   function toggleAll() {
-    if (!contacts) return;
+    if (selectableContacts.length === 0) return;
     // Aplica ao conjunto inteiro retornado, não só à página visível — senão o
     // "selecionar todos" de uma agenda grande exigiria passar por cada página.
-    setSelected(allSelected ? new Set() : new Set(contacts.map((c) => c.number)));
+    setSelected(allSelected ? new Set() : new Set(selectableContacts.map((c) => c.id)));
   }
 
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!contacts) return { importados: 0, jaExistiam: 0, ignorados: 0 };
-      const escolhidos = contacts.filter((c) => selected.has(c.number));
+      const escolhidos = contacts.filter((c) => selected.has(c.id));
 
       let jaExistiam = 0;
       let ignorados = 0;
@@ -180,7 +197,10 @@ export function ContactExtractorCard() {
       }[] = [];
 
       for (const contact of escolhidos) {
-        if (!contact.number || contact.number.length < 8) {
+        // Segunda barreira, além do checkbox desabilitado na UI: mesmo que
+        // algo force a seleção (ex: id reaproveitado), um LID sem telefone
+        // resolvido nunca vira linha em leads.
+        if (contact.numeroIndisponivel || !contact.number || contact.number.length < 8) {
           ignorados++;
           continue;
         }
@@ -232,7 +252,7 @@ export function ContactExtractorCard() {
     downloadCsv(
       `${selectedInstance?.instance_name ?? "whatsapp"}-contatos.csv`,
       ["Nome", "Número"],
-      contacts.map((c) => [c.name, c.number]),
+      contacts.map((c) => [c.name, c.number ?? "(indisponível — WhatsApp LID)"]),
     );
   }
 
@@ -275,6 +295,16 @@ export function ContactExtractorCard() {
             <p className="text-sm">
               <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
               <span className="font-medium">{selected.size}</span> selecionados
+              {contacts.length - selectableContacts.length > 0 ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="text-muted-foreground">
+                    {contacts.length - selectableContacts.length} sem telefone utilizável (WhatsApp
+                    LID)
+                  </span>
+                </>
+              ) : null}
             </p>
           </div>
 
@@ -296,18 +326,30 @@ export function ContactExtractorCard() {
               </TableHeader>
               <TableBody>
                 {pageContacts.map((contact) => (
-                  <TableRow key={contact.number}>
+                  <TableRow key={contact.id}>
                     <TableCell>
                       <Checkbox
-                        checked={selected.has(contact.number)}
-                        onCheckedChange={() => toggleOne(contact.number)}
+                        checked={selected.has(contact.id)}
+                        onCheckedChange={() => toggleOne(contact.id)}
+                        disabled={contact.numeroIndisponivel}
                         aria-label={`Selecionar ${contact.name}`}
                       />
                     </TableCell>
                     <TableCell>{contact.name}</TableCell>
-                    <TableCell>{contact.number}</TableCell>
+                    <TableCell
+                      className={contact.numeroIndisponivel ? "text-muted-foreground italic" : ""}
+                    >
+                      {contact.number ?? "Número indisponível (WhatsApp LID)"}
+                    </TableCell>
                     <TableCell>
-                      {existingPhones.has(contact.number) ? (
+                      {contact.numeroIndisponivel ? (
+                        <Badge
+                          className="bg-muted text-muted-foreground hover:bg-muted font-normal"
+                          title="Este contato usa o identificador interno @lid do WhatsApp e não expôs o telefone real — não pode ser importado."
+                        >
+                          Não importável
+                        </Badge>
+                      ) : contact.number && existingPhones.has(contact.number) ? (
                         <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-normal">
                           Já existe
                         </Badge>
