@@ -137,6 +137,7 @@ function DocumentosPage() {
   const [search, setSearch] = useState("");
   const [selectedDocumento, setSelectedDocumento] = useState<DocumentoWithLead | null>(null);
   const [editingDocumento, setEditingDocumento] = useState<DocumentoWithLead | null>(null);
+  const [editingProcesso, setEditingProcesso] = useState<ProcessoEditTarget | null>(null);
 
   const {
     data: documentos,
