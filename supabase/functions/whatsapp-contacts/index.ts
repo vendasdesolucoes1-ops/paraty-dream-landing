@@ -75,14 +75,14 @@ async function listContacts(instanceName: string) {
         return { number: null, name, numeroIndisponivel: true };
       }
 
-      const number = jid.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
-      // Rede de segurança independente do formato do JID: um telefone real
-      // (com DDI) tem entre 10 e 15 dígitos. Um grupo cujo campo de
-      // identificação não bateu com os sufixos acima ainda cai fora aqui —
-      // foi assim que grupos como "Fut dos amigos" vazaram como números de
-      // 7-9 dígitos no incidente que motivou este filtro.
+      // Só aceita o JID de usuário real; qualquer outro domínio não é telefone.
+      if (!jid.includes("@s.whatsapp.net")) return null;
+      // Remove o domínio e um eventual sufixo de device (":12") antes dele.
+      const number = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+      // Rede de segurança: um telefone real (com DDI) tem 10 a 15 dígitos.
       if (number.length < 10 || number.length > 15) return null;
       return { number, name, numeroIndisponivel: false };
+
     })
     .filter(
       (c: unknown): c is { number: string | null; name: string; numeroIndisponivel: boolean } =>
