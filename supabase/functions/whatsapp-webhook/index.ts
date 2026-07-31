@@ -11,6 +11,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const AI_RESPONSE_DELAY_MS = 30_000;
 const LEAD_QUALIFICADO_MARKER = "[LEAD_QUALIFICADO]";
+// Intervalo entre as mensagens quebradas de uma mesma resposta (separadas por
+// ||), pra parecer alguém digitando em partes em vez de um bot disparando
+// tudo de uma vez. Proporcional ao tamanho do texto, com piso e teto.
+const INTER_MESSAGE_DELAY_MIN_MS = 1000;
+const INTER_MESSAGE_DELAY_MAX_MS = 3000;
+const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
+
+function humanizedDelay(text: string): number {
+  const estimated = text.length * INTER_MESSAGE_DELAY_MS_PER_CHAR;
+  return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
+}
 
 function normalizePhone(remoteJid: string): string {
   const digitsOnly = remoteJid.replace(/@s\.whatsapp\.net|@g\.us/g, "").replace(/\D/g, "");
@@ -367,7 +378,15 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: cleanMessages.length });
 
   // 10 & 11. Send response(s) and persist them
-  for (const messageText of cleanMessages) {
+  for (const [index, messageText] of cleanMessages.entries()) {
+    // Antes da primeira mensagem já rolou o delay + presence lá em cima; a
+    // partir da segunda, cada parte espera um pouco — como alguém digitando
+    // em blocos, não um bot cuspindo tudo de uma vez.
+    if (index > 0) {
+      await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
+      await new Promise((resolve) => setTimeout(resolve, humanizedDelay(messageText)));
+    }
+
     const sendResult = await sendWhatsAppText(
       instance.api_url,
       instance.api_key,

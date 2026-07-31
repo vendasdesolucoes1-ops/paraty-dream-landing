@@ -463,6 +463,13 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
 
   const sendMutation = useMutation({
     mutationFn: async (message: string) => {
+      // Sem lead_id real, ai-agent-chat não tem como buscar histórico no banco
+      // (.eq("lead_id", null) nunca casa nada em Postgres) — por isso o painel
+      // manda a própria conversa local como histórico explícito.
+      const history = messages.map((m) => ({
+        role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+        content: m.text,
+      }));
       const { data, error } = await supabase.functions.invoke("ai-agent-chat", {
         body: {
           agent_id: agent.id,
@@ -471,6 +478,7 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
           contact_name: "Teste",
           lead_id: null,
           session_id: sessionId,
+          history,
         },
       });
       if (error) throw error;
