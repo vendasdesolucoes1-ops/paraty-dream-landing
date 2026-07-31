@@ -10,7 +10,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const AI_RESPONSE_DELAY_MS = 30_000;
-const LEAD_QUALIFICADO_MARKER = "[LEAD_QUALIFICADO]";
 // Intervalo entre as mensagens quebradas de uma mesma resposta (separadas por
 // ||), pra parecer alguém digitando em partes em vez de um bot disparando
 // tudo de uma vez. Proporcional ao tamanho do texto, com piso e teto.
@@ -338,11 +337,11 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   const messages: string[] = aiResult.messages ?? [];
   if (messages.length === 0) return;
 
-  // The qualification marker is an internal signal from the AI agent, not
-  // customer-facing text — detect it and run the side effects regardless of
-  // whether the response actually ends up being sent (debounce below), then
-  // strip it out of what gets delivered to WhatsApp.
-  if (messages.some((m) => m.includes(LEAD_QUALIFICADO_MARKER))) {
+  // ai-agent-chat já detecta e remove a marca do texto antes de devolver —
+  // ela nunca chega aqui dentro de `messages` (isso também corrige o painel
+  // "Testar Agente", que consome a mesma function direto e antes vazava a
+  // marca crua na tela). Só o sinal booleano chega.
+  if (aiResult.lead_qualificado) {
     try {
       await handleLeadQualification(lead);
     } catch (error) {
@@ -354,9 +353,7 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     }
   }
 
-  const cleanMessages = messages
-    .map((m) => m.replaceAll(LEAD_QUALIFICADO_MARKER, "").trim())
-    .filter((m) => m.length > 0);
+  const cleanMessages = messages.map((m) => m.trim()).filter((m) => m.length > 0);
 
   if (cleanMessages.length === 0) return;
 

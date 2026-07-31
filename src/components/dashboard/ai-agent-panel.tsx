@@ -455,6 +455,24 @@ function KnowledgeBaseTab() {
   );
 }
 
+// Mesma fórmula do intervalo humanizado do whatsapp-webhook (piso/teto e
+// ms/caractere) — duplicada porque um é Deno edge function e o outro é
+// frontend, sem módulo comum entre os dois runtimes. O painel precisa
+// simular esse ritmo, senão o "Testar Agente" não reflete o envio real: lá
+// as bolhas saem em sequência com pausa, aqui elas apareciam todas juntas.
+const INTER_MESSAGE_DELAY_MIN_MS = 1000;
+const INTER_MESSAGE_DELAY_MAX_MS = 3000;
+const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
+
+function humanizedDelay(text: string): number {
+  const estimated = text.length * INTER_MESSAGE_DELAY_MS_PER_CHAR;
+  return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function TestAgentTab({ agent }: { agent: AiAgent }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -482,14 +500,16 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
         },
       });
       if (error) throw error;
-      return data as { messages: string[] };
-    },
-    onSuccess: (data) => {
-      const agentMessages: ChatMessage[] = (data.messages ?? []).map((text) => ({
-        role: "agent",
-        text,
-      }));
-      setMessages((prev) => [...prev, ...agentMessages]);
+      const result = data as { messages: string[] };
+
+      // Anexa cada bolha com o mesmo intervalo do envio real, em vez de
+      // devolver tudo de uma vez — mutationFn só resolve depois da última.
+      for (const [index, text] of (result.messages ?? []).entries()) {
+        if (index > 0) await sleep(humanizedDelay(text));
+        setMessages((prev) => [...prev, { role: "agent", text }]);
+      }
+
+      return result;
     },
     onError: () => toast.error("Erro ao consultar o agente."),
   });

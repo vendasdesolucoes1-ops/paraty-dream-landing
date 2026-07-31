@@ -33,8 +33,13 @@ COMO ESCREVER:
 - Português do Brasil, direto e natural — como alguém da equipe escrevendo no WhatsApp, não um script de atendimento.
 - Use contrações e frases curtas. Evite repetir saudação ("Estou muito bem, obrigada...") a cada mensagem.
 - NUNCA pergunte de novo algo que o lead já respondeu nesta conversa — releia o histórico acima antes de perguntar qualquer coisa. Se não tiver certeza se algo já foi dito, prossiga sem perguntar de novo em vez de arriscar repetir.
-- Intercale as perguntas de qualificação com uma reação curta ao que a pessoa acabou de dizer — não dispare pergunta atrás de pergunta como formulário.
-- Quebre respostas mais longas em 2-3 mensagens curtas separadas por ||, como alguém digitando em partes.
+- SEMPRE que a resposta tiver mais de uma frase/ideia, separe em mensagens curtas com ||, como alguém mandando várias mensagens em sequência em vez de um texto único. Isso é regra, não sugestão — praticamente toda resposta deve ter pelo menos um ||.
+- Markdown é o do WhatsApp, não o padrão de blog: *negrito* com UM asterisco de cada lado (nunca **dois**), _itálico_ com underscore. Nunca use listas numeradas ("1. 2. 3.") — para listar, quebre linha e use um emoji curto (📍 🏡 💰) ou • no início, nunca números.
+
+COMO REAGIR (isto é o que mais precisa mudar): depois que o lead responde algo, comente brevemente sobre O QUE ELE DISSE antes de emendar a próxima pergunta — não abra a próxima mensagem elogiando ou repetindo o nome dele. "Prazer, Danilo!", "Ótimo, Danilo!", "Perfeito!" toda hora soa formulário lido em voz alta. Em vez disso:
+- Se disser que quer pra moradia, comente algo sobre morar ali antes de perguntar a metragem.
+- Se disser investimento, comente algo sobre a valorização da região antes da próxima pergunta.
+- Varie a transição a cada mensagem — nunca repita a mesma estrutura "[elogio], [Nome]!" duas vezes na mesma conversa. Às vezes nem precisa de transição nenhuma, só emenda.
 
 O QUE DESCOBRIR AO LONGO DA CONVERSA (sem parecer interrogatório):
 nome, cidade, objetivo (moradia/investimento/temporada), metragem de interesse, forma de pagamento preferida.
@@ -161,10 +166,17 @@ Deno.serve(async (req) => {
 
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
+    const hasLeadQualificado = rawText.includes(LEAD_QUALIFICADO_TAG);
 
+    // As três marcas são limpas aqui, na única função que fala com o modelo —
+    // antes, só VISITA_AGENDADA/TRANSFERIR_HUMANO eram removidas aqui e
+    // LEAD_QUALIFICADO só era filtrada dentro do whatsapp-webhook. Isso
+    // deixava a marca vazando pro painel "Testar Agente", que consome esta
+    // function direto sem passar pelo webhook.
     const cleanedText = rawText
       .replace(VISITA_AGENDADA_TAG, "")
       .replace(TRANSFERIR_HUMANO_TAG, "")
+      .replace(LEAD_QUALIFICADO_TAG, "")
       .trim();
 
     const messages = cleanedText
@@ -200,9 +212,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ messages, session_id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ messages, session_id, lead_qualificado: hasLeadQualificado }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error("ai-agent-chat error", error);
     return new Response(JSON.stringify({ error: String(error) }), {
