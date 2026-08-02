@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Download,
   ExternalLink,
   Instagram,
   Loader2,
@@ -130,6 +131,58 @@ export function PostsGalleryTab() {
   const previewPost = (posts ?? []).find((p) => p.id === previewPostId) ?? null;
   const previewTotal = previewSlides?.length ?? 0;
   const currentSlide = previewSlides?.[previewIndex] ?? null;
+
+  // Nome de arquivo descritivo: título do post (ou tema) + número do slide.
+  const slugify = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "post";
+
+  // Baixa via fetch+blob (não via <a href>) porque a URL assinada é
+  // cross-origin e um link direto abriria a imagem numa aba em vez de
+  // salvá-la no dispositivo.
+  const downloadSlide = useCallback(async (url: string, filename: string) => {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  }, []);
+
+  const handleDownloadCurrent = async () => {
+    if (!currentSlide) return;
+    const url = currentSlide.final_png_url ?? currentSlide.raw_image_url;
+    if (!url) return;
+    const base = slugify(previewPost?.copy_data?.titulo || previewPost?.tema || "post");
+    try {
+      await downloadSlide(url, `${base}-slide-${currentSlide.slide_n}.png`);
+    } catch {
+      toast.error("Não foi possível baixar a imagem.");
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (!previewSlides?.length) return;
+    const base = slugify(previewPost?.copy_data?.titulo || previewPost?.tema || "post");
+    try {
+      for (const slide of previewSlides) {
+        const url = slide.final_png_url ?? slide.raw_image_url;
+        if (!url) continue;
+        await downloadSlide(url, `${base}-slide-${slide.slide_n}.png`);
+      }
+      toast.success("Download de todas as artes iniciado.");
+    } catch {
+      toast.error("Não foi possível baixar todas as imagens.");
+    }
+  };
 
   // Mesma montagem de create-post-tab.tsx: texto + hashtags, separados por
   // linha em branco — a legenda já está gravada em copy_data, isto só monta
@@ -419,6 +472,26 @@ export function PostsGalleryTab() {
               <span className="ml-2 text-xs text-muted-foreground">
                 {previewIndex + 1} / {previewTotal}
               </span>
+            </div>
+          ) : null}
+
+          {/* Publicação manual: baixar a arte e copiar a legenda funcionam
+              independente do status do post (Pronto, Falhou, Rascunho),
+              desde que a imagem/legenda já exista. */}
+          {currentSlide || previewCaption ? (
+            <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+              {currentSlide ? (
+                <Button type="button" variant="outline" size="sm" onClick={handleDownloadCurrent}>
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Baixar imagem
+                </Button>
+              ) : null}
+              {previewTotal > 1 ? (
+                <Button type="button" variant="outline" size="sm" onClick={handleDownloadAll}>
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Baixar todas ({previewTotal})
+                </Button>
+              ) : null}
             </div>
           ) : null}
 
