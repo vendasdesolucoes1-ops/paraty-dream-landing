@@ -19,6 +19,9 @@ const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 const MODEL_FLASH_IMAGE = "gemini-2.5-flash-image";
 const MODEL_PRO_IMAGE = "gemini-3-pro-image";
 
+// Retrato 4:5, igual ao canvas do imagery-compose-slide (1080x1350).
+const ASPECT_RATIO = "4:5";
+
 const NEGATIVE =
   "stock photo, people smiling at camera, silhouette couple at sunset, 3d render, illustration, cartoon, vector art, watermark, text overlay, letters, logos, oversaturated HDR, purple sky, tropical caribbean cliche, low quality, distorted hands, extra fingers, lens flare, heavy instagram filter";
 
@@ -44,7 +47,13 @@ async function callGoogleImageApi(
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE"] },
+      // 4:5 retrato — mesmo formato do feed real do Instagram. O compose
+      // monta em 1080x1350, então pedir a imagem já nessa proporção evita
+      // perder enquadramento num crop depois.
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        imageConfig: { aspectRatio: ASPECT_RATIO },
+      },
     }),
     signal: AbortSignal.timeout(90_000),
   });
@@ -206,7 +215,7 @@ Deno.serve(async (req) => {
       slide.image_brief,
       typeHint(imageType),
       VISUAL_DIRECTION,
-      "Square 1:1 composition. Leave calm negative space so elegant serif text can be placed over it.",
+      "Vertical 4:5 portrait composition. Leave calm negative space in the lower half, so title, badges and a call-to-action bar can be placed over it.",
       `Avoid: ${NEGATIVE}`,
     ].join("\n\n");
 

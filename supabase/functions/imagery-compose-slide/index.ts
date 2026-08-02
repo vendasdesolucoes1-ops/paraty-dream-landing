@@ -1,5 +1,5 @@
 // Imagery Engine — Compositor de slide
-// Recebe { slide_id } → monta a arte final 1080x1080 (Satori → SVG → PNG via resvg),
+// Recebe { slide_id } → monta a arte final 1080x1350 (Satori → SVG → PNG via resvg),
 // sobe no bucket privado e grava a URL assinada em final_png_url.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import satori from "https://esm.sh/satori@0.10.13";
@@ -11,7 +11,12 @@ import { uploadSigned } from "../_shared/imagery.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const SIZE = 1080;
+// Retrato 4:5 (1080x1350) — o formato que o feed do Instagram usa de fato.
+// Toda imagem de fundo entra com objectFit "cover" nessas dimensões, então
+// foto do acervo em outra proporção é enquadrada por center crop
+// automaticamente, sem precisar de tratamento à parte.
+const WIDTH = 1080;
+const HEIGHT = 1350;
 
 // Paleta do projeto convertida de OKLCH para hex. FOREST_DEEP/FOREST_SOFT
 // espelham src/styles.css --forest-deep/--forest (azul-marinho desde a troca
@@ -78,7 +83,7 @@ const goldRule = (width: number): Node => ({
 function coverImage(src: string, extra: Record<string, unknown> = {}): Node {
   return {
     type: "img",
-    props: { src, width: SIZE, height: SIZE, style: { objectFit: "cover", ...extra } },
+    props: { src, width: WIDTH, height: HEIGHT, style: { objectFit: "cover", ...extra } },
   };
 }
 
@@ -90,8 +95,8 @@ function scrim(from: string, to: string): Node {
         position: "absolute",
         top: 0,
         left: 0,
-        width: SIZE,
-        height: SIZE,
+        width: WIDTH,
+        height: HEIGHT,
         backgroundImage: `linear-gradient(to bottom, ${from}, ${to})`,
       },
     },
@@ -271,7 +276,7 @@ function ctaBand(cta: string): Node {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: SIZE,
+        width: WIDTH,
         height: 108,
         backgroundColor: GOLD,
       },
@@ -310,7 +315,7 @@ function templateCapa(
   return {
     type: "div",
     props: {
-      style: { display: "flex", position: "relative", width: SIZE, height: SIZE },
+      style: { display: "flex", position: "relative", width: WIDTH, height: HEIGHT },
       children: [
         coverImage(image, { position: "absolute", top: 0, left: 0 }),
         scrim(`rgba(0,35,76,0.08)`, `rgba(0,35,76,0.88)`),
@@ -328,7 +333,7 @@ function templateCapa(
               position: "absolute",
               bottom: bottomOffset,
               left: 80,
-              width: SIZE - 160,
+              width: WIDTH - 160,
               display: "flex",
               flexDirection: "column",
               gap: 22,
@@ -396,19 +401,19 @@ function templateCena(
       style: {
         display: "flex",
         position: "relative",
-        width: SIZE,
-        height: SIZE,
+        width: WIDTH,
+        height: HEIGHT,
         backgroundColor: IVORY,
       },
       children: [
         {
           type: "div",
           props: {
-            style: { display: "flex", width: 594, height: SIZE, overflow: "hidden" },
+            style: { display: "flex", width: 594, height: HEIGHT, overflow: "hidden" },
             children: [
               {
                 type: "img",
-                props: { src: image, width: 594, height: SIZE, style: { objectFit: "cover" } },
+                props: { src: image, width: 594, height: HEIGHT, style: { objectFit: "cover" } },
               },
             ],
           },
@@ -422,7 +427,7 @@ function templateCena(
               justifyContent: "center",
               gap: 26,
               width: 486,
-              height: SIZE,
+              height: HEIGHT,
               padding: 64,
               paddingBottom: comercial && cta ? 64 + 108 : 64,
             },
@@ -489,19 +494,19 @@ function templateDado(
       style: {
         display: "flex",
         position: "relative",
-        width: SIZE,
-        height: SIZE,
+        width: WIDTH,
+        height: HEIGHT,
         backgroundColor: FOREST_DEEP,
       },
       children: [
         {
           type: "div",
           props: {
-            style: { display: "flex", width: 540, height: SIZE, overflow: "hidden" },
+            style: { display: "flex", width: 540, height: HEIGHT, overflow: "hidden" },
             children: [
               {
                 type: "img",
-                props: { src: image, width: 540, height: SIZE, style: { objectFit: "cover" } },
+                props: { src: image, width: 540, height: HEIGHT, style: { objectFit: "cover" } },
               },
             ],
           },
@@ -515,7 +520,7 @@ function templateDado(
               justifyContent: "center",
               gap: 28,
               width: 540,
-              height: SIZE,
+              height: HEIGHT,
               padding: 64,
               paddingBottom: comercial && cta ? 64 + 108 : 64,
             },
@@ -577,7 +582,7 @@ function templateLista(
   return {
     type: "div",
     props: {
-      style: { display: "flex", position: "relative", width: SIZE, height: SIZE },
+      style: { display: "flex", position: "relative", width: WIDTH, height: HEIGHT },
       children: [
         coverImage(image, { position: "absolute", top: 0, left: 0 }),
         scrim("rgba(31,58,46,0.92)", "rgba(31,58,46,0.97)"),
@@ -592,8 +597,8 @@ function templateLista(
               flexDirection: "column",
               justifyContent: "center",
               gap: 44,
-              width: SIZE,
-              height: SIZE,
+              width: WIDTH,
+              height: HEIGHT,
               padding: 88,
               paddingBottom: cta ? 88 + 108 : 88,
             },
@@ -702,7 +707,7 @@ function templateCta(
   return {
     type: "div",
     props: {
-      style: { display: "flex", position: "relative", width: SIZE, height: SIZE },
+      style: { display: "flex", position: "relative", width: WIDTH, height: HEIGHT },
       children: [
         coverImage(image, { position: "absolute", top: 0, left: 0 }),
         scrim("rgba(31,58,46,0.35)", "rgba(31,58,46,0.9)"),
@@ -718,8 +723,8 @@ function templateCta(
               justifyContent: "center",
               alignItems: "center",
               gap: 28,
-              width: SIZE,
-              height: SIZE,
+              width: WIDTH,
+              height: HEIGHT,
               padding: 96,
             },
             children: [
@@ -835,13 +840,13 @@ Deno.serve(async (req) => {
     const [fonts, imageData] = await Promise.all([loadFonts(), toDataUrl(sourceUrl)]);
     const tree = buildTree(slide.template_id, imageData, headline, sub, selos, cta);
 
-    const svg = await satori(tree, { width: SIZE, height: SIZE, fonts });
+    const svg = await satori(tree, { width: WIDTH, height: HEIGHT, fonts });
 
     if (!wasmReady) {
       await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));
       wasmReady = true;
     }
-    const resvg = new Resvg(svg, { fitTo: { mode: "width", value: SIZE } });
+    const resvg = new Resvg(svg, { fitTo: { mode: "width", value: WIDTH } });
     const png = resvg.render().asPng();
 
     const path = `${slide.post_id}/${slide.id}_final_${Date.now()}.png`;
