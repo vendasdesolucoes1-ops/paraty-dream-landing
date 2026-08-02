@@ -80,7 +80,6 @@ export function ContactExtractorCard() {
   // que está com o QR ativo, não de uma conexão anterior da mesma instância.
   const [owner, setOwner] = useState<{ number: string | null; name: string | null } | null>(null);
 
-
   const { data: instances } = useQuery({
     queryKey: ["whatsapp-instances"],
     queryFn: async () => {
@@ -142,12 +141,17 @@ export function ContactExtractorCard() {
       setExistingPhones(existing);
       setOwner(donoDaSessao);
 
-      // Pré-seleciona só quem ainda não existe no CRM e tem telefone
-      // utilizável — contato @lid sem número resolvido nasce desmarcado.
+      // Pré-seleciona só quem ainda não existe no CRM, tem telefone
+      // utilizável — contato @lid sem número resolvido nasce desmarcado — e
+      // tem nome de verdade (não o fallback "nome = número"), reduzindo o
+      // ruído de contatos sem atividade real que a prévia pode arrastar.
       setSelected(
         new Set(
           fetched
-            .filter((c) => !c.numeroIndisponivel && c.number && !existing.has(c.number))
+            .filter(
+              (c) =>
+                !c.numeroIndisponivel && c.number && !existing.has(c.number) && hasNomeDefinido(c),
+            )
             .map((c) => c.id),
         ),
       );
@@ -174,6 +178,14 @@ export function ContactExtractorCard() {
     () => (contacts ?? []).filter((c) => !c.numeroIndisponivel),
     [contacts],
   );
+
+  // Contato sem pushName real cai no fallback `name = jid` lá na edge function
+  // — ou seja, nome igual ao próprio número é sinal de que a Evolution nunca
+  // teve um nome de verdade para ele (nunca conversou / não está salvo com
+  // nome). É o ruído que mais aparece quando a agenda arrasta contato de
+  // sessão antiga: mantemos visível na tabela, só não pré-marcado.
+  const hasNomeDefinido = (c: WhatsappContact) =>
+    Boolean(c.name) && c.name.trim() !== c.number && !/^\d+$/.test(c.name.trim());
   const allSelected = selectableContacts.length > 0 && selected.size === selectableContacts.length;
   const someSelected = selected.size > 0 && !allSelected;
 
@@ -316,7 +328,6 @@ export function ContactExtractorCard() {
             </p>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
-
             <p className="text-sm">
               <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
               <span className="font-medium">{selected.size}</span> selecionados
@@ -327,6 +338,16 @@ export function ContactExtractorCard() {
                   <span className="text-muted-foreground">
                     {contacts.length - selectableContacts.length} sem telefone utilizável (WhatsApp
                     LID)
+                  </span>
+                </>
+              ) : null}
+              {contacts.filter((c) => !hasNomeDefinido(c)).length > 0 ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="text-muted-foreground">
+                    {contacts.filter((c) => !hasNomeDefinido(c)).length} sem nome definido (não
+                    pré-selecionados)
                   </span>
                 </>
               ) : null}
