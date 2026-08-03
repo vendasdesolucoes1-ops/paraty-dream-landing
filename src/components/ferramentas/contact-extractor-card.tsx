@@ -328,8 +328,6 @@ export function ContactExtractorCard() {
 
       {contactsMutation.isPending ? (
         <Skeleton className="h-40 w-full rounded-lg" />
-      ) : contacts && contacts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhum contato encontrado na instância.</p>
       ) : contacts ? (
         <div className="space-y-3">
           {owner?.number ? (
@@ -338,6 +336,12 @@ export function ContactExtractorCard() {
               {owner.number}
             </p>
           ) : null}
+          {/* Este aviso precisa aparecer TAMBÉM quando contacts.length é 0 —
+              é justamente o caso mais comum logo após reconectar a instância
+              (todo o cache antigo foi descartado pelo corte de sessão e o
+              novo ainda não sincronizou). Antes esse ramo nem chegava aqui,
+              caindo direto no texto genérico "nenhum contato encontrado" sem
+              explicar o motivo. */}
           {sessionInfo?.since ? (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
               Aparelho reconectado em {new Date(sessionInfo.since).toLocaleString("pt-BR")}.
@@ -346,158 +350,168 @@ export function ContactExtractorCard() {
                 ? ` (${sessionInfo.discardedFromPreviousSession} ocultados)`
                 : ""}
               . Por segurança, só aparecem contatos com conversa registrada depois dessa conexão;
-              a base antiga da Evolution não é usada.
+              a base antiga da Evolution não é usada. Se a lista vier vazia logo após reconectar,
+              é esperado — ninguém trocou mensagem ainda nesta sessão. Tente buscar de novo depois
+              que alguma conversa acontecer no novo aparelho.
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm">
-              <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
-              <span className="font-medium">{selected.size}</span> selecionados
-              {contacts.length - selectableContacts.length > 0 ? (
-                <>
-                  {" "}
-                  ·{" "}
-                  <span className="text-muted-foreground">
-                    {contacts.length - selectableContacts.length} sem telefone utilizável (WhatsApp
-                    LID)
-                  </span>
-                </>
-              ) : null}
-              {contacts.filter((c) => !hasNomeDefinido(c)).length > 0 ? (
-                <>
-                  {" "}
-                  ·{" "}
-                  <span className="text-muted-foreground">
-                    {contacts.filter((c) => !hasNomeDefinido(c)).length} sem nome definido (não
-                    pré-selecionados)
-                  </span>
-                </>
-              ) : null}
-            </p>
-          </div>
+          {contacts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum contato encontrado na instância.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm">
+                  <span className="font-medium">{contacts.length}</span> contatos encontrados ·{" "}
+                  <span className="font-medium">{selected.size}</span> selecionados
+                  {contacts.length - selectableContacts.length > 0 ? (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <span className="text-muted-foreground">
+                        {contacts.length - selectableContacts.length} sem telefone utilizável
+                        (WhatsApp LID)
+                      </span>
+                    </>
+                  ) : null}
+                  {contacts.filter((c) => !hasNomeDefinido(c)).length > 0 ? (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <span className="text-muted-foreground">
+                        {contacts.filter((c) => !hasNomeDefinido(c)).length} sem nome definido (não
+                        pré-selecionados)
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
 
-          <div className="rounded-lg border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                      onCheckedChange={toggleAll}
-                      aria-label="Selecionar todos os contatos"
-                    />
-                  </TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Número</TableHead>
-                  <TableHead>CRM</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageContacts.map((contact) => (
-                  <TableRow key={contact.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selected.has(contact.id)}
-                        onCheckedChange={() => toggleOne(contact.id)}
-                        disabled={contact.numeroIndisponivel}
-                        aria-label={`Selecionar ${contact.name}`}
-                      />
-                    </TableCell>
-                    <TableCell>{contact.name}</TableCell>
-                    <TableCell
-                      className={contact.numeroIndisponivel ? "text-muted-foreground italic" : ""}
-                    >
-                      {contact.number ?? "Número indisponível (WhatsApp LID)"}
-                    </TableCell>
-                    <TableCell>
-                      {contact.numeroIndisponivel ? (
-                        <Badge
-                          className="bg-muted text-muted-foreground hover:bg-muted font-normal"
-                          title="Este contato usa o identificador interno @lid do WhatsApp e não expôs o telefone real — não pode ser importado."
+              <div className="rounded-lg border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleAll}
+                          aria-label="Selecionar todos os contatos"
+                        />
+                      </TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Número</TableHead>
+                      <TableHead>CRM</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pageContacts.map((contact) => (
+                      <TableRow key={contact.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selected.has(contact.id)}
+                            onCheckedChange={() => toggleOne(contact.id)}
+                            disabled={contact.numeroIndisponivel}
+                            aria-label={`Selecionar ${contact.name}`}
+                          />
+                        </TableCell>
+                        <TableCell>{contact.name}</TableCell>
+                        <TableCell
+                          className={
+                            contact.numeroIndisponivel ? "text-muted-foreground italic" : ""
+                          }
                         >
-                          Não importável
-                        </Badge>
-                      ) : contact.number && existingPhones.has(contact.number) ? (
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-normal">
-                          Já existe
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal">
-                          Novo
-                        </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                          {contact.number ?? "Número indisponível (WhatsApp LID)"}
+                        </TableCell>
+                        <TableCell>
+                          {contact.numeroIndisponivel ? (
+                            <Badge
+                              className="bg-muted text-muted-foreground hover:bg-muted font-normal"
+                              title="Este contato usa o identificador interno @lid do WhatsApp e não expôs o telefone real — não pode ser importado."
+                            >
+                              Não importável
+                            </Badge>
+                          ) : contact.number && existingPhones.has(contact.number) ? (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-normal">
+                              Já existe
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal">
+                              Novo
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-          {totalPages > 1 ? (
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationLink
-                    size="default"
-                    aria-disabled={page === 1}
-                    className={page === 1 ? "pointer-events-none opacity-40" : "cursor-pointer"}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Anterior
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <span className="px-3 text-sm text-muted-foreground">
-                    Página {page} de {totalPages}
-                  </span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink
-                    size="default"
-                    aria-disabled={page === totalPages}
-                    className={
-                      page === totalPages ? "pointer-events-none opacity-40" : "cursor-pointer"
-                    }
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    Próxima
-                  </PaginationLink>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          ) : null}
+              {totalPages > 1 ? (
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationLink
+                        size="default"
+                        aria-disabled={page === 1}
+                        className={page === 1 ? "pointer-events-none opacity-40" : "cursor-pointer"}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Anterior
+                      </PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <span className="px-3 text-sm text-muted-foreground">
+                        Página {page} de {totalPages}
+                      </span>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationLink
+                        size="default"
+                        aria-disabled={page === totalPages}
+                        className={
+                          page === totalPages ? "pointer-events-none opacity-40" : "cursor-pointer"
+                        }
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Próxima
+                      </PaginationLink>
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={exportCsv}>
-              Exportar CSV
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" disabled={selected.size === 0 || importMutation.isPending}>
-                  {importMutation.isPending
-                    ? "Importando..."
-                    : `Importar selecionados (${selected.size})`}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={exportCsv}>
+                  Exportar CSV
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Confirmar importação para o CRM</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {selected.size} contato{selected.size === 1 ? "" : "s"} selecionado
-                    {selected.size === 1 ? "" : "s"} vão virar leads novos com origem "Contato
-                    WhatsApp". Contatos com telefone já cadastrado são pulados automaticamente.
-                    Confirmar?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => importMutation.mutate()}>
-                    Confirmar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" disabled={selected.size === 0 || importMutation.isPending}>
+                      {importMutation.isPending
+                        ? "Importando..."
+                        : `Importar selecionados (${selected.size})`}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar importação para o CRM</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {selected.size} contato{selected.size === 1 ? "" : "s"} selecionado
+                        {selected.size === 1 ? "" : "s"} vão virar leads novos com origem "Contato
+                        WhatsApp". Contatos com telefone já cadastrado são pulados automaticamente.
+                        Confirmar?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => importMutation.mutate()}>
+                        Confirmar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </ToolCard>
