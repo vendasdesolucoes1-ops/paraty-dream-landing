@@ -79,6 +79,12 @@ export function ContactExtractorCard() {
   // Qual aparelho de fato respondeu — deixa explícito que a agenda é do celular
   // que está com o QR ativo, não de uma conexão anterior da mesma instância.
   const [owner, setOwner] = useState<{ number: string | null; name: string | null } | null>(null);
+  // Corte de sessão aplicado pela edge function (ver evolution-instance.ts):
+  // contatos de antes dessa data são de aparelho anterior e já vêm descartados.
+  const [sessionInfo, setSessionInfo] = useState<{
+    since: string | null;
+    discardedFromPreviousSession: number;
+  } | null>(null);
 
   const { data: instances } = useQuery({
     queryKey: ["whatsapp-instances"],
@@ -134,12 +140,17 @@ export function ContactExtractorCard() {
         existing,
         duplicateCheckFailed,
         owner: (data.owner ?? null) as { number: string | null; name: string | null } | null,
+        session: (data.session ?? null) as {
+          since: string | null;
+          discardedFromPreviousSession: number;
+        } | null,
       };
     },
-    onSuccess: ({ fetched, existing, duplicateCheckFailed, owner: donoDaSessao }) => {
+    onSuccess: ({ fetched, existing, duplicateCheckFailed, owner: donoDaSessao, session }) => {
       setContacts(fetched);
       setExistingPhones(existing);
       setOwner(donoDaSessao);
+      setSessionInfo(session);
 
       // Pré-seleciona só quem ainda não existe no CRM, tem telefone
       // utilizável — contato @lid sem número resolvido nasce desmarcado — e
@@ -326,6 +337,17 @@ export function ContactExtractorCard() {
               Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
               {owner.number}
             </p>
+          ) : null}
+          {sessionInfo?.since ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Aparelho reconectado em {new Date(sessionInfo.since).toLocaleString("pt-BR")}.
+              Contatos de antes dessa data (aparelho anterior) foram descartados automaticamente
+              {sessionInfo.discardedFromPreviousSession > 0
+                ? ` (${sessionInfo.discardedFromPreviousSession} ocultados)`
+                : ""}
+              . É esperado que a lista apareça mais curta até o novo aparelho sincronizar mais
+              contatos — isso não é um erro.
+            </div>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm">

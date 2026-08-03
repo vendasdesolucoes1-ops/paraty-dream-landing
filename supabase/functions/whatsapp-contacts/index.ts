@@ -47,6 +47,7 @@ async function listContacts(instanceName: string) {
   const doAparelhoAtual = contacts.filter(
     (c: Record<string, unknown>) => !isFromPreviousSession(session, c),
   );
+  const descartadosPorSessaoAnterior = contacts.length - doAparelhoAtual.length;
 
   const parsed = doAparelhoAtual
 
@@ -66,8 +67,6 @@ async function listContacts(instanceName: string) {
         return null;
 
       const name = String(c.pushName || c.name || jid);
-
-
 
       // WhatsApp LID (issue conhecida EvolutionAPI/Baileys #1872): parte dos
       // contatos (majoritariamente Android) tem o id como um identificador
@@ -109,9 +108,14 @@ async function listContacts(instanceName: string) {
   return {
     contacts: parsed,
     owner: { number: session.ownerNumber, name: session.profileName },
+    // Front usa isso pra avisar "lista curta é esperado" em vez de deixar o
+    // usuário achar que quebrou de novo logo após uma troca de aparelho.
+    session: {
+      since: session.sessionSince ? session.sessionSince.toISOString() : null,
+      discardedFromPreviousSession: descartadosPorSessaoAnterior,
+    },
   };
 }
-
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -122,12 +126,11 @@ Deno.serve(async (req) => {
     const { instance_name } = await req.json();
     if (!instance_name) throw new Error("instance_name is required");
 
-    const { contacts, owner } = await listContacts(instance_name);
+    const { contacts, owner, session } = await listContacts(instance_name);
 
-    return new Response(JSON.stringify({ ok: true, data: contacts, owner }), {
+    return new Response(JSON.stringify({ ok: true, data: contacts, owner, session }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error) }), {
       status: 500,
