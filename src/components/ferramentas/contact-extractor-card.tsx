@@ -349,10 +349,10 @@ export function ContactExtractorCard() {
               {sessionInfo.discardedFromPreviousSession > 0
                 ? ` (${sessionInfo.discardedFromPreviousSession} ocultados)`
                 : ""}
-              . Por segurança, só aparecem contatos com conversa registrada depois dessa conexão;
-              a base antiga da Evolution não é usada. Se a lista vier vazia logo após reconectar,
-              é esperado — ninguém trocou mensagem ainda nesta sessão. Tente buscar de novo depois
-              que alguma conversa acontecer no novo aparelho.
+              . Por segurança, só aparecem contatos com conversa registrada depois dessa conexão; a
+              base antiga da Evolution não é usada. Se a lista vier vazia logo após reconectar, é
+              esperado — ninguém trocou mensagem ainda nesta sessão. Tente buscar de novo depois que
+              alguma conversa acontecer no novo aparelho.
             </div>
           ) : null}
           {contacts.length === 0 ? (

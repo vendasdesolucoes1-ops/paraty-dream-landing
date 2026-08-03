@@ -81,4 +81,3 @@ export function isFromPreviousSession(
   if (!created || isNaN(created.getTime())) return false;
   return created.getTime() < session.sessionSince.getTime();
 }
-

@@ -30,9 +30,10 @@ async function getInstance(instanceName: string) {
 }
 
 function getMessageRemoteJid(message: Record<string, unknown>): string {
-  const key = message.key && typeof message.key === "object"
-    ? message.key as Record<string, unknown>
-    : null;
+  const key =
+    message.key && typeof message.key === "object"
+      ? (message.key as Record<string, unknown>)
+      : null;
   return String(key?.remoteJid ?? message.remoteJid ?? "");
 }
 
