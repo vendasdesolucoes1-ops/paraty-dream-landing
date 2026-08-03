@@ -64,17 +64,21 @@ export function assertConnected(session: EvolutionSession) {
 }
 
 // true = registro é de uma sessão anterior (outro celular) e deve ser ignorado.
+//
+// IMPORTANTE: o corte usa SOMENTE `createdAt`. Ao ler o QR com um aparelho
+// novo, o Baileys re-sincroniza e a Evolution dá UPDATE em toda a base antiga
+// (medido: 717 contatos criados em 08/07 e 09/07 receberam updatedAt às 01:45
+// logo após a reconexão). Usar updatedAt fazia a agenda do celular anterior
+// reaparecer inteira como se fosse do aparelho atual — foi o caso dos números
+// "misturados" de DDDs desconhecidos. `createdAt` é a única marca que a
+// re-sincronização não reescreve.
 export function isFromPreviousSession(
   session: EvolutionSession,
   record: { createdAt?: unknown; updatedAt?: unknown },
 ): boolean {
   if (!session.sessionSince) return false;
-  const stamps = [record.updatedAt, record.createdAt]
-    .map((s) => (s ? new Date(String(s)) : null))
-    .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
-  if (stamps.length === 0) return false;
-  // Usa o carimbo mais recente: se o contato voltou a ter atividade depois da
-  // reconexão, ele pertence também ao aparelho atual.
-  const latest = Math.max(...stamps.map((d) => d.getTime()));
-  return latest < session.sessionSince.getTime();
+  const created = record.createdAt ? new Date(String(record.createdAt)) : null;
+  if (!created || isNaN(created.getTime())) return false;
+  return created.getTime() < session.sessionSince.getTime();
 }
+
