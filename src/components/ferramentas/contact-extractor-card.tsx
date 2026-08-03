@@ -334,7 +334,7 @@ export function ContactExtractorCard() {
         <div className="space-y-3">
           {owner?.number ? (
             <p className="text-xs text-muted-foreground">
-              Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
+              Conversas confirmadas do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
               {owner.number}
             </p>
           ) : null}
@@ -345,8 +345,8 @@ export function ContactExtractorCard() {
               {sessionInfo.discardedFromPreviousSession > 0
                 ? ` (${sessionInfo.discardedFromPreviousSession} ocultados)`
                 : ""}
-              . É esperado que a lista apareça mais curta até o novo aparelho sincronizar mais
-              contatos — isso não é um erro.
+              . Por segurança, só aparecem contatos com conversa registrada depois dessa conexão;
+              a base antiga da Evolution não é usada.
             </div>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
