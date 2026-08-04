@@ -35,12 +35,25 @@ export async function getEvolutionSession(instance: {
 
   const result = await response.json();
   const list = Array.isArray(result) ? result : [result];
-  const found = list.find(
-    (i: Record<string, unknown>) => (i?.name ?? i?.instanceName) === instance.instance_name,
-  );
-  if (!found) throw new Error("Instância não encontrada na Evolution API.");
+  const raw = list.find((item: Record<string, unknown>) => {
+    const nested = item.instance;
+    const nestedInstance =
+      nested && typeof nested === "object" ? (nested as Record<string, unknown>) : null;
+    return (
+      (item.name ?? item.instanceName ?? nestedInstance?.instanceName ?? nestedInstance?.name) ===
+      instance.instance_name
+    );
+  });
+  if (!raw) throw new Error("Instância não encontrada na Evolution API.");
 
-  const ownerJid: string | null = found.ownerJid ?? null;
+  // Evolution v1 devolve os campos dentro de `instance`; v2 pode devolvê-los
+  // diretamente. Normalizar aqui evita que uma reconexão válida pareça offline.
+  const nested = raw.instance;
+  const found =
+    nested && typeof nested === "object"
+      ? { ...raw, ...(nested as Record<string, unknown>) }
+      : raw;
+  const ownerJid = typeof found.ownerJid === "string" ? found.ownerJid : null;
   const ownerNumber = ownerJid ? ownerJid.replace(/@.*$/, "").replace(/\D/g, "") : null;
   const disconnectionAt = found.disconnectionAt ? new Date(found.disconnectionAt) : null;
 
@@ -48,7 +61,7 @@ export async function getEvolutionSession(instance: {
     connectionStatus: String(found.connectionStatus ?? "close"),
     ownerJid,
     ownerNumber,
-    profileName: found.profileName ?? null,
+    profileName: typeof found.profileName === "string" ? found.profileName : null,
     sessionSince: disconnectionAt && !isNaN(disconnectionAt.getTime()) ? disconnectionAt : null,
   };
 }

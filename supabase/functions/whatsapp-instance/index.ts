@@ -52,10 +52,36 @@ async function connectInstance(body: { instance_name: string }) {
     .single();
   if (error || !instance) throw new Error("instance not found");
 
-  const evolutionResponse = await fetch(`${instance.api_url}/instance/connect/${instance_name}`, {
-    method: "GET",
-    headers: { apikey: instance.api_key },
-  });
+  // A agenda do aparelho só é enviada pelo Baileys durante a sincronização de
+  // histórico. Sem esta configuração, uma leitura de QR pode conectar e enviar
+  // mensagens normalmente, mas `findContacts` fica vazio ou contém apenas LIDs.
+  const settingsResponse = await fetch(
+    `${instance.api_url.replace(/\/$/, "")}/settings/set/${encodeURIComponent(instance_name)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: instance.api_key },
+      body: JSON.stringify({
+        rejectCall: false,
+        groupsIgnore: false,
+        alwaysOnline: false,
+        readMessages: false,
+        readStatus: false,
+        syncFullHistory: true,
+      }),
+    },
+  );
+  if (!settingsResponse.ok) {
+    console.warn(
+      "Evolution API não aceitou syncFullHistory:",
+      settingsResponse.status,
+      await settingsResponse.text(),
+    );
+  }
+
+  const evolutionResponse = await fetch(
+    `${instance.api_url.replace(/\/$/, "")}/instance/connect/${encodeURIComponent(instance_name)}`,
+    { method: "GET", headers: { apikey: instance.api_key } },
+  );
 
   if (!evolutionResponse.ok) {
     const errText = await evolutionResponse.text();
