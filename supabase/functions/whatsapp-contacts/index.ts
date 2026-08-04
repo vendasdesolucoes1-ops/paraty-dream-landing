@@ -106,42 +106,38 @@ async function resolveLidsFromCurrentMessages(
   lids: string[],
 ) {
   const resolved = new Map<string, string>();
+  const wanted = new Set(lids);
+  if (wanted.size === 0) return resolved;
 
-  await Promise.all(
-    lids.slice(0, 100).map(async (lid) => {
-      const response = await fetch(
-        `${instance.api_url.replace(/\/$/, "")}/chat/findMessages/${encodeURIComponent(instance.instance_name)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: instance.api_key },
-          body: JSON.stringify({ where: { key: { remoteJid: lid } }, page: 1, offset: 20 }),
-        },
-      );
-      if (!response.ok) return;
-
-      const result = await response.json();
-      const messages = Array.isArray(result)
-        ? result
-        : (result.messages?.records ?? result.messages ?? result.records ?? []);
-
-      for (const message of messages) {
-        if (!message || typeof message !== "object") continue;
-        const record = message as Record<string, unknown>;
-        const timestampValue = record.messageTimestamp ?? record.timestamp;
-        const timestamp = Number(timestampValue);
-        if (
-          session.sessionSince &&
-          Number.isFinite(timestamp) &&
-          timestamp * (timestamp < 10_000_000_000 ? 1000 : 1) < session.sessionSince.getTime()
-        ) continue;
-        const number = findPhoneInRecord(record);
-        if (number && number !== session.ownerNumber) {
-          resolved.set(lid, number);
-          return;
-        }
-      }
-    }),
+  const response = await fetch(
+    `${instance.api_url.replace(/\/$/, "")}/chat/findMessages/${encodeURIComponent(instance.instance_name)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: instance.api_key },
+      body: JSON.stringify({ page: 1, offset: 200 }),
+    },
   );
+  if (!response.ok) return resolved;
+
+  const result = await response.json();
+  const messages = Array.isArray(result)
+    ? result
+    : (result.messages?.records ?? result.messages ?? result.records ?? []);
+
+  for (const message of messages) {
+    if (!message || typeof message !== "object") continue;
+    const record = message as Record<string, unknown>;
+    const lid = extractLid(record);
+    if (!lid || !wanted.has(lid)) continue;
+    const timestamp = Number(record.messageTimestamp ?? record.timestamp);
+    if (
+      session.sessionSince &&
+      Number.isFinite(timestamp) &&
+      timestamp * (timestamp < 10_000_000_000 ? 1000 : 1) < session.sessionSince.getTime()
+    ) continue;
+    const number = findPhoneInRecord(record);
+    if (number && number !== session.ownerNumber) resolved.set(lid, number);
+  }
 
   return resolved;
 }
