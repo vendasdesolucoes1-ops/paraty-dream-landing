@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, MessageCircle, Plus, Trash2 } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  ChevronsUpDown,
+  Clock,
+  ExternalLink,
+  MessageCircle,
+  Plus,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cn, whatsappLink } from "@/lib/utils";
+import { cn, readFunctionError, whatsappLink } from "@/lib/utils";
 import {
   LEAD_ORIGEM_OPTIONS,
   LEAD_STATUS_COLUMNS,
@@ -532,8 +542,61 @@ function HistoricoTab({ leadId }: { leadId: string }) {
   );
 }
 
-function WhatsappTab({ leadId, telefone }: { leadId: string; telefone: string | null }) {
+// Textura do fundo do chat: o padrão do WhatsApp é uma arte proprietária, e
+// embutir o asset original seria cópia. Esta é uma aproximação em CSS puro —
+// mesma leitura visual (bege claro levemente pontilhado) sem depender de
+// imagem externa, que a CSP do app bloquearia de qualquer forma.
+const CHAT_BG =
+  "radial-gradient(circle at 1px 1px, rgba(0,0,0,0.045) 1px, transparent 0) 0 0 / 22px 22px, " +
+  "linear-gradient(#EFE7DE, #EFE7DE)";
+
+const BOLHA_NOSSA = "#DCF8C6";
+const BOLHA_LEAD = "#FFFFFF";
+
+/** Iniciais para o avatar quando não há foto de perfil. */
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Ticks do WhatsApp: um risco = enviado ao servidor, dois = entregue,
+ * dois azuis = lido. Só aparecem nas mensagens que saíram daqui.
+ */
+function StatusTicks({ status }: { status: string | null }) {
+  if (status === "failed") {
+    return <span title="Falha no envio">⚠️</span>;
+  }
+  if (status === "pending" || !status) {
+    return <Clock className="inline h-3 w-3 opacity-60" aria-label="Enviando" />;
+  }
+  if (status === "sent") {
+    return <Check className="inline h-3 w-3 opacity-60" aria-label="Enviado" />;
+  }
+  const lido = status === "read";
+  return (
+    <CheckCheck
+      className={cn("inline h-3 w-3", lido ? "text-sky-500" : "opacity-60")}
+      aria-label={lido ? "Lido" : "Entregue"}
+    />
+  );
+}
+
+function WhatsappTab({
+  leadId,
+  nome,
+  telefone,
+}: {
+  leadId: string;
+  nome: string;
+  telefone: string | null;
+}) {
+  const queryClient = useQueryClient();
   const linkWhatsapp = whatsappLink(telefone);
+  const [rascunho, setRascunho] = useState("");
+
   const {
     data: messages,
     isLoading,
@@ -542,42 +605,62 @@ function WhatsappTab({ leadId, telefone }: { leadId: string; telefone: string | 
   } = useQuery({
     queryKey: ["whatsapp-messages", leadId],
     queryFn: async () => {
-      const query = supabase
+      const { data, error } = await supabase
         .from("whatsapp_messages")
         .select(
           "id, instance_id, contact_id, lead_id, remote_jid, message_id, from_me, message_type, content, status, created_at",
         )
         .eq("lead_id", leadId)
         .order("created_at", { ascending: true });
-
-      console.debug("[LeadDetailDrawer] whatsapp_messages query", {
-        table: "whatsapp_messages",
-        filter: { lead_id: leadId },
-        order: "created_at asc",
-      });
-
-      const { data, error, status, statusText } = await query;
-
-      if (error) {
-        console.error("[LeadDetailDrawer] whatsapp_messages query failed", {
-          leadId,
-          status,
-          statusText,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        throw error;
-      }
-
-      console.debug("[LeadDetailDrawer] whatsapp_messages query result", {
-        leadId,
-        count: data?.length ?? 0,
-      });
-
+      if (error) throw error;
       return data as WhatsappMessage[];
     },
+  });
+
+  // Estado da pausa vem da edge function: as tabelas ai_agent_* só têm policy
+  // de service_role, então o cliente do painel não consegue lê-las direto.
+  const { data: iaStatus } = useQuery({
+    queryKey: ["ia-pausada", leadId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("crm-send-whatsapp-message", {
+        body: { action: "status", lead_id: leadId },
+      });
+      if (error || !data?.ok) return { ia_pausada: false };
+      return data as { ia_pausada: boolean };
+    },
+  });
+
+  const enviar = useMutation({
+    mutationFn: async (texto: string) => {
+      const { data, error } = await supabase.functions.invoke("crm-send-whatsapp-message", {
+        body: { action: "send_text", lead_id: leadId, text: texto },
+      });
+      if (error) throw new Error(await readFunctionError(error));
+      if (!data?.ok) throw new Error(data?.error ?? "Falha ao enviar.");
+      return data;
+    },
+    onSuccess: () => {
+      setRascunho("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", leadId] });
+      queryClient.invalidateQueries({ queryKey: ["ia-pausada", leadId] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível enviar a mensagem."),
+  });
+
+  const reativarIA = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("crm-send-whatsapp-message", {
+        body: { action: "resume_ai", lead_id: leadId },
+      });
+      if (error) throw new Error(await readFunctionError(error));
+      if (!data?.ok) throw new Error(data?.error ?? "Falha ao reativar.");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Agente de IA reativado para este lead.");
+      queryClient.invalidateQueries({ queryKey: ["ia-pausada", leadId] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível reativar a IA."),
   });
 
   const temMensagens = Boolean(messages && messages.length > 0);
@@ -589,81 +672,130 @@ function WhatsappTab({ leadId, telefone }: { leadId: string; telefone: string | 
     if (temMensagens) fimDaConversa.current?.scrollIntoView({ block: "end" });
   }, [temMensagens, messages]);
 
+  function submeter(e: React.FormEvent) {
+    e.preventDefault();
+    const texto = rascunho.trim();
+    if (!texto || enviar.isPending) return;
+    enviar.mutate(texto);
+  }
+
   return (
-    <div className="space-y-3">
-      {isLoading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : isError ? (
-        <p className="text-sm text-destructive">
-          Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
-        </p>
-      ) : !temMensagens ? (
-        <p className="text-sm text-muted-foreground">
-          Nenhuma mensagem sincronizada no CRM. Use o botão abaixo para ver a conversa no WhatsApp.
-        </p>
-      ) : (
-        <div className="max-h-[26rem] space-y-1 overflow-y-auto rounded-lg border bg-muted/30 p-3">
-          {messages!.map((message, i) => {
-            // Separador de dia: só quando a data muda em relação à mensagem
-            // anterior, senão a conversa vira uma parede de carimbos.
-            const dia = new Date(message.created_at).toDateString();
-            const diaAnterior = i > 0 ? new Date(messages![i - 1].created_at).toDateString() : null;
+    <div className="overflow-hidden rounded-lg border">
+      {/* Header estilo WhatsApp. Sem indicador de presença: a Evolution até
+          emite presence.update, mas não assinamos esse evento nem guardamos
+          o "visto por último" — exibir algo aqui seria inventar dado. */}
+      <div className="flex items-center gap-3 border-b bg-muted/60 px-3 py-2">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-deep text-xs font-medium text-ivory">
+          {iniciais(nome)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{nome}</p>
+          <p className="truncate text-xs text-muted-foreground">{telefone ?? "sem telefone"}</p>
+        </div>
+        {linkWhatsapp ? (
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="Abrir no WhatsApp">
+            <a href={linkWhatsapp} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </Button>
+        ) : null}
+      </div>
 
-            return (
-              <div key={message.id}>
-                {dia !== diaAnterior ? (
-                  <div className="flex justify-center py-2">
-                    <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground shadow-sm">
-                      {formatDateSeparator(message.created_at)}
-                    </span>
-                  </div>
-                ) : null}
+      {iaStatus?.ia_pausada ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <span>Agente de IA pausado — um humano assumiu esta conversa.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7"
+            disabled={reativarIA.isPending}
+            onClick={() => reativarIA.mutate()}
+          >
+            {reativarIA.isPending ? "Reativando..." : "Reativar IA"}
+          </Button>
+        </div>
+      ) : null}
 
-                <div className={cn("flex", message.from_me ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm",
-                      message.from_me
-                        ? "bg-forest-deep text-ivory"
-                        : "bg-background border text-foreground",
-                    )}
-                  >
-                    {/* whitespace-pre-wrap preserva as quebras de linha que o
-                        agente manda; break-words evita link longo estourar. */}
-                    <p className="whitespace-pre-wrap break-words">
-                      {message.content || <span className="italic opacity-70">(sem texto)</span>}
-                    </p>
-                    <span
+      <div className="h-[24rem] overflow-y-auto p-3" style={{ background: CHAT_BG }}>
+        {isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : isError ? (
+          <p className="rounded bg-background/90 p-2 text-sm text-destructive">
+            Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
+          </p>
+        ) : !temMensagens ? (
+          <p className="rounded bg-background/90 p-2 text-center text-sm text-muted-foreground">
+            Nenhuma mensagem sincronizada no CRM ainda.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {messages!.map((message, i) => {
+              // Separador de dia: só quando a data muda em relação à mensagem
+              // anterior, senão a conversa vira uma parede de carimbos.
+              const dia = new Date(message.created_at).toDateString();
+              const diaAnterior =
+                i > 0 ? new Date(messages![i - 1].created_at).toDateString() : null;
+
+              return (
+                <div key={message.id}>
+                  {dia !== diaAnterior ? (
+                    <div className="flex justify-center py-2">
+                      <span className="rounded-md bg-background/85 px-2 py-0.5 text-[11px] text-muted-foreground shadow-sm">
+                        {formatDateSeparator(message.created_at)}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div className={cn("flex", message.from_me ? "justify-end" : "justify-start")}>
+                    <div
                       className={cn(
-                        "mt-1 block text-right text-[10px]",
-                        message.from_me ? "text-ivory/70" : "text-muted-foreground",
+                        "relative max-w-[78%] px-2.5 py-1.5 text-sm text-neutral-900 shadow-sm",
+                        // O "rabinho" da bolha: canto quadrado só do lado de
+                        // quem falou, como no app.
+                        message.from_me ? "rounded-lg rounded-tr-sm" : "rounded-lg rounded-tl-sm",
                       )}
+                      style={{ background: message.from_me ? BOLHA_NOSSA : BOLHA_LEAD }}
                     >
-                      {formatTime(message.created_at)}
-                    </span>
+                      {/* whitespace-pre-wrap preserva as quebras de linha que o
+                          agente manda; break-words evita link longo estourar. */}
+                      <p className="whitespace-pre-wrap break-words">
+                        {message.content || <span className="italic opacity-60">(sem texto)</span>}
+                      </p>
+                      <span className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-neutral-500">
+                        {formatTime(message.created_at)}
+                        {message.from_me ? <StatusTicks status={message.status} /> : null}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-          <div ref={fimDaConversa} />
-        </div>
-      )}
+              );
+            })}
+            <div ref={fimDaConversa} />
+          </div>
+        )}
+      </div>
 
-      {/* Ação secundária: continua útil pra lead antigo/importado que nunca
-          passou pelo agente, e pra responder de fato (o CRM só lê). */}
-      {linkWhatsapp ? (
-        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-          <a href={linkWhatsapp} target="_blank" rel="noreferrer">
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Abrir no WhatsApp
-          </a>
+      {/* Barra de input estilo WhatsApp. Anexo e emoji entram na próxima
+          etapa (áudio/arquivo) — ficam de fora agora para não oferecer botão
+          que não faz nada. */}
+      <form onSubmit={submeter} className="flex items-center gap-2 border-t bg-muted/60 p-2">
+        <Input
+          value={rascunho}
+          onChange={(e) => setRascunho(e.target.value)}
+          placeholder={telefone ? "Mensagem" : "Lead sem telefone cadastrado"}
+          disabled={!telefone || enviar.isPending}
+          className="rounded-full border-none bg-background shadow-sm focus-visible:ring-1"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          className="h-9 w-9 shrink-0 rounded-full"
+          disabled={!telefone || !rascunho.trim() || enviar.isPending}
+          title="Enviar"
+        >
+          <Send className="h-4 w-4" />
         </Button>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Este lead não tem um telefone válido cadastrado.
-        </p>
-      )}
+      </form>
     </div>
   );
 }
@@ -880,7 +1012,7 @@ export function LeadDetailDrawer({
                 <HistoricoTab leadId={lead.id} />
               </TabsContent>
               <TabsContent value="whatsapp" className="pt-4">
-                <WhatsappTab leadId={lead.id} telefone={lead.telefone} />
+                <WhatsappTab leadId={lead.id} nome={lead.nome} telefone={lead.telefone} />
               </TabsContent>
               {canSeeDocumentos ? (
                 <TabsContent value="documentos" className="pt-4">

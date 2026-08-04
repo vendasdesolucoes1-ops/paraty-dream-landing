@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, readFunctionError } from "@/lib/utils";
 import { PROFILE_ROLE_OPTIONS, type Profile, type ProfileRole, type Vendedor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -174,12 +174,6 @@ function CredentialsDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-/** Lê a mensagem de erro real do corpo da resposta da edge function. */
-async function readFunctionError(error: { context?: Response; message: string }): Promise<string> {
-  const detalhe = error.context?.json ? await error.context.json().catch(() => null) : null;
-  return detalhe?.error ?? error.message;
 }
 
 function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {

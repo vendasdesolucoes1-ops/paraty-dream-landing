@@ -3,6 +3,10 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  isHumanTakeoverActive as takeoverAtivo,
+  pauseAI as pausarIA,
+} from "../_shared/ai-takeover.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -394,50 +398,15 @@ async function findOrCreateContact(phone: string, name: string | null, remoteJid
   return created;
 }
 
-async function isHumanTakeoverActive(sessionId: string) {
-  const { data: conversation } = await supabase
-    .from("ai_agent_conversations")
-    .select("id")
-    .eq("session_id", sessionId)
-    .eq("status", "active")
-    .maybeSingle();
+// Wrappers finos sobre _shared/ai-takeover.ts: a mesma lógica é usada pela
+// crm-send-whatsapp-message quando o vendedor responde pelo modal do CRM.
+// Antes as duas versões viviam só aqui e a checagem usava maybeSingle(), que
+// dá erro com mais de um takeover aberto — o resultado nulo era lido como
+// "não pausado" e a IA voltava a responder sozinha.
+const isHumanTakeoverActive = (sessionId: string) => takeoverAtivo(supabase, sessionId);
 
-  if (!conversation) return false;
-
-  const { data: takeover } = await supabase
-    .from("ai_agent_human_takeover")
-    .select("id")
-    .eq("conversation_id", conversation.id)
-    .is("resolved_at", null)
-    .maybeSingle();
-
-  return Boolean(takeover);
-}
-
-async function pauseAIForHumanTakeover(agentId: string | null, sessionId: string) {
-  let { data: conversation } = await supabase
-    .from("ai_agent_conversations")
-    .select("id")
-    .eq("session_id", sessionId)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (!conversation && agentId) {
-    const { data: created } = await supabase
-      .from("ai_agent_conversations")
-      .insert({ agent_id: agentId, session_id: sessionId, status: "active" })
-      .select("id")
-      .single();
-    conversation = created;
-  }
-
-  if (!conversation) return;
-
-  await supabase.from("ai_agent_human_takeover").insert({
-    conversation_id: conversation.id,
-    human_takeover_at: new Date().toISOString(),
-  });
-}
+const pauseAIForHumanTakeover = (agentId: string | null, sessionId: string) =>
+  pausarIA(supabase, sessionId, agentId);
 
 async function sendPresence(apiUrl: string, apiKey: string, instanceName: string, number: string) {
   try {
@@ -689,6 +658,56 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
   await pauseAIForHumanTakeover(agent?.id ?? null, phone);
 }
 
+// Confirmações de entrega/leitura, usadas pelos ticks do modal de conversas.
+// O Baileys expõe o ack como string ou como número (a Evolution repassa os
+// dois formatos dependendo da origem do evento), por isso os dois são
+// mapeados aqui.
+const STATUS_POR_ACK: Record<string, string> = {
+  ERROR: "failed",
+  PENDING: "pending",
+  SERVER_ACK: "sent",
+  DELIVERY_ACK: "delivered",
+  READ: "read",
+  PLAYED: "read",
+  "0": "failed",
+  "1": "pending",
+  "2": "sent",
+  "3": "delivered",
+  "4": "read",
+  "5": "read",
+};
+
+// Um ack atrasado não pode rebaixar o status: o WhatsApp reentrega eventos
+// fora de ordem e "entregue" chegando depois de "lido" apagaria o tique azul.
+const PESO_STATUS: Record<string, number> = {
+  failed: 0,
+  pending: 1,
+  sent: 2,
+  delivered: 3,
+  read: 4,
+};
+
+async function handleMessageUpdate(data: Record<string, any>) {
+  const messageId: string | undefined = data.key?.id ?? data.keyId ?? data.messageId;
+  const ackBruto = data.status ?? data.update?.status ?? data.ack;
+  if (!messageId || ackBruto === undefined || ackBruto === null) return;
+
+  const novoStatus = STATUS_POR_ACK[String(ackBruto).toUpperCase()];
+  if (!novoStatus) return;
+
+  const { data: existente } = await supabase
+    .from("whatsapp_messages")
+    .select("id, status")
+    .eq("message_id", messageId)
+    .maybeSingle();
+  if (!existente) return;
+
+  const pesoAtual = PESO_STATUS[existente.status as string] ?? -1;
+  if ((PESO_STATUS[novoStatus] ?? -1) <= pesoAtual) return;
+
+  await supabase.from("whatsapp_messages").update({ status: novoStatus }).eq("id", existente.id);
+}
+
 async function handleConnectionUpdate(instance: Record<string, any>, data: Record<string, any>) {
   await supabase
     .from("whatsapp_instances")
@@ -738,7 +757,7 @@ async function processWebhook(payload: Record<string, any>) {
         break;
       }
       case "messages.update": {
-        // Delivery/read status updates — not required for the current flow.
+        await handleMessageUpdate(data);
         break;
       }
       case "connection.update": {
