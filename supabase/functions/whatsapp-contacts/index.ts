@@ -29,10 +29,82 @@ async function getInstance(instanceName: string) {
   return instance;
 }
 
+function extractPhoneJid(value: unknown): string | null {
+  if (typeof value !== "string" || !value.includes("@s.whatsapp.net")) return null;
+  const number = value.split("@")[0].split(":")[0].replace(/\D/g, "");
+  return number.length >= 10 && number.length <= 15 ? number : null;
+}
+
+function findPhoneInRecord(record: Record<string, unknown>): string | null {
+  const directFields = [
+    record.phoneNumber,
+    record.phone_number,
+    record.pnJid,
+    record.pn,
+    record.remoteJidAlt,
+    record.participantAlt,
+  ];
+
+  for (const value of directFields) {
+    const number = extractPhoneJid(value);
+    if (number) return number;
+  }
+
+  for (const nestedKey of ["key", "lastMessage", "message", "contact"]) {
+    const nested = record[nestedKey];
+    if (!nested || typeof nested !== "object" || Array.isArray(nested)) continue;
+    const number = findPhoneInRecord(nested as Record<string, unknown>);
+    if (number) return number;
+  }
+
+  return null;
+}
+
+function extractLid(record: Record<string, unknown>): string | null {
+  const candidates = [
+    record.remoteJid,
+    record.jid,
+    record.id,
+    record.remoteJidAlt,
+    record.participant,
+  ];
+  return candidates.find((value): value is string => typeof value === "string" && value.includes("@lid")) ?? null;
+}
+
+async function getCurrentSessionLidMap(
+  instance: { api_url: string; api_key: string; instance_name: string },
+  session: Awaited<ReturnType<typeof getEvolutionSession>>,
+) {
+  const response = await fetch(
+    `${instance.api_url.replace(/\/$/, "")}/chat/findChats/${encodeURIComponent(instance.instance_name)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: instance.api_key },
+      body: JSON.stringify({}),
+    },
+  );
+  if (!response.ok) return new Map<string, string>();
+
+  const result = await response.json();
+  const chats = Array.isArray(result) ? result : (result.chats ?? []);
+  const map = new Map<string, string>();
+
+  for (const chat of chats) {
+    if (!chat || typeof chat !== "object" || isFromPreviousSession(session, chat)) continue;
+    const record = chat as Record<string, unknown>;
+    const lid = extractLid(record);
+    const number = findPhoneInRecord(record);
+    if (lid && number && number !== session.ownerNumber) map.set(lid, number);
+  }
+
+  return map;
+}
+
 async function listContacts(instanceName: string) {
   const instance = await getInstance(instanceName);
   const session = await getEvolutionSession(instance);
   assertConnected(session);
+  const lidToPhone = await getCurrentSessionLidMap(instance, session);
 
   const response = await fetch(`${instance.api_url}/chat/findContacts/${instanceName}`, {
     method: "POST",
@@ -53,7 +125,6 @@ async function listContacts(instanceName: string) {
     (c: Record<string, unknown>) => !isFromPreviousSession(session, c),
   );
   const descartadosPorSessaoAnterior = contacts.length - doAparelhoAtual.length;
-
   const parsed = doAparelhoAtual
 
     .map((c: Record<string, unknown>) => {
@@ -85,11 +156,8 @@ async function listContacts(instanceName: string) {
       // importar o LID como se fosse número — foi isso que vazou como
       // "números" de 7-9 dígitos no incidente anterior.
       if (jid.includes("@lid")) {
-        const candidato = String(
-          c.phoneNumber ?? c.phone_number ?? c.pnJid ?? c.pn ?? c.remoteJidAlt ?? "",
-        );
-        const numeroReal = candidato.replace(/@s\.whatsapp\.net$/, "").replace(/\D/g, "");
-        if (numeroReal.length >= 10 && numeroReal.length <= 15) {
+        const numeroReal = findPhoneInRecord(c) ?? lidToPhone.get(jid) ?? null;
+        if (numeroReal) {
           return { number: numeroReal, name, numeroIndisponivel: false };
         }
         return { number: null, name, numeroIndisponivel: true };
