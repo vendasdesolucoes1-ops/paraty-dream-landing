@@ -256,6 +256,10 @@ async function updateRole(
     role: Role;
     vendedor_id?: string | null;
     telefone?: string | null;
+    // Participação no round-robin (vendedores.ativo) — independente de
+    // profiles.ativo, que só controla login. Sem isso não havia nenhum jeito
+    // de tirar um vendedor da fila pela tela, só direto no banco.
+    vendedor_ativo?: boolean;
   },
 ) {
   const target = await getTargetProfile(body.profile_id);
@@ -284,15 +288,20 @@ async function updateRole(
     .single();
   if (error) throw error;
 
-  // O telefone mora em `vendedores`, não em `profiles`: só faz sentido gravar
-  // quando o membro está vinculado a um vendedor. `telefone: undefined` (campo
-  // não enviado) não mexe no cadastro; string vazia limpa de propósito.
-  if (body.vendedor_id && body.telefone !== undefined) {
-    const { error: telefoneError } = await supabase
+  // Telefone e status do rodízio moram em `vendedores`, não em `profiles`: só
+  // fazem sentido quando o membro está vinculado a um vendedor. Campo
+  // `undefined` (não enviado) não mexe no cadastro; string vazia em telefone
+  // limpa de propósito.
+  if (body.vendedor_id && (body.telefone !== undefined || body.vendedor_ativo !== undefined)) {
+    const vendedorUpdate: Record<string, unknown> = {};
+    if (body.telefone !== undefined) vendedorUpdate.telefone = normalizeTelefone(body.telefone);
+    if (body.vendedor_ativo !== undefined) vendedorUpdate.ativo = body.vendedor_ativo;
+
+    const { error: vendedorError } = await supabase
       .from("vendedores")
-      .update({ telefone: normalizeTelefone(body.telefone) })
+      .update(vendedorUpdate)
       .eq("id", body.vendedor_id);
-    if (telefoneError) throw telefoneError;
+    if (vendedorError) throw vendedorError;
   }
 
   return data;

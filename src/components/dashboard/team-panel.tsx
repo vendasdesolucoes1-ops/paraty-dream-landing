@@ -80,7 +80,9 @@ const ROLE_LABELS: Record<ProfileRole, string> = {
 const NO_VENDEDOR = "nenhum";
 const NEW_VENDEDOR = "novo";
 
-type ProfileWithVendedor = Profile & { vendedores: Pick<Vendedor, "id" | "nome"> | null };
+type ProfileWithVendedor = Profile & {
+  vendedores: Pick<Vendedor, "id" | "nome" | "ativo"> | null;
+};
 
 /** Campo somente-leitura com botão de copiar, usado nas credenciais geradas. */
 function CopyableField({ label, value }: { label: string; value: string }) {
@@ -229,8 +231,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["vendedores-ativos"] });
-      queryClient.invalidateQueries({ queryKey: ["vendedores-lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["vendedores-todos"] });
       setCredentials({
         nome,
         email: data.email,
@@ -308,6 +309,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
                   {vendedores.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.nome}
+                      {v.ativo ? "" : " (fora do rodízio)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -385,6 +387,9 @@ function EditMemberDialog({
   const [telefone, setTelefone] = useState(
     () => vendedores.find((v) => v.id === profile.vendedor_id)?.telefone ?? "",
   );
+  const [vendedorAtivo, setVendedorAtivo] = useState(
+    () => vendedores.find((v) => v.id === profile.vendedor_id)?.ativo ?? true,
+  );
   const [resetOpen, setResetOpen] = useState(false);
   const [resetMode, setResetMode] = useState<"aleatoria" | "manual">("aleatoria");
   const [senhaManual, setSenhaManual] = useState("");
@@ -405,7 +410,7 @@ function EditMemberDialog({
 
   const invalidateTeam = () => {
     queryClient.invalidateQueries({ queryKey: ["team-profiles"] });
-    queryClient.invalidateQueries({ queryKey: ["vendedores-lookup"] });
+    queryClient.invalidateQueries({ queryKey: ["vendedores-todos"] });
   };
 
   const callManageTeam = async (body: Record<string, unknown>) => {
@@ -423,6 +428,7 @@ function EditMemberDialog({
         role,
         vendedor_id: vendedorId !== NO_VENDEDOR ? vendedorId : null,
         telefone: vendedorId !== NO_VENDEDOR ? telefone : undefined,
+        vendedor_ativo: vendedorId !== NO_VENDEDOR ? vendedorAtivo : undefined,
       }),
     onSuccess: () => {
       toast.success("Membro atualizado.");
@@ -540,10 +546,12 @@ function EditMemberDialog({
                 value={vendedorId}
                 onValueChange={(v) => {
                   setVendedorId(v);
-                  // Trocar o vendedor vinculado traz o telefone do cadastro
-                  // dele — senão o campo continuaria mostrando o número do
-                  // vendedor anterior e o salvaria por cima.
-                  setTelefone(vendedores.find((item) => item.id === v)?.telefone ?? "");
+                  // Trocar o vendedor vinculado traz telefone e status do
+                  // cadastro dele — senão os campos continuariam mostrando o
+                  // vendedor anterior e salvariam por cima.
+                  const escolhido = vendedores.find((item) => item.id === v);
+                  setTelefone(escolhido?.telefone ?? "");
+                  setVendedorAtivo(escolhido?.ativo ?? true);
                 }}
                 disabled={!canEditRole}
               >
@@ -555,6 +563,7 @@ function EditMemberDialog({
                   {vendedores.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.nome}
+                      {v.ativo ? "" : " (fora do rodízio)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -562,21 +571,40 @@ function EditMemberDialog({
             </div>
 
             {vendedorId !== NO_VENDEDOR ? (
-              <div className="space-y-2">
-                <Label htmlFor={`telefone-${profile.id}`}>Telefone (WhatsApp)</Label>
-                <Input
-                  id={`telefone-${profile.id}`}
-                  inputMode="tel"
-                  placeholder="(12) 99999-8888"
-                  value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                  disabled={!canEditRole}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o
-                  vendedor continua no rodízio mas não recebe a notificação por WhatsApp.
-                </p>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor={`telefone-${profile.id}`}>Telefone (WhatsApp)</Label>
+                  <Input
+                    id={`telefone-${profile.id}`}
+                    inputMode="tel"
+                    placeholder="(12) 99999-8888"
+                    value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)}
+                    disabled={!canEditRole}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o
+                    vendedor continua no rodízio mas não recebe a notificação por WhatsApp.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor={`vendedor-ativo-${profile.id}`}>Participa do rodízio</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {vendedorAtivo
+                        ? "Recebe leads na fila de round-robin."
+                        : "Fora da fila — não recebe leads novos nem resumos de qualificação."}
+                    </p>
+                  </div>
+                  <Switch
+                    id={`vendedor-ativo-${profile.id}`}
+                    checked={vendedorAtivo}
+                    onCheckedChange={setVendedorAtivo}
+                    disabled={!canEditRole}
+                  />
+                </div>
+              </>
             ) : null}
 
             {canManageAccount ? (
@@ -848,7 +876,14 @@ function TeamRow({
           {profile.ativo ? "Ativo" : "Inativo"}
         </Badge>
       </TableCell>
-      <TableCell className="text-muted-foreground">{profile.vendedores?.nome ?? "—"}</TableCell>
+      <TableCell className="text-muted-foreground">
+        {profile.vendedores?.nome ?? "—"}
+        {profile.vendedores && !profile.vendedores.ativo ? (
+          <Badge className="ml-2 bg-muted text-muted-foreground hover:bg-muted font-normal">
+            Fora do rodízio
+          </Badge>
+        ) : null}
+      </TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -907,38 +942,29 @@ export function TeamPanel() {
     },
   });
 
-  // Sem filtro de ativo: serve só para resolver o nome do vínculo, e um vendedor
-  // desativado ainda precisa aparecer com nome na coluna.
-  const { data: todosVendedores } = useQuery({
-    queryKey: ["vendedores-lookup"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("vendedores").select("id, nome");
-      if (error) throw error;
-      return data as Pick<Vendedor, "id" | "nome">[];
-    },
-  });
-
-  const profiles = useMemo<ProfileWithVendedor[] | undefined>(() => {
-    if (!rawProfiles) return undefined;
-    const byId = new Map((todosVendedores ?? []).map((v) => [v.id, v]));
-    return rawProfiles.map((profile) => ({
-      ...profile,
-      vendedores: profile.vendedor_id ? (byId.get(profile.vendedor_id) ?? null) : null,
-    }));
-  }, [rawProfiles, todosVendedores]);
-
+  // Sem filtro de ativo: um vendedor tirado do rodízio precisa continuar
+  // selecionável na tela (senão não haveria como reativá-lo depois de
+  // desativado) e aparecer com nome na coluna "Vendedor vinculado".
   const { data: vendedores } = useQuery({
-    queryKey: ["vendedores-ativos"],
+    queryKey: ["vendedores-todos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendedores")
         .select("*")
-        .eq("ativo", true)
         .order("nome", { ascending: true });
       if (error) throw error;
       return data as Vendedor[];
     },
   });
+
+  const profiles = useMemo<ProfileWithVendedor[] | undefined>(() => {
+    if (!rawProfiles) return undefined;
+    const byId = new Map((vendedores ?? []).map((v) => [v.id, v]));
+    return rawProfiles.map((profile) => ({
+      ...profile,
+      vendedores: profile.vendedor_id ? (byId.get(profile.vendedor_id) ?? null) : null,
+    }));
+  }, [rawProfiles, vendedores]);
 
   return (
     <section className="space-y-4">
