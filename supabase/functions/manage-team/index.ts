@@ -56,7 +56,13 @@ async function getTargetProfile(profileId: string) {
   if (!data) throw new BusinessError("Membro não encontrado.", 404);
   // Um membro excluído saiu da Equipe: nenhuma ação deve mais alcançá-lo.
   if (data.deletado_em) throw new BusinessError("Este membro foi excluído.", 404);
-  return data as { id: string; nome: string | null; email: string | null; role: Role; ativo: boolean };
+  return data as {
+    id: string;
+    nome: string | null;
+    email: string | null;
+    role: Role;
+    ativo: boolean;
+  };
 }
 
 async function countActiveAdmins(): Promise<number> {
@@ -141,14 +147,28 @@ async function nextRoundRobinPosicao(): Promise<number> {
   return (data?.posicao_round_robin ?? 0) + 1;
 }
 
+// O telefone vai direto para a Evolution API (campo `number` do sendText), que
+// espera só dígitos com DDI. Máscara digitada na tela ("(12) 99999-8888") é
+// normalizada aqui, no servidor, para não depender do formato do formulário.
+function normalizeTelefone(valor: string | null | undefined): string | null {
+  const digits = String(valor ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
 async function inviteMember(body: {
   nome: string;
   email: string;
   role: "admin" | "gestor" | "vendedor";
   vendedor_id?: string | null;
   novo_vendedor_nome?: string | null;
+  // Telefone do vendedor: é para onde vai o resumo do lead qualificado pelo
+  // agente de IA (ver whatsapp-webhook). Sem ele, o vendedor entra na fila do
+  // round-robin mas não recebe a notificação por WhatsApp.
+  telefone?: string | null;
 }) {
   const { nome, email, role } = body;
+  const telefone = normalizeTelefone(body.telefone);
 
   // O usuário do Auth é criado primeiro: assim um e-mail duplicado falha antes
   // de deixar um registro de vendedor órfão para trás.
@@ -175,11 +195,18 @@ async function inviteMember(body: {
     if (!vendedorId && body.novo_vendedor_nome) {
       const { data: vendedor, error: vendedorError } = await supabase
         .from("vendedores")
-        .insert({ nome: body.novo_vendedor_nome, email })
+        .insert({ nome: body.novo_vendedor_nome, email, telefone })
         .select()
         .single();
       if (vendedorError) throw vendedorError;
       vendedorId = vendedor.id;
+    }
+
+    // Vendedor já existente escolhido na lista: o telefone informado no
+    // convite atualiza o cadastro dele, senão o campo do formulário seria
+    // silenciosamente descartado.
+    if (vendedorId && telefone && !body.novo_vendedor_nome) {
+      await supabase.from("vendedores").update({ telefone }).eq("id", vendedorId);
     }
 
     // A "vendedor" login must have a corresponding salesperson record to be
@@ -190,7 +217,7 @@ async function inviteMember(body: {
       const posicao = await nextRoundRobinPosicao();
       const { data: vendedor, error: vendedorError } = await supabase
         .from("vendedores")
-        .insert({ nome, email, ativo: true, posicao_round_robin: posicao })
+        .insert({ nome, email, telefone, ativo: true, posicao_round_robin: posicao })
         .select()
         .single();
       if (vendedorError) throw vendedorError;
@@ -224,7 +251,12 @@ async function inviteMember(body: {
 
 async function updateRole(
   caller: Caller,
-  body: { profile_id: string; role: Role; vendedor_id?: string | null },
+  body: {
+    profile_id: string;
+    role: Role;
+    vendedor_id?: string | null;
+    telefone?: string | null;
+  },
 ) {
   const target = await getTargetProfile(body.profile_id);
 
@@ -251,6 +283,18 @@ async function updateRole(
     .select()
     .single();
   if (error) throw error;
+
+  // O telefone mora em `vendedores`, não em `profiles`: só faz sentido gravar
+  // quando o membro está vinculado a um vendedor. `telefone: undefined` (campo
+  // não enviado) não mexe no cadastro; string vazia limpa de propósito.
+  if (body.vendedor_id && body.telefone !== undefined) {
+    const { error: telefoneError } = await supabase
+      .from("vendedores")
+      .update({ telefone: normalizeTelefone(body.telefone) })
+      .eq("id", body.vendedor_id);
+    if (telefoneError) throw telefoneError;
+  }
+
   return data;
 }
 
@@ -409,10 +453,10 @@ Deno.serve(async (req) => {
           : String(error);
 
     if (message.includes("email_ja_cadastrado")) {
-      return new Response(
-        JSON.stringify({ error: "Este e-mail já está cadastrado." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: "Este e-mail já está cadastrado." }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const status = message.includes("forbidden") || message.includes("invalid session") ? 403 : 500;

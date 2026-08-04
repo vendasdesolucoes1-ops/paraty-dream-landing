@@ -187,6 +187,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
   const [role, setRole] = useState<ProfileRole>("vendedor");
   const [vendedorId, setVendedorId] = useState(NO_VENDEDOR);
   const [novoVendedorNome, setNovoVendedorNome] = useState("");
+  const [telefone, setTelefone] = useState("");
   // Credenciais recém-criadas: existem apenas em memória, enquanto o modal de
   // confirmação estiver aberto. Nada disso é persistido.
   const [credentials, setCredentials] = useState<CreatedCredentials | null>(null);
@@ -198,7 +199,13 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
     setRole("vendedor");
     setVendedorId(NO_VENDEDOR);
     setNovoVendedorNome("");
+    setTelefone("");
   };
+
+  // O membro só entra no rodízio (e só recebe o resumo do lead por WhatsApp)
+  // se existir um registro em `vendedores` — que é criado automaticamente para
+  // o papel "vendedor" ou escolhido/criado à mão na lista abaixo.
+  const vinculaVendedor = role === "vendedor" || vendedorId !== NO_VENDEDOR;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -211,6 +218,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
           vendedor_id:
             vendedorId !== NO_VENDEDOR && vendedorId !== NEW_VENDEDOR ? vendedorId : null,
           novo_vendedor_nome: vendedorId === NEW_VENDEDOR ? novoVendedorNome : null,
+          telefone: vinculaVendedor ? telefone : null,
         },
       });
       // Erros de negócio (e-mail duplicado) chegam como não-2xx; sem ler o corpo
@@ -318,6 +326,24 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
               </div>
             ) : null}
 
+            {vinculaVendedor ? (
+              <div className="space-y-2">
+                <Label htmlFor="telefone">Telefone (WhatsApp)</Label>
+                <Input
+                  id="telefone"
+                  required
+                  inputMode="tel"
+                  placeholder="(12) 99999-8888"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Obrigatório para quem entra no rodízio de leads: é para este número que o resumo
+                  do lead qualificado é enviado por WhatsApp.
+                </p>
+              </div>
+            ) : null}
+
             {mutation.isError ? (
               <p className="text-sm text-destructive">
                 {mutation.error instanceof Error
@@ -356,6 +382,9 @@ function EditMemberDialog({
 }) {
   const [role, setRole] = useState<ProfileRole>(profile.role);
   const [vendedorId, setVendedorId] = useState(profile.vendedor_id ?? NO_VENDEDOR);
+  const [telefone, setTelefone] = useState(
+    () => vendedores.find((v) => v.id === profile.vendedor_id)?.telefone ?? "",
+  );
   const [resetOpen, setResetOpen] = useState(false);
   const [resetMode, setResetMode] = useState<"aleatoria" | "manual">("aleatoria");
   const [senhaManual, setSenhaManual] = useState("");
@@ -393,6 +422,7 @@ function EditMemberDialog({
         profile_id: profile.id,
         role,
         vendedor_id: vendedorId !== NO_VENDEDOR ? vendedorId : null,
+        telefone: vendedorId !== NO_VENDEDOR ? telefone : undefined,
       }),
     onSuccess: () => {
       toast.success("Membro atualizado.");
@@ -506,7 +536,17 @@ function EditMemberDialog({
 
             <div className="space-y-2">
               <Label>Vendedor vinculado</Label>
-              <Select value={vendedorId} onValueChange={setVendedorId} disabled={!canEditRole}>
+              <Select
+                value={vendedorId}
+                onValueChange={(v) => {
+                  setVendedorId(v);
+                  // Trocar o vendedor vinculado traz o telefone do cadastro
+                  // dele — senão o campo continuaria mostrando o número do
+                  // vendedor anterior e o salvaria por cima.
+                  setTelefone(vendedores.find((item) => item.id === v)?.telefone ?? "");
+                }}
+                disabled={!canEditRole}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -520,6 +560,24 @@ function EditMemberDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {vendedorId !== NO_VENDEDOR ? (
+              <div className="space-y-2">
+                <Label htmlFor={`telefone-${profile.id}`}>Telefone (WhatsApp)</Label>
+                <Input
+                  id={`telefone-${profile.id}`}
+                  inputMode="tel"
+                  placeholder="(12) 99999-8888"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  disabled={!canEditRole}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o
+                  vendedor continua no rodízio mas não recebe a notificação por WhatsApp.
+                </p>
+              </div>
+            ) : null}
 
             {canManageAccount ? (
               <>
