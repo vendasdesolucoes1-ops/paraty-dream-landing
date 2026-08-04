@@ -173,7 +173,13 @@ export function ContactExtractorCard() {
         );
       }
     },
-    onError: (error: Error) => toast.error(error.message || "Erro ao buscar contatos."),
+    onError: (error: Error) => {
+      const raw = error.message || "Erro ao buscar contatos.";
+      const message = raw.toLowerCase().includes("context canceled")
+        ? "A Evolution demorou para sincronizar a agenda. Aguarde alguns segundos e tente novamente."
+        : raw.replace(/^Error:\s*/i, "");
+      toast.error(message);
+    },
   });
 
   const totalPages = contacts ? Math.max(1, Math.ceil(contacts.length / PAGE_SIZE)) : 1;

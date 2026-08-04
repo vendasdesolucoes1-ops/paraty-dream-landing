@@ -81,6 +81,9 @@ async function getCurrentSessionLidMap(
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: instance.api_key },
       body: JSON.stringify({}),
+      // Algumas instalações da Evolution deixam findChats pendurado por mais
+      // de 30s. A agenda principal não pode depender desta fonte auxiliar.
+      signal: AbortSignal.timeout(4_000),
     },
   );
   if (!response.ok) return new Map<string, string>();
@@ -104,13 +107,21 @@ async function listContacts(instanceName: string) {
   const instance = await getInstance(instanceName);
   const session = await getEvolutionSession(instance);
   assertConnected(session);
-  const lidToPhone = await getCurrentSessionLidMap(instance, session);
 
-  const response = await fetch(`${instance.api_url}/chat/findContacts/${instanceName}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: instance.api_key },
-    body: JSON.stringify({}),
-  });
+  // As duas fontes são independentes. Rodar em paralelo e limitar a consulta
+  // auxiliar impede timeout sem atrasar o retorno de findContacts.
+  const [response, lidToPhone] = await Promise.all([
+    fetch(
+      `${instance.api_url.replace(/\/$/, "")}/chat/findContacts/${encodeURIComponent(instanceName)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: instance.api_key },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(20_000),
+      },
+    ),
+    getCurrentSessionLidMap(instance, session).catch(() => new Map<string, string>()),
+  ]);
   if (!response.ok) throw new Error(`Evolution API findContacts error: ${await response.text()}`);
 
   const result = await response.json();

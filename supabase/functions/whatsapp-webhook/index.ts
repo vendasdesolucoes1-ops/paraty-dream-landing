@@ -22,8 +22,13 @@ function humanizedDelay(text: string): number {
   return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
 }
 
-function normalizePhone(remoteJid: string): string {
+function normalizePhone(remoteJid: string): string | null {
+  // @lid é um identificador interno do WhatsApp, não um telefone. Quando a
+  // Evolution ainda não resolveu remoteJidAlt após um novo QR, transformar os
+  // dígitos do LID em telefone criaria leads falsos no CRM.
+  if (remoteJid.includes("@lid")) return null;
   const digitsOnly = remoteJid.replace(/@s\.whatsapp\.net|@g\.us/g, "").replace(/\D/g, "");
+  if (digitsOnly.length < 10 || digitsOnly.length > 15) return null;
   if (digitsOnly.startsWith("55")) return digitsOnly;
   return `55${digitsOnly}`;
 }
@@ -258,6 +263,13 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   // 3. Normalize phone
   const phone = normalizePhone(remoteJid);
+  if (!phone) {
+    console.warn("=== UNRESOLVED WHATSAPP JID ===", {
+      remoteJid,
+      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+    });
+    return;
+  }
   const pushName: string | null = data.pushName ?? null;
   const text = extractMessageText(data.message);
 
@@ -421,6 +433,13 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
 
   // 2. Manual message sent by a human salesperson
   const phone = normalizePhone(remoteJid);
+  if (!phone) {
+    console.warn("=== UNRESOLVED OUTGOING WHATSAPP JID ===", {
+      remoteJid,
+      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+    });
+    return;
+  }
   const text = extractMessageText(data.message);
 
   const lead = await findOrCreateLead(phone, data.pushName ?? null);
