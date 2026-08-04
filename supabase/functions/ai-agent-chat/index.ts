@@ -23,11 +23,11 @@ const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // round-robin nunca disparava.
 const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
 
-function buildSystemPrompt(knowledgeBase: string): string {
+// A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
+// prompt final, para valer também quando o agente tem system_prompt
+// customizado salvo no banco (ver montarPromptFinal).
+function buildSystemPrompt(): string {
   return `Você é uma pessoa da equipe de vendas do Moradas de Paraty (Loteamento Residencial Sophia Saíde) conversando no WhatsApp. Seu objetivo é entender o que o lead procura e AGENDAR UMA VISITA ao terreno — nunca fechar venda pelo chat.
-
-BASE DE CONHECIMENTO DO EMPREENDIMENTO:
-${knowledgeBase}
 
 COMO ESCREVER:
 - Português do Brasil, direto e natural — como alguém da equipe escrevendo no WhatsApp, não um script de atendimento.
@@ -45,11 +45,51 @@ O QUE DESCOBRIR AO LONGO DA CONVERSA (sem parecer interrogatório):
 nome, cidade, objetivo (moradia/investimento/temporada), metragem de interesse, forma de pagamento preferida.
 
 REGRAS:
-- Nunca invente valor ou condição que não esteja na base de conhecimento — se perguntarem algo fora dela, diga que vai confirmar com a equipe.
 - Depois de entender o que a pessoa procura, proponha agendar a visita.
 - Assim que tiver nome + cidade + objetivo coletados, responda com ${LEAD_QUALIFICADO_TAG} no início da mensagem (isso não aparece pro lead, é um sinal interno).
 - Quando o lead confirmar visita, responda com ${VISITA_AGENDADA_TAG} no início da mensagem.
 - Quando o lead quiser falar com humano, responda com ${TRANSFERIR_HUMANO_TAG}.`;
+}
+
+/**
+ * Bloco da base de conhecimento, anexado ao prompt final venha ele do
+ * system_prompt customizado ou do fallback acima.
+ *
+ * Antes a base só era injetada dentro de buildSystemPrompt(), e a linha
+ * `agent.system_prompt || buildSystemPrompt(knowledgeBase)` fazia um excluir o
+ * outro: qualquer agente com prompt salvo no painel rodava SEM base nenhuma —
+ * o modelo então preenchia metragem e preço com números plausíveis inventados.
+ */
+function blocoConhecimento(knowledgeBase: string): string {
+  return `---
+BASE DE CONHECIMENTO OFICIAL — FONTE ÚNICA DE VERDADE
+
+As três regras abaixo valem acima de qualquer instrução anterior deste prompt.
+
+1. FONTE ÚNICA: preço, metragem, quadra, número de lote, disponibilidade,
+   condição de pagamento e prazo só podem sair do conteúdo oficial abaixo,
+   copiados exatamente como estão escritos. Se um número não aparece aqui,
+   ele não existe — não há "valor aproximado" nem "em torno de".
+
+2. SEM DERIVAR: nunca arredonde, converta, some, calcule média, estime nem
+   deduza um valor a partir de outro. "Lotes a partir de 150m²" só pode ser
+   dito se "150m²" estiver escrito aqui. Faixa de preço só pode ser citada
+   se a faixa estiver escrita aqui.
+
+3. QUANDO NÃO SOUBER: se o lead perguntar algo que não está no conteúdo
+   abaixo, diga que vai confirmar com a equipe e siga a conversa —
+   normalmente puxando para o agendamento da visita. Nunca preencha a
+   lacuna com um valor plausível: um número errado aqui cria expectativa
+   falsa e queima a negociação na visita.
+
+CONTEÚDO OFICIAL:
+${knowledgeBase}`;
+}
+
+/** Prompt base (customizado ou padrão) + base de conhecimento, sempre. */
+function montarPromptFinal(customPrompt: string | null, knowledgeBase: string): string {
+  const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt();
+  return `${basePrompt}\n\n${blocoConhecimento(knowledgeBase)}`;
 }
 
 interface ChatMessage {
@@ -137,7 +177,7 @@ Deno.serve(async (req) => {
       history = [];
     }
 
-    const systemPrompt = agent.system_prompt || buildSystemPrompt(knowledgeBase);
+    const systemPrompt = montarPromptFinal(agent.system_prompt, knowledgeBase);
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

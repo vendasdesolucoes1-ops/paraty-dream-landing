@@ -20,7 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const DEFAULT_AGENT_NAME = "Agente Moradas de Paraty";
 const DEFAULT_TRANSFER_KEYWORDS = ["atendente", "humano", "falar com alguém", "corretor"];
@@ -335,6 +345,25 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
     onError: () => toast.error("Erro ao salvar o prompt do sistema."),
   });
 
+  // Zerar system_prompt devolve o agente ao prompt padrão do código. Era a
+  // única forma de sair de um prompt customizado ruim e estava desabilitada,
+  // o que deixou o agente preso a um prompt sem base de conhecimento.
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("ai_agents")
+        .update({ system_prompt: null })
+        .eq("id", agent.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Prompt do sistema restaurado para o padrão.");
+      setText("");
+      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+    },
+    onError: () => toast.error("Erro ao restaurar o prompt padrão."),
+  });
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -358,18 +387,31 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? "Salvando..." : "Salvar Prompt do Sistema"}
         </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button variant="outline" disabled>
-                  Resetar para o padrão
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Em breve</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" disabled={resetMutation.isPending}>
+              {resetMutation.isPending ? "Restaurando..." : "Resetar para o padrão"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-display">
+                Restaurar o prompt padrão?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                O prompt customizado atual será apagado e o agente volta a usar o prompt padrão do
+                sistema. A base de conhecimento continua sendo aplicada nos dois casos. Esta ação
+                não pode ser desfeita — copie o texto antes se quiser guardá-lo.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => resetMutation.mutate()}>
+                Restaurar padrão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
