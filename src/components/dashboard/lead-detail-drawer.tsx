@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { cn, whatsappLink } from "@/lib/utils";
 import {
   LEAD_ORIGEM_OPTIONS,
   LEAD_STATUS_COLUMNS,
@@ -515,7 +515,8 @@ function HistoricoTab({ leadId }: { leadId: string }) {
   );
 }
 
-function WhatsappTab({ leadId }: { leadId: string }) {
+function WhatsappTab({ leadId, telefone }: { leadId: string; telefone: string | null }) {
+  const linkWhatsapp = whatsappLink(telefone);
   const {
     data: messages,
     isLoading,
@@ -563,32 +564,53 @@ function WhatsappTab({ leadId }: { leadId: string }) {
   });
 
   return (
-    <div className="space-y-2 max-h-[28rem] overflow-y-auto">
-      {isLoading ? (
-        <Skeleton className="h-32 w-full" />
-      ) : isError ? (
-        <p className="text-sm text-destructive">
-          Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
-        </p>
-      ) : !messages || messages.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma mensagem encontrada.</p>
+    <div className="space-y-3">
+      {/* Fora do bloco condicional de propósito: o histórico inline depende da
+          sincronização do whatsapp_messages, que hoje costuma vir vazia. O
+          botão é o caminho garantido pra conversa de verdade — precisa
+          aparecer com ou sem mensagens sincronizadas. */}
+      {linkWhatsapp ? (
+        <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+          <a href={linkWhatsapp} target="_blank" rel="noreferrer">
+            <MessageCircle className="h-4 w-4 mr-2" />
+            Abrir no WhatsApp
+          </a>
+        </Button>
       ) : (
-        messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn("flex", message.from_me ? "justify-end" : "justify-start")}
-          >
-            <div
-              className={cn(
-                "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                message.from_me ? "bg-forest-deep text-ivory" : "bg-muted text-foreground",
-              )}
-            >
-              {message.content}
-            </div>
-          </div>
-        ))
+        <p className="text-sm text-muted-foreground">
+          Este lead não tem um telefone válido cadastrado.
+        </p>
       )}
+
+      <div className="space-y-2 max-h-[28rem] overflow-y-auto">
+        {isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : isError ? (
+          <p className="text-sm text-destructive">
+            Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
+          </p>
+        ) : !messages || messages.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma mensagem sincronizada no CRM. Use o botão acima para ver a conversa no WhatsApp.
+          </p>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn("flex", message.from_me ? "justify-end" : "justify-start")}
+            >
+              <div
+                className={cn(
+                  "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+                  message.from_me ? "bg-forest-deep text-ivory" : "bg-muted text-foreground",
+                )}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -772,9 +794,9 @@ export function LeadDetailDrawer({
             <SheetHeader>
               <SheetTitle className="font-display text-2xl text-primary flex items-center gap-2">
                 {lead.nome}
-                {lead.telefone ? (
+                {whatsappLink(lead.telefone) ? (
                   <a
-                    href={`https://wa.me/${lead.telefone.replace(/\D/g, "")}`}
+                    href={whatsappLink(lead.telefone)!}
                     target="_blank"
                     rel="noreferrer"
                     title="Abrir WhatsApp"
@@ -805,7 +827,7 @@ export function LeadDetailDrawer({
                 <HistoricoTab leadId={lead.id} />
               </TabsContent>
               <TabsContent value="whatsapp" className="pt-4">
-                <WhatsappTab leadId={lead.id} />
+                <WhatsappTab leadId={lead.id} telefone={lead.telefone} />
               </TabsContent>
               {canSeeDocumentos ? (
                 <TabsContent value="documentos" className="pt-4">
