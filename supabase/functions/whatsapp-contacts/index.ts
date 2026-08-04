@@ -100,6 +100,52 @@ async function getCurrentSessionLidMap(
   return map;
 }
 
+async function resolveLidsFromCurrentMessages(
+  instance: { api_url: string; api_key: string; instance_name: string },
+  session: Awaited<ReturnType<typeof getEvolutionSession>>,
+  lids: string[],
+) {
+  const resolved = new Map<string, string>();
+
+  await Promise.all(
+    lids.slice(0, 100).map(async (lid) => {
+      const response = await fetch(
+        `${instance.api_url.replace(/\/$/, "")}/chat/findMessages/${encodeURIComponent(instance.instance_name)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: instance.api_key },
+          body: JSON.stringify({ where: { key: { remoteJid: lid } }, page: 1, offset: 20 }),
+        },
+      );
+      if (!response.ok) return;
+
+      const result = await response.json();
+      const messages = Array.isArray(result)
+        ? result
+        : (result.messages?.records ?? result.messages ?? result.records ?? []);
+
+      for (const message of messages) {
+        if (!message || typeof message !== "object") continue;
+        const record = message as Record<string, unknown>;
+        const timestampValue = record.messageTimestamp ?? record.timestamp;
+        const timestamp = Number(timestampValue);
+        if (
+          session.sessionSince &&
+          Number.isFinite(timestamp) &&
+          timestamp * (timestamp < 10_000_000_000 ? 1000 : 1) < session.sessionSince.getTime()
+        ) continue;
+        const number = findPhoneInRecord(record);
+        if (number && number !== session.ownerNumber) {
+          resolved.set(lid, number);
+          return;
+        }
+      }
+    }),
+  );
+
+  return resolved;
+}
+
 async function listContacts(instanceName: string) {
   const instance = await getInstance(instanceName);
   const session = await getEvolutionSession(instance);
@@ -125,6 +171,14 @@ async function listContacts(instanceName: string) {
     (c: Record<string, unknown>) => !isFromPreviousSession(session, c),
   );
   const descartadosPorSessaoAnterior = contacts.length - doAparelhoAtual.length;
+  const unresolvedLids = doAparelhoAtual
+    .map((contact: Record<string, unknown>) => extractLid(contact))
+    .filter((lid: string | null): lid is string => Boolean(lid) && !lidToPhone.has(lid as string));
+  const messageLidMap = await resolveLidsFromCurrentMessages(
+    instance,
+    session,
+    Array.from(new Set(unresolvedLids)),
+  );
 
   const parsed = doAparelhoAtual
 
@@ -157,7 +211,7 @@ async function listContacts(instanceName: string) {
       // importar o LID como se fosse número — foi isso que vazou como
       // "números" de 7-9 dígitos no incidente anterior.
       if (jid.includes("@lid")) {
-        const numeroReal = findPhoneInRecord(c) ?? lidToPhone.get(jid) ?? null;
+        const numeroReal = findPhoneInRecord(c) ?? lidToPhone.get(jid) ?? messageLidMap.get(jid) ?? null;
         if (numeroReal) {
           return { number: numeroReal, name, numeroIndisponivel: false };
         }
