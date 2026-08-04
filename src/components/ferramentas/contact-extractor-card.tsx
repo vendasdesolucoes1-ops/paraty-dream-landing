@@ -197,6 +197,17 @@ export function ContactExtractorCard() {
   // sessão antiga: mantemos visível na tabela, só não pré-marcado.
   const hasNomeDefinido = (c: WhatsappContact) =>
     Boolean(c.name) && c.name.trim() !== c.number && !/^\d+$/.test(c.name.trim());
+
+  // Sem pushName real, a edge function usa o JID cru como nome (ex:
+  // "190889938931732@lid") — ilegível. Detecta esse padrão só pra exibição,
+  // sem tocar na lógica de resolução de telefone/LID em si.
+  const isRawJidName = (name: string) => /^\d+@(lid|s\.whatsapp\.net)$/.test(name.trim());
+  const displayName = (c: WhatsappContact) =>
+    isRawJidName(c.name)
+      ? c.numeroIndisponivel
+        ? "Contato sem nome (WhatsApp LID)"
+        : "Sem nome salvo"
+      : c.name;
   const allSelected = selectableContacts.length > 0 && selected.size === selectableContacts.length;
   const someSelected = selected.size > 0 && !allSelected;
 
@@ -410,10 +421,17 @@ export function ContactExtractorCard() {
                             checked={selected.has(contact.id)}
                             onCheckedChange={() => toggleOne(contact.id)}
                             disabled={contact.numeroIndisponivel}
-                            aria-label={`Selecionar ${contact.name}`}
+                            aria-label={`Selecionar ${displayName(contact)}`}
                           />
                         </TableCell>
-                        <TableCell>{contact.name}</TableCell>
+                        <TableCell
+                          className={
+                            isRawJidName(contact.name) ? "text-muted-foreground italic" : ""
+                          }
+                          title={isRawJidName(contact.name) ? contact.name : undefined}
+                        >
+                          {displayName(contact)}
+                        </TableCell>
                         <TableCell
                           className={
                             contact.numeroIndisponivel ? "text-muted-foreground italic" : ""
