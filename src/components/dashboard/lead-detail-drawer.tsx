@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -73,6 +73,23 @@ function formatDateTime(iso: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** Só o horário, para o carimbo dentro da bolha da conversa. */
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Separador de dia da conversa: "Hoje"/"Ontem" e a data cheia no resto. */
+function formatDateSeparator(iso: string) {
+  const data = new Date(iso);
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+
+  if (data.toDateString() === hoje.toDateString()) return "Hoje";
+  if (data.toDateString() === ontem.toDateString()) return "Ontem";
+  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 const INTERACAO_LABELS: Record<string, string> = {
@@ -563,54 +580,90 @@ function WhatsappTab({ leadId, telefone }: { leadId: string; telefone: string | 
     },
   });
 
+  const temMensagens = Boolean(messages && messages.length > 0);
+
+  // Conversa longa deve abrir no fim, como qualquer app de mensagem — sem isso
+  // o vendedor cai no início do histórico e precisa rolar até embaixo.
+  const fimDaConversa = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (temMensagens) fimDaConversa.current?.scrollIntoView({ block: "end" });
+  }, [temMensagens, messages]);
+
   return (
     <div className="space-y-3">
-      {/* Fora do bloco condicional de propósito: o histórico inline depende da
-          sincronização do whatsapp_messages, que hoje costuma vir vazia. O
-          botão é o caminho garantido pra conversa de verdade — precisa
-          aparecer com ou sem mensagens sincronizadas. */}
+      {isLoading ? (
+        <Skeleton className="h-64 w-full" />
+      ) : isError ? (
+        <p className="text-sm text-destructive">
+          Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
+        </p>
+      ) : !temMensagens ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma mensagem sincronizada no CRM. Use o botão abaixo para ver a conversa no WhatsApp.
+        </p>
+      ) : (
+        <div className="max-h-[26rem] space-y-1 overflow-y-auto rounded-lg border bg-muted/30 p-3">
+          {messages!.map((message, i) => {
+            // Separador de dia: só quando a data muda em relação à mensagem
+            // anterior, senão a conversa vira uma parede de carimbos.
+            const dia = new Date(message.created_at).toDateString();
+            const diaAnterior = i > 0 ? new Date(messages![i - 1].created_at).toDateString() : null;
+
+            return (
+              <div key={message.id}>
+                {dia !== diaAnterior ? (
+                  <div className="flex justify-center py-2">
+                    <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground shadow-sm">
+                      {formatDateSeparator(message.created_at)}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className={cn("flex", message.from_me ? "justify-end" : "justify-start")}>
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-lg px-3 py-2 text-sm shadow-sm",
+                      message.from_me
+                        ? "bg-forest-deep text-ivory"
+                        : "bg-background border text-foreground",
+                    )}
+                  >
+                    {/* whitespace-pre-wrap preserva as quebras de linha que o
+                        agente manda; break-words evita link longo estourar. */}
+                    <p className="whitespace-pre-wrap break-words">
+                      {message.content || <span className="italic opacity-70">(sem texto)</span>}
+                    </p>
+                    <span
+                      className={cn(
+                        "mt-1 block text-right text-[10px]",
+                        message.from_me ? "text-ivory/70" : "text-muted-foreground",
+                      )}
+                    >
+                      {formatTime(message.created_at)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={fimDaConversa} />
+        </div>
+      )}
+
+      {/* Ação secundária: continua útil pra lead antigo/importado que nunca
+          passou pelo agente, e pra responder de fato (o CRM só lê). */}
       {linkWhatsapp ? (
-        <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
           <a href={linkWhatsapp} target="_blank" rel="noreferrer">
             <MessageCircle className="h-4 w-4 mr-2" />
             Abrir no WhatsApp
           </a>
         </Button>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Este lead não tem um telefone válido cadastrado.
         </p>
       )}
-
-      <div className="space-y-2 max-h-[28rem] overflow-y-auto">
-        {isLoading ? (
-          <Skeleton className="h-32 w-full" />
-        ) : isError ? (
-          <p className="text-sm text-destructive">
-            Erro ao carregar as mensagens: {error instanceof Error ? error.message : String(error)}
-          </p>
-        ) : !messages || messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma mensagem sincronizada no CRM. Use o botão acima para ver a conversa no WhatsApp.
-          </p>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn("flex", message.from_me ? "justify-end" : "justify-start")}
-            >
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                  message.from_me ? "bg-forest-deep text-ivory" : "bg-muted text-foreground",
-                )}
-              >
-                {message.content}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 }
