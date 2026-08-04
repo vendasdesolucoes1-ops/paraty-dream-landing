@@ -332,7 +332,7 @@ export function ContactExtractorCard() {
         <div className="space-y-3">
           {owner?.number ? (
             <p className="text-xs text-muted-foreground">
-              Conversas confirmadas do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
+              Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
               {owner.number}
             </p>
           ) : null}
@@ -349,10 +349,10 @@ export function ContactExtractorCard() {
               {sessionInfo.discardedFromPreviousSession > 0
                 ? ` (${sessionInfo.discardedFromPreviousSession} ocultados)`
                 : ""}
-              . Por segurança, só aparecem contatos com conversa registrada depois dessa conexão; a
-              base antiga da Evolution não é usada. Se a lista vier vazia logo após reconectar, é
-              esperado — ninguém trocou mensagem ainda nesta sessão. Tente buscar de novo depois que
-              alguma conversa acontecer no novo aparelho.
+              . A lista traz toda a agenda do aparelho conectado — salvos ou não, ativos ou não no
+              WhatsApp — desde que tenham entrado no cache da Evolution depois dessa conexão. Se
+              vier curta logo após reconectar, é esperado até o aparelho sincronizar mais contatos —
+              não é um erro.
             </div>
           ) : null}
           {contacts.length === 0 ? (

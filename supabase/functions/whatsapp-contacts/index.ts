@@ -29,58 +29,6 @@ async function getInstance(instanceName: string) {
   return instance;
 }
 
-function getMessageRemoteJid(message: Record<string, unknown>): string {
-  const key =
-    message.key && typeof message.key === "object"
-      ? (message.key as Record<string, unknown>)
-      : null;
-  return String(key?.remoteJid ?? message.remoteJid ?? "");
-}
-
-function getMessageDate(message: Record<string, unknown>): Date | null {
-  const raw = message.messageTimestamp ?? message.timestamp ?? message.createdAt;
-  if (raw === null || raw === undefined) return null;
-  const numeric = Number(raw);
-  const parsed = Number.isFinite(numeric)
-    ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
-    : new Date(String(raw));
-  return isNaN(parsed.getTime()) ? null : parsed;
-}
-
-async function getActiveJidsFromCurrentSession(
-  instance: { api_url: string; api_key: string },
-  instanceName: string,
-  sessionSince: Date,
-): Promise<Set<string>> {
-  const response = await fetch(`${instance.api_url}/chat/findMessages/${instanceName}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: instance.api_key },
-    body: JSON.stringify({ where: {}, take: 10000, skip: 0, orderBy: { timestamp: "desc" } }),
-  });
-  if (!response.ok) {
-    throw new Error(`Evolution API findMessages error: ${await response.text()}`);
-  }
-
-  const result = await response.json();
-  const container = result?.messages ?? result;
-  const messages = Array.isArray(container)
-    ? container
-    : Array.isArray(container?.records)
-      ? container.records
-      : [];
-
-  const activeJids = new Set<string>();
-  for (const raw of messages) {
-    if (!raw || typeof raw !== "object") continue;
-    const message = raw as Record<string, unknown>;
-    const date = getMessageDate(message);
-    if (!date || date.getTime() < sessionSince.getTime()) continue;
-    const jid = getMessageRemoteJid(message);
-    if (jid.includes("@s.whatsapp.net")) activeJids.add(jid.split(":")[0]);
-  }
-  return activeJids;
-}
-
 async function listContacts(instanceName: string) {
   const instance = await getInstance(instanceName);
   const session = await getEvolutionSession(instance);
@@ -96,19 +44,14 @@ async function listContacts(instanceName: string) {
   const result = await response.json();
   const contacts = Array.isArray(result) ? result : (result.contacts ?? []);
 
-  // A Evolution pode recriar registros antigos durante a sincronização e dar a
-  // eles um createdAt novo. Logo, data de criação sozinha não prova que o
-  // contato pertence ao celular conectado. Quando houve troca de aparelho,
-  // exigimos também uma conversa registrada depois do início da sessão atual.
-  const activeJids = session.sessionSince
-    ? await getActiveJidsFromCurrentSession(instance, instanceName, session.sessionSince)
-    : null;
-  const doAparelhoAtual = contacts.filter((c: Record<string, unknown>) => {
-    if (isFromPreviousSession(session, c)) return false;
-    if (!activeJids) return true;
-    const jid = String(c.remoteJid ?? c.jid ?? "").split(":")[0];
-    return activeJids.has(jid);
-  });
+  // Corte só por createdAt (ver evolution-instance.ts): descarta contato
+  // criado no cache da Evolution antes da conexão atual, sem exigir troca de
+  // mensagem — a lista deve trazer toda a agenda do aparelho conectado
+  // (salvos ou não, ativos ou não no WhatsApp), não só quem já conversou
+  // depois da reconexão.
+  const doAparelhoAtual = contacts.filter(
+    (c: Record<string, unknown>) => !isFromPreviousSession(session, c),
+  );
   const descartadosPorSessaoAnterior = contacts.length - doAparelhoAtual.length;
 
   const parsed = doAparelhoAtual
