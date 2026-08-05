@@ -32,6 +32,7 @@ export interface LeadRecord {
   objetivo?: string | null;
   metragem_interesse?: number | null;
   forma_pagamento?: string | null;
+  canal_origem?: string | null;
   status_crm?: string | null;
   vendedor_id?: string | null;
   is_teste?: boolean | null;
@@ -95,7 +96,7 @@ async function extrairDadosQualificacao(
           {
             role: "system",
             content:
-              'Extraia os dados de qualificação da conversa abaixo. Responda APENAS com um objeto JSON com as chaves: "cidade" (string), "objetivo" (exatamente um de: "moradia", "investimento", "temporada"), "metragem_interesse" (número em m², sem unidade), "forma_pagamento" (string curta, ex: "à vista", "financiado", "FGTS"). Use null em qualquer campo que o lead não tenha informado de forma clara. Nunca invente ou deduza um valor que o lead não disse.',
+              'Extraia os dados de qualificação da conversa abaixo. Responda APENAS com um objeto JSON com as chaves: "cidade" (string), "objetivo" (exatamente um de: "moradia", "investimento", "temporada"), "metragem_interesse" (número em m², sem unidade), "forma_pagamento" (string curta, ex: "à vista", "financiado", "FGTS"), "canal_origem" (como o lead conheceu o empreendimento; normalize para um destes quando couber: "Instagram", "Facebook", "Google", "site", "indicação", "tráfego pago", "placa/outdoor"; se não encaixar em nenhum, use a expressão curta do próprio lead). Use null em qualquer campo que o lead não tenha informado de forma clara. Nunca invente ou deduza um valor que o lead não disse.',
           },
           { role: "user", content: transcricao },
         ],
@@ -145,6 +146,9 @@ function camposParaAtualizar(
     typeof extraido.forma_pagamento === "string" ? extraido.forma_pagamento.trim() : "";
   if (pagamento && !lead.forma_pagamento) updates.forma_pagamento = pagamento;
 
+  const canal = typeof extraido.canal_origem === "string" ? extraido.canal_origem.trim() : "";
+  if (canal && !lead.canal_origem) updates.canal_origem = canal;
+
   return updates;
 }
 
@@ -169,6 +173,7 @@ function montarResumoQualificacao(lead: Record<string, unknown>): string {
     `*Objetivo:* ${ou(lead.objetivo)}`,
     `*Metragem de interesse:* ${metragem}`,
     `*Forma de pagamento:* ${ou(lead.forma_pagamento)}`,
+    `*Conheceu por:* ${ou(lead.canal_origem)}`,
     "",
     "Lead atribuído a você pela fila de rodízio. O histórico completo está no CRM.",
   ].join("\n");
@@ -253,7 +258,7 @@ export async function handleLeadQualification(
   // O resumo sai das colunas do lead já atualizadas, não do objeto em memória.
   const { data: leadAtual } = await supabase
     .from("leads")
-    .select("nome, telefone, cidade, objetivo, metragem_interesse, forma_pagamento")
+    .select("nome, telefone, cidade, objetivo, metragem_interesse, forma_pagamento, canal_origem")
     .eq("id", lead.id)
     .maybeSingle();
 

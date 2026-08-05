@@ -844,6 +844,7 @@ export type Database = {
           created_at: string
           deletado_em: string | null
           email: string | null
+          canal_origem: string | null
           id: string
           is_teste: boolean
           lote_interesse_id: string | null
@@ -862,6 +863,7 @@ export type Database = {
           created_at?: string
           deletado_em?: string | null
           email?: string | null
+          canal_origem?: string | null
           id?: string
           is_teste?: boolean
           lote_interesse_id?: string | null
@@ -880,6 +882,7 @@ export type Database = {
           created_at?: string
           deletado_em?: string | null
           email?: string | null
+          canal_origem?: string | null
           id?: string
           is_teste?: boolean
           lote_interesse_id?: string | null
