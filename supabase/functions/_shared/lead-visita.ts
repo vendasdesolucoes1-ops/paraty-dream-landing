@@ -4,11 +4,16 @@
 // para poder ser chamado tanto pelo painel de teste quanto, mais adiante, pela
 // whatsapp-webhook.
 //
-// ATENÇÃO — hoje só roda para lead com is_teste = true. Criar visita automática
-// nunca existiu neste sistema (a marca só movia o card para "Agendado"), então
-// ligar isso em produção passa a escrever no calendário de quem vende. A
-// extensão para leads reais é uma decisão separada, depois de validada a
-// qualidade da extração de data.
+// Vale para leads reais desde que a qualidade da extração de data foi
+// validada nos testes. Quem dispara para lead real é a whatsapp-webhook (ao
+// ver `visita_agendada` na resposta da ai-agent-chat); a ai-agent-chat só
+// dispara direto para lead com is_teste = true. As duas pontas juntas
+// criariam a visita duas vezes para todo lead real.
+//
+// Consequência prática: a partir daqui a Sophia escreve no calendário de quem
+// vende. Quando a data não pôde ser identificada com confiança, a visita entra
+// com horário provisório e observação em CAIXA ALTA pedindo confirmação — some
+// da agenda é pior do que aparecer marcada para conferir.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 

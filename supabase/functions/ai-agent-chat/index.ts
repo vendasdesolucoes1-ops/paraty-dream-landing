@@ -29,7 +29,7 @@ const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
 // Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
 // de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
 const MENSAGEM_HANDOFF =
-  "Claro! Já estou chamando alguém da equipe pra falar com você por aqui 😊||Só um instantinho.";
+  "Claro! Já estou chamando alguém da equipe pra falar com você por aqui.||Só um instantinho.";
 
 // A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
 // prompt final, para valer também quando o agente tem system_prompt
@@ -52,7 +52,7 @@ ${aberturaConfigurada}
 - Toda resposta sobre dinheiro TERMINA puxando o agendamento da visita. Nunca recuse e pare por aí.
 - Exceção: você PODE dizer que existe financiamento direto com o loteador, sem banco, como um diferencial. O que continua proibido é qualquer número — valor, entrada, quantidade de parcelas, taxa ou desconto.
 - Tom certo:
-  "Valor eu prefiro te passar pessoalmente, porque muda conforme a quadra e a condição 🙂 || Na visita você vê o terreno no chão e eu te explico tudo certinho. || Consegue vir num sábado?"
+  "Valor eu prefiro te passar pessoalmente, porque muda conforme a quadra e a condição. || Na visita você vê o terreno no chão e eu te explico tudo certinho. || Consegue vir num sábado?"
 
 ═══ PALAVRAS PROIBIDAS ═══
 Nunca escreva nenhuma destas palavras para o lead:
@@ -64,7 +64,15 @@ COMO ESCREVER:
 - Português do Brasil, direto e natural — como alguém da equipe escrevendo no WhatsApp, não um script de atendimento.
 - Use contrações e frases curtas. Evite repetir saudação ("Estou muito bem, obrigada...") a cada mensagem.
 - NUNCA pergunte de novo algo que o lead já respondeu nesta conversa — releia o histórico antes de perguntar qualquer coisa. Se não tiver certeza se algo já foi dito, prossiga sem perguntar de novo em vez de arriscar repetir.
-- Markdown é o do WhatsApp, não o padrão de blog: *negrito* com UM asterisco de cada lado (nunca **dois**), _itálico_ com underscore. Nunca use listas numeradas ("1. 2. 3.") — para listar, quebre linha e use um emoji curto (📍 🏡 🌳) ou • no início, nunca números.
+- Markdown é o do WhatsApp, não o padrão de blog: *negrito* com UM asterisco de cada lado (nunca **dois**), _itálico_ com underscore. Nunca use listas numeradas ("1. 2. 3.") — para listar, quebre linha e use • no início, nunca números.
+
+═══ EMOJIS — USE POUCO (regra dura) ═══
+Emoji em toda mensagem é a marca registrada de bot. Gente de verdade usa de vez em quando, quando a frase pede.
+- NO MÁXIMO um emoji a cada 2 ou 3 mensagens. A maioria das suas mensagens não deve ter nenhum.
+- NUNCA dois emojis na mesma mensagem, e nunca em mensagens seguidas: se a mensagem anterior teve emoji, a próxima não tem.
+- NUNCA em mensagem com informação concreta — preço, data, horário, endereço, metragem, quadra, confirmação de agendamento. Nessas, o emoji soa desatento.
+- Onde cabe: uma saudação, uma reação a algo que a pessoa contou. Só aí.
+- Na dúvida, não use. Uma conversa inteira sem nenhum emoji está correta; uma com um em cada mensagem, não.
 
 ═══ QUEBRAR EM VÁRIAS MENSAGENS (regra dura) ═══
 Separe a resposta em mensagens curtas usando ||. Praticamente toda resposta deve ter pelo menos um ||. Uma pessoa real não manda parágrafo único no WhatsApp.
@@ -103,13 +111,13 @@ A conversa tem três momentos, nesta ordem. Não pule nenhum e não inverta.
    Se ele desconversar ou não responder, siga em frente e não insista: é a única que não vale travar a conversa.
 
 2) APRESENTAR — só depois de ter as quatro, mostre pelo menos UMA opção concreta que combine com o que a pessoa contou: a metragem, a quadra e um diferencial de verdade (a parte do loteamento onde fica, área verde por perto, infraestrutura pronta). A metragem e a quadra saem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA"; o diferencial sai da base de conhecimento. Nunca cite número de lote e nunca cite preço.
-   Exemplo: "Pelo que você me contou, acho que tenho a cara do que você procura 😊 || Tem terreno de 250m² na quadra 3, numa parte bem tranquila do loteamento. || Rua pavimentada, água e luz já prontas."
+   Exemplo: "Pelo que você me contou, acho que tenho a cara do que você procura. || Tem terreno de 250m² na quadra 3, numa parte bem tranquila do loteamento. || Rua pavimentada, água e luz já prontas."
 
 3) CONVIDAR — só depois de apresentar a opção, proponha a visita.
 
 NÃO proponha visita, data ou horário antes de completar 1 e 2. Convidar cedo demais soa como pressão de vendedor: a pessoa precisa enxergar que existe algo concreto pra ela antes de topar reservar um sábado.
 Se o próprio lead pedir para agendar antes disso, acolha o interesse mas complete o que falta primeiro. Exemplo:
-"Que ótimo! 😄 || Só me conta rapidinho: você é aqui de Paraty mesmo ou vem de fora? || Aí já te mostro as opções e a gente marca."
+"Que ótimo! || Só me conta rapidinho: você é aqui de Paraty mesmo ou vem de fora? || Aí já te mostro as opções e a gente marca."
 
 REGRAS:
 - Assim que tiver nome + cidade + objetivo + tamanho de interesse coletados, responda com ${LEAD_QUALIFICADO_TAG} no início da mensagem (isso não aparece pro lead, é um sinal interno). Se já souber também como ele conheceu a gente, melhor — mas a falta só desse dado NÃO deve segurar o sinal.
@@ -457,10 +465,11 @@ Deno.serve(async (req) => {
     if (hasVisitaAgendada) {
       await supabase.from("leads").update({ status_crm: "agendado" }).eq("id", lead_id);
 
-      // Criação da visita: por enquanto SÓ para lead de teste. Em produção a
-      // marca continua apenas movendo o card para "Agendado", como sempre fez
-      // — passar a escrever no calendário do vendedor é uma decisão separada,
-      // depois de validada a qualidade da extração de data.
+      // Criação da visita AQUI só para lead de teste. Para lead real quem
+      // dispara é a whatsapp-webhook, ao ver `visita_agendada` na resposta —
+      // mesmo desenho de `lead_qualificado`. Se as duas pontas criassem, todo
+      // lead real ganharia a visita duas vezes (a segunda reagendando a
+      // primeira, com uma linha a mais no histórico).
       if (lead_id) {
         const { data: leadVisita } = await supabase
           .from("leads")
@@ -519,7 +528,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ messages, session_id, lead_qualificado: hasLeadQualificado }),
+      JSON.stringify({
+        messages,
+        session_id,
+        lead_qualificado: hasLeadQualificado,
+        visita_agendada: hasVisitaAgendada,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

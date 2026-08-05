@@ -15,6 +15,7 @@ import {
   registrarEnvio,
 } from "../_shared/envio-registrado.ts";
 import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
+import { handleVisitaAgendada as criarVisita } from "../_shared/lead-visita.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -271,6 +272,28 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     } catch (error) {
       console.error(
         "=== LEAD QUALIFICATION ERROR ===",
+        (error as Error)?.message,
+        (error as Error)?.stack,
+      );
+    }
+  }
+
+  // Visita real na Agenda. Até agora a marca [VISITA_AGENDADA] só movia o card
+  // para "Agendado" (isso a ai-agent-chat já fazia); a visita em si só era
+  // criada para lead de teste. A extração de data foi validada, então passa a
+  // valer para lead real — a partir daqui a Sophia escreve no calendário de
+  // quem vende.
+  //
+  // Idempotente por lead (ver _shared/lead-visita.ts): uma segunda marca na
+  // mesma conversa reagenda a visita existente em vez de duplicar a agenda. E
+  // falhar aqui não pode derrubar a resposta ao lead — no pior caso o card
+  // fica em "Agendado" sem a linha na Agenda, que é o comportamento antigo.
+  if (aiResult.visita_agendada) {
+    try {
+      await criarVisita(supabase, lead, OPENAI_API_KEY);
+    } catch (error) {
+      console.error(
+        "=== VISITA CREATION ERROR ===",
         (error as Error)?.message,
         (error as Error)?.stack,
       );
