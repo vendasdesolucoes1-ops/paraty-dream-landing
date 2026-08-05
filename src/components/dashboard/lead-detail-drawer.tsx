@@ -747,7 +747,7 @@ function VisitasTab({ lead }: { lead: Lead }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visitas")
-        .select("*, lead:leads(id, nome, telefone), vendedor:vendedores(id, nome)")
+        .select("*, lead:leads(id, nome, telefone, is_teste), vendedor:vendedores(id, nome)")
         .eq("lead_id", lead.id)
         .order("data_hora", { ascending: false });
       if (error) throw error;

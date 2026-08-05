@@ -261,7 +261,7 @@ export interface Visita {
 }
 
 export interface VisitaWithRelations extends Visita {
-  lead: Pick<Lead, "id" | "nome" | "telefone"> | null;
+  lead: Pick<Lead, "id" | "nome" | "telefone" | "is_teste"> | null;
   vendedor: Pick<Vendedor, "id" | "nome"> | null;
 }
 

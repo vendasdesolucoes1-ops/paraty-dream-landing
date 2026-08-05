@@ -127,7 +127,7 @@ function AgendaPage() {
     queryFn: async () => {
       let query = supabase
         .from("visitas")
-        .select("*, lead:leads(id, nome, telefone), vendedor:vendedores(id, nome)")
+        .select("*, lead:leads(id, nome, telefone, is_teste), vendedor:vendedores(id, nome)")
         .order("data_hora", { ascending: true });
 
       if (range.from) query = query.gte("data_hora", range.from);

@@ -96,8 +96,16 @@ export function VisitaCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate leading-tight">
-            {visita.lead?.nome ?? "Lead removido"}
+          <p className="flex items-center gap-2 font-medium truncate leading-tight">
+            <span className="truncate">{visita.lead?.nome ?? "Lead removido"}</span>
+            {visita.lead?.is_teste ? (
+              <Badge
+                className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs font-normal"
+                title="Visita de um lead gerado pelo painel Testar Agente — não é um cliente real."
+              >
+                TESTE
+              </Badge>
+            ) : null}
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
             {visita.lead?.telefone ? <span>{visita.lead.telefone}</span> : null}

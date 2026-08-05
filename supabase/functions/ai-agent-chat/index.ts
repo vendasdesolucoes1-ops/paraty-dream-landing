@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
+import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -412,6 +413,27 @@ Deno.serve(async (req) => {
 
     if (hasVisitaAgendada) {
       await supabase.from("leads").update({ status_crm: "agendado" }).eq("id", lead_id);
+
+      // Criação da visita: por enquanto SÓ para lead de teste. Em produção a
+      // marca continua apenas movendo o card para "Agendado", como sempre fez
+      // — passar a escrever no calendário do vendedor é uma decisão separada,
+      // depois de validada a qualidade da extração de data.
+      if (lead_id) {
+        const { data: leadVisita } = await supabase
+          .from("leads")
+          .select("id, nome, vendedor_id, is_teste")
+          .eq("id", lead_id)
+          .maybeSingle();
+
+        if (leadVisita?.is_teste) {
+          try {
+            await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
+          } catch (e) {
+            // A conversa não pode cair por causa da agenda.
+            console.error("[ai-agent-chat] criação da visita de teste falhou:", e);
+          }
+        }
+      }
     }
 
     if (hasTransferirHumano && conversation) {
