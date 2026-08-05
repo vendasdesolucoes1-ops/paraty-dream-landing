@@ -6,6 +6,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
+import { hojeEmSaoPaulo } from "../_shared/data-br.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -233,15 +234,113 @@ equipe. Nunca cite número de lote específico.
 ${linhas.join("\n")}`;
 }
 
-/** Prompt base (customizado ou padrão) + disponibilidade real + base. */
+export interface LeadConhecido {
+  nome?: string | null;
+  cidade?: string | null;
+  objetivo?: string | null;
+  metragem_interesse?: string | null;
+  canal_origem?: string | null;
+}
+
+/**
+ * O que já sabemos sobre este lead, vindo do formulário do site ou de conversas
+ * anteriores.
+ *
+ * Antes isto não existia: o modelo só via o system prompt e as últimas 10
+ * mensagens. Tudo que o lead digitou no formulário era invisível para ele, e o
+ * resultado era perguntar de novo o nome e a metragem que a pessoa acabara de
+ * informar — e, pior, nunca emitir [LEAD_QUALIFICADO], porque na conta dele
+ * ainda faltavam dados que já estavam no banco.
+ *
+ * A janela de 10 mensagens agrava: a abertura da Sophia sozinha ocupa 4 delas,
+ * então o começo da conversa sai de vista rápido. Este bloco não expira.
+ */
+function blocoLeadConhecido(lead: LeadConhecido | null): string {
+  if (!lead) return "";
+
+  const campos: string[] = [];
+  const add = (rotulo: string, valor: unknown) => {
+    const limpo = String(valor ?? "").trim();
+    if (limpo) campos.push(`- ${rotulo}: ${limpo}`);
+  };
+
+  add("Nome", lead.nome);
+  add("Cidade onde mora", lead.cidade);
+  add("Objetivo (morar/investir/temporada)", lead.objetivo);
+  add("Tamanho de terreno que procura", lead.metragem_interesse);
+  add("Como conheceu a gente", lead.canal_origem);
+
+  if (campos.length === 0) return "";
+
+  return `---
+O QUE VOCÊ JÁ SABE SOBRE ESTA PESSOA (regra dura)
+
+Estes dados já estão registrados — vieram do formulário do site ou de conversas
+anteriores. Trate cada um como se a própria pessoa tivesse acabado de te contar.
+
+${campos.join("\n")}
+
+- NUNCA pergunte nada que já esteja nesta lista. Perguntar de novo o que a
+  pessoa já informou é o erro que mais rápido destrói a confiança dela.
+- Use naturalmente na conversa, sem anunciar que "está no cadastro" e sem
+  recapitular a lista para ela.
+- Para a regra de ${LEAD_QUALIFICADO_TAG}, estes dados CONTAM como coletados.
+  Se nome, cidade, objetivo e tamanho já estiverem todos aqui, emita a marca na
+  sua próxima resposta — não espere a pessoa repetir pelo chat o que ela já
+  respondeu no site.
+- Só pergunte o que estiver FALTANDO nesta lista.`;
+}
+
+/**
+ * Data de hoje, para a Sophia poder falar de dia da semana sem chutar.
+ *
+ * Sem esta âncora o modelo não tem como saber que "sábado" e "09/08" são
+ * incompatíveis — foi assim que ele confirmou uma visita num domingo achando
+ * que era sábado. Modelo de linguagem não tem relógio.
+ */
+function blocoDataDeHoje(agora: Date): string {
+  const { data, diaSemana } = hojeEmSaoPaulo(agora);
+
+  return `---
+HOJE (regra dura sobre datas)
+
+Hoje é ${data}, ${diaSemana}, no horário de Paraty.
+
+- Quando falar de datas, calcule sempre a partir de hoje. "Sábado que vem",
+  "semana que vem", "dia 12" — tudo se resolve a partir da data acima.
+- NUNCA confirme uma visita sem conferir se o dia da semana bate com a data.
+- Se a pessoa citar um dia da semana e uma data que NÃO correspondem, não
+  escolha um dos dois por conta própria e não confirme: aponte a divergência e
+  pergunte qual ela quer. Exemplo:
+  "Só confirmando: dia 9 de agosto cai num domingo, não sábado. || Pode ser
+  domingo mesmo ou prefere outro dia?"
+- Na dúvida sobre qual data a pessoa quis dizer, pergunte antes de confirmar.
+  Visita marcada no dia errado faz alguém viajar à toa.`;
+}
+
+/** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
 function montarPromptFinal(
   customPrompt: string | null,
   knowledgeBase: string,
   lotes: LoteDisponivel[],
   mensagemBoasVindas: string | null,
+  lead: LeadConhecido | null,
+  agora: Date,
 ): string {
   const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
-  return [basePrompt, blocoLotesDisponiveis(lotes), blocoConhecimento(knowledgeBase)].join("\n\n");
+  // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
+  // customizado salvo no painel substitui a base inteira, e foi assim que a
+  // base de conhecimento já ficou sem ser injetada uma vez. O que é essencial
+  // não pode depender de o texto do painel lembrar de incluir.
+  return [
+    basePrompt,
+    blocoDataDeHoje(agora),
+    blocoLeadConhecido(lead),
+    blocoLotesDisponiveis(lotes),
+    blocoConhecimento(knowledgeBase),
+  ]
+    .filter((b) => b.trim())
+    .join("\n\n");
 }
 
 interface ChatMessage {
@@ -381,11 +480,29 @@ Deno.serve(async (req) => {
     }
     const lotesDisponiveis = (lotesRows ?? []) as LoteDisponivel[];
 
+    // Dados já conhecidos do lead. Falha aqui não derruba a conversa: sem o
+    // bloco a Sophia volta a perguntar o que já sabe, o que é ruim mas não
+    // impede o atendimento.
+    let leadConhecido: LeadConhecido | null = null;
+    if (lead_id) {
+      const { data: leadRow, error: leadError } = await supabase
+        .from("leads")
+        .select("nome, cidade, objetivo, metragem_interesse, canal_origem")
+        .eq("id", lead_id)
+        .maybeSingle();
+      if (leadError) {
+        console.error("[ai-agent-chat] leitura do lead falhou:", leadError.message);
+      }
+      leadConhecido = (leadRow as LeadConhecido | null) ?? null;
+    }
+
     const systemPrompt = montarPromptFinal(
       agent.system_prompt,
       knowledgeBase,
       lotesDisponiveis,
       agent.mensagem_boas_vindas ?? null,
+      leadConhecido,
+      new Date(),
     );
 
     if (apenasPreview) {
