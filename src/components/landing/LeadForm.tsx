@@ -85,10 +85,26 @@ export function LeadForm() {
             tipo: lead.tipo || null,
           },
         })
-        .catch(() => {});
+        .catch((e) => {
+          // Fire-and-forget não pode virar silêncio: se o enriquecimento
+          // falhar, o lead está salvo mas fica sem vendedor e sem a abordagem
+          // da Sophia — e ninguém saberia.
+          console.error("[LeadForm] enrich-lead falhou:", e);
+        });
 
       setTimeout(() => setSent(false), 6000);
-    } catch {
+    } catch (e) {
+      // O catch sem variável engolia o erro do PostgREST por completo: a tela
+      // mostrava a mensagem genérica e o console ficava limpo, o que tornava
+      // impossível descobrir a causa de uma falha em produção.
+      const erro = e as { code?: string; message?: string; details?: string; hint?: string };
+      console.error("[LeadForm] falha ao enviar o formulário:", {
+        code: erro?.code,
+        message: erro?.message,
+        details: erro?.details,
+        hint: erro?.hint,
+        erroCompleto: e,
+      });
       setError("Não foi possível enviar seu contato agora. Tente novamente em instantes.");
     } finally {
       setSubmitting(false);
