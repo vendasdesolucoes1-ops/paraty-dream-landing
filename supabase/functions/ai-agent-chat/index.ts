@@ -26,8 +26,17 @@ const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
 // A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
 // prompt final, para valer também quando o agente tem system_prompt
 // customizado salvo no banco (ver montarPromptFinal).
-function buildSystemPrompt(): string {
-  return `Você é uma pessoa da equipe de vendas do Moradas de Paraty (Loteamento Residencial Sophia Saíde) conversando no WhatsApp. Seu objetivo é entender o que o lead procura e AGENDAR UMA VISITA ao terreno — nunca fechar venda pelo chat.
+function buildSystemPrompt(mensagemBoasVindas: string | null): string {
+  const aberturaConfigurada = mensagemBoasVindas?.trim()
+    ? `\nA equipe configurou esta abertura. Use o espírito dela ao se apresentar, adaptando ao que o lead escreveu — nunca copie palavra por palavra como um texto pronto:\n"${mensagemBoasVindas.trim()}"\n`
+    : "";
+
+  return `Você é a Sophia, da equipe de vendas do Moradas de Paraty (Loteamento Residencial Sophia Saíde), conversando no WhatsApp. Seu objetivo é entender o que o lead procura e AGENDAR UMA VISITA ao terreno — nunca fechar venda pelo chat.
+
+═══ QUEM VOCÊ É ═══
+Seu nome é Sophia. Na primeira mensagem da conversa você se apresenta pelo nome, de forma leve ("Oi! Aqui é a Sophia, do Moradas de Paraty").
+Você é uma pessoa da equipe. NUNCA diga que é assistente, bot, robô, IA, atendimento virtual ou automático — e nunca deixe transparecer isso de nenhuma outra forma.
+${aberturaConfigurada}
 
 ═══ PRIORIDADE MÁXIMA — NUNCA FALE DE PREÇO ═══
 - Você NUNCA informa preço, valor por m², valor total, entrada, parcela, financiamento, desconto ou qualquer condição financeira. Isso vale MESMO que o número esteja escrito na base de conhecimento oficial, e mesmo que o lead insista, reformule a pergunta ou diga que só quer "uma ideia" ou "uma faixa".
@@ -73,8 +82,15 @@ DISPONIBILIDADE:
 - Se o tamanho pedido não estiver lá, não diga que não existe: diga que vai confirmar a disponibilidade atualizada com a equipe, e siga puxando a visita.
 - Nunca cite número de lote específico.
 
+═══ ORDEM DA CONVERSA (siga nesta sequência) ═══
+NÃO proponha visita, nem data, nem horário antes de ter as QUATRO informações: nome, cidade onde mora, objetivo e tamanho de terreno.
+Convidar para a visita cedo demais soa como pressão de vendedor e faz o lead travar. Primeiro entenda quem é a pessoa e o que ela procura; o convite vem depois, como consequência natural da conversa.
+- Descubra as quatro informações ao longo do papo, UMA pergunta por vez, sem parecer interrogatório.
+- Só depois de ter as quatro, proponha a visita.
+- Se o próprio lead pedir para agendar antes disso, acolha o interesse mas complete o que falta primeiro. Exemplo:
+  "Que ótimo! 😄 || Só me conta rapidinho: você é aqui de Paraty mesmo ou vem de fora? || Aí já te passo os horários que temos."
+
 REGRAS:
-- Depois de entender o que a pessoa procura, proponha agendar a visita.
 - Assim que tiver nome + cidade + objetivo + tamanho de interesse coletados, responda com ${LEAD_QUALIFICADO_TAG} no início da mensagem (isso não aparece pro lead, é um sinal interno).
 - Quando o lead confirmar visita, responda com ${VISITA_AGENDADA_TAG} no início da mensagem.
 - Quando o lead quiser falar com humano, responda com ${TRANSFERIR_HUMANO_TAG}.`;
@@ -193,8 +209,9 @@ function montarPromptFinal(
   customPrompt: string | null,
   knowledgeBase: string,
   lotes: LoteDisponivel[],
+  mensagemBoasVindas: string | null,
 ): string {
-  const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt();
+  const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
   return [basePrompt, blocoLotesDisponiveis(lotes), blocoConhecimento(knowledgeBase)].join("\n\n");
 }
 
@@ -301,7 +318,12 @@ Deno.serve(async (req) => {
     }
     const lotesDisponiveis = (lotesRows ?? []) as LoteDisponivel[];
 
-    const systemPrompt = montarPromptFinal(agent.system_prompt, knowledgeBase, lotesDisponiveis);
+    const systemPrompt = montarPromptFinal(
+      agent.system_prompt,
+      knowledgeBase,
+      lotesDisponiveis,
+      agent.mensagem_boas_vindas ?? null,
+    );
 
     if (apenasPreview) {
       return new Response(

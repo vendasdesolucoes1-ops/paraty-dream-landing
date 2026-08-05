@@ -573,11 +573,41 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// A conversa de teste vive no localStorage, não só no estado do React: sair da
+// aba (ou ir conferir a movimentação no CRM e voltar) desmontava o componente e
+// apagava tudo, justamente quando é preciso acompanhar os dois lados em
+// paralelo. A sessão também é preservada para o histórico continuar coerente.
+const TEST_CHAT_STORAGE_KEY = "ai-agent-test-chat";
+
+function carregarConversaSalva(): { messages: ChatMessage[]; sessionId: string } {
+  const vazio = { messages: [], sessionId: `test_${Date.now()}` };
+  try {
+    const bruto = localStorage.getItem(TEST_CHAT_STORAGE_KEY);
+    if (!bruto) return vazio;
+    const salvo = JSON.parse(bruto);
+    if (!Array.isArray(salvo?.messages)) return vazio;
+    return { messages: salvo.messages, sessionId: salvo.sessionId ?? vazio.sessionId };
+  } catch {
+    // localStorage indisponível ou conteúdo corrompido: começa limpo em vez de
+    // derrubar a aba inteira.
+    return vazio;
+  }
+}
+
 function TestAgentTab({ agent }: { agent: AiAgent }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [salvo] = useState(carregarConversaSalva);
+  const [messages, setMessages] = useState<ChatMessage[]>(salvo.messages);
   const [input, setInput] = useState("");
-  const [sessionId] = useState(() => `test_${Date.now()}`);
+  const [sessionId] = useState(salvo.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TEST_CHAT_STORAGE_KEY, JSON.stringify({ messages, sessionId }));
+    } catch {
+      // Cota estourada não pode quebrar o envio da mensagem.
+    }
+  }, [messages, sessionId]);
 
   const sendMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -635,7 +665,14 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setMessages([])}
+          onClick={() => {
+            setMessages([]);
+            try {
+              localStorage.removeItem(TEST_CHAT_STORAGE_KEY);
+            } catch {
+              // sem storage, o estado zerado acima já basta
+            }
+          }}
           disabled={messages.length === 0}
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
