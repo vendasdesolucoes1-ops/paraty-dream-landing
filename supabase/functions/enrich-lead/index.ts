@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { enviarPrimeiroContato } from "../_shared/primeiro-contato.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -24,45 +25,6 @@ interface EnrichBody {
   cidade?: string | null;
   metragem?: string | null;
   tipo?: string | null;
-}
-
-async function triggerAiAgent(telefone: string, nome: string) {
-  const { data: instance } = await supabase
-    .from("whatsapp_instances")
-    .select("instance_name")
-    .in("status", ["connected", "open"])
-    .limit(1)
-    .maybeSingle();
-
-  // No connected WhatsApp instance — nothing to hand off to, that's fine.
-  if (!instance) return;
-
-  const timestamp = Date.now();
-
-  await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-webhook`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({
-      event: "messages.upsert",
-      instance: instance.instance_name,
-      data: {
-        key: {
-          remoteJid: `${telefone}@s.whatsapp.net`,
-          fromMe: false,
-          id: `LP_${timestamp}_${telefone}`,
-        },
-        message: {
-          conversation:
-            "Olá! Vim pelo site do Moradas de Paraty e gostaria de mais informações sobre os lotes.",
-        },
-        pushName: nome,
-        messageTimestamp: Math.floor(timestamp / 1000),
-      },
-    }),
-  }).catch(() => {});
 }
 
 Deno.serve(async (req) => {
@@ -78,7 +40,7 @@ Deno.serve(async (req) => {
     // Locate the lead the anon client just inserted (telefone has a unique index).
     const { data: lead, error: findError } = await supabase
       .from("leads")
-      .select("id, nome, vendedor_id")
+      .select("id, nome, telefone, vendedor_id")
       .eq("telefone", telefone)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -115,8 +77,38 @@ Deno.serve(async (req) => {
       }`,
     });
 
-    // Fire-and-forget WhatsApp AI handoff.
-    await triggerAiAgent(telefone, body.nome ?? lead.nome ?? "");
+    // Abordagem inicial da Sophia. Roda em background porque espera alguns
+    // minutos antes de enviar — a resposta do formulário não pode ficar presa
+    // nisso. Sem instância conectada não há para onde mandar, e tudo bem: o
+    // lead já está no CRM com vendedor atribuído.
+    const { data: instancia } = await supabase
+      .from("whatsapp_instances")
+      .select("id, api_url, api_key, instance_name")
+      .in("status", ["connected", "open"])
+      .limit(1)
+      .maybeSingle();
+
+    if (instancia) {
+      const dadosFormulario = {
+        nome: body.nome ?? lead.nome ?? null,
+        cidade: body.cidade ?? null,
+        metragem: body.metragem ?? null,
+        tipo: body.tipo ?? null,
+      };
+      // @ts-expect-error EdgeRuntime existe apenas em runtime
+      EdgeRuntime.waitUntil(
+        enviarPrimeiroContato(
+          supabase,
+          { id: lead.id, telefone },
+          instancia,
+          dadosFormulario,
+        ).catch((e) => console.error("[enrich-lead] primeiro contato falhou:", e)),
+      );
+    } else {
+      console.warn("[enrich-lead] nenhuma instância conectada — sem abordagem inicial", {
+        leadId: lead.id,
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true, lead_id: lead.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
