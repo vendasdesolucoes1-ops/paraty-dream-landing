@@ -837,28 +837,37 @@ function DocumentosTab({ lead }: { lead: Lead }) {
   );
 }
 
-// Soft delete: never a physical DELETE (leads with whatsapp_messages /
-// interacoes / visitas would violate the NO ACTION foreign keys). Stamps
-// deletado_em so the lead drops out of every active listing while its history
-// is preserved. Admin/gestor only.
+// Exclusão real, via RPC transacional. Não é feito daqui com várias chamadas
+// por dois motivos: falhar no meio deixaria mensagens órfãs apontando para um
+// lead inexistente, e whatsapp_messages / ai_agent_* só têm policy de
+// service_role — um DELETE do cliente autenticado não daria erro, apenas
+// afetaria zero linhas, e a tela diria "excluído" com tudo intacto no banco.
+//
+// A autorização (admin/gestor) e a trava de cliente comprador vivem dentro da
+// função, não aqui: validação no cliente é sugestão, não garantia.
 function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => void }) {
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("leads")
-        .update({ deletado_em: new Date().toISOString() })
-        .eq("id", lead.id);
+      // Tipos gerados ainda não conhecem a função (a migration é aplicada à mão).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)("excluir_lead_definitivo", {
+        p_lead_id: lead.id,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Lead excluído do CRM.");
+      toast.success("Lead excluído definitivamente.");
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-home"] });
       onDeleted();
     },
-    onError: () => toast.error("Erro ao excluir o lead."),
+    // A mensagem do raise exception (cliente comprador, sem permissão) é o que
+    // o usuário precisa ler — um "erro ao excluir" genérico esconderia
+    // justamente a informação acionável.
+    onError: (error: { message?: string }) =>
+      toast.error(error?.message || "Erro ao excluir o lead."),
   });
 
   return (
@@ -872,10 +881,12 @@ function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => v
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir o lead {lead.nome}?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir {lead.nome} definitivamente?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o lead {lead.nome}? Ele deixará de aparecer no CRM, mas
-              o histórico de conversas e visitas será preservado internamente.
+              Esta ação <strong>não pode ser desfeita</strong>. O lead será apagado do banco de
+              dados junto com todo o histórico de conversas do WhatsApp, interações, visitas
+              agendadas e mensagens na fila de envio. O contato do WhatsApp é mantido, apenas
+              desvinculado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
