@@ -205,6 +205,8 @@ interface ChatMessage {
 
 interface ChatRequestBody {
   agent_id: string;
+  /** "preview_prompt" devolve o prompt montado sem chamar a OpenAI. */
+  action?: string;
   message: string;
   contact_phone: string;
   contact_name?: string | null;
@@ -224,9 +226,13 @@ Deno.serve(async (req) => {
 
   try {
     const body: ChatRequestBody = await req.json();
-    const { agent_id, message, lead_id, session_id, history: explicitHistory } = body;
+    const { agent_id, message, lead_id, session_id, history: explicitHistory, action } = body;
 
-    if (!OPENAI_API_KEY) {
+    // Conferência do prompt no painel: monta e devolve, sem gastar chamada de
+    // modelo — e por isso também não exige a chave da OpenAI configurada.
+    const apenasPreview = action === "preview_prompt";
+
+    if (!apenasPreview && !OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
@@ -296,6 +302,18 @@ Deno.serve(async (req) => {
     const lotesDisponiveis = (lotesRows ?? []) as LoteDisponivel[];
 
     const systemPrompt = montarPromptFinal(agent.system_prompt, knowledgeBase, lotesDisponiveis);
+
+    if (apenasPreview) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          prompt: systemPrompt,
+          usa_prompt_customizado: Boolean(agent.system_prompt?.trim()),
+          lotes_disponiveis: lotesDisponiveis.length,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

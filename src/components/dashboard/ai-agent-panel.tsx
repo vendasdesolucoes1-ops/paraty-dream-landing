@@ -21,6 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -364,6 +371,28 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
     onError: () => toast.error("Erro ao restaurar o prompt padrão."),
   });
 
+  // Conferência do prompt REAL: montado pela edge function, com base de
+  // conhecimento e lotes disponíveis já anexados. Remontar isso no front
+  // duplicaria a lógica e sairia do ar no primeiro ajuste do backend.
+  const [promptAtual, setPromptAtual] = useState<string | null>(null);
+  const [previewAberto, setPreviewAberto] = useState(false);
+
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("ai-agent-chat", {
+        body: { action: "preview_prompt", agent_id: agent.id },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error ?? "Falha ao montar o prompt.");
+      return data as { prompt: string; usa_prompt_customizado: boolean; lotes_disponiveis: number };
+    },
+    onSuccess: (data) => {
+      setPromptAtual(data.prompt);
+      setPreviewAberto(true);
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível carregar o prompt atual."),
+  });
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -387,6 +416,35 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? "Salvando..." : "Salvar Prompt do Sistema"}
         </Button>
+        <Dialog open={previewAberto} onOpenChange={setPreviewAberto}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={previewMutation.isPending}
+              onClick={(e) => {
+                // O clique dispara a busca; o Dialog só abre no onSuccess,
+                // senão o modal apareceria vazio enquanto carrega.
+                e.preventDefault();
+                previewMutation.mutate();
+              }}
+            >
+              {previewMutation.isPending ? "Carregando..." : "Ver Prompt Atual"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="font-display">Prompt ativo agora</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Isto é o prompt ativo agora, somente para conferência. Para alterá-lo, edite o código
+              (buildSystemPrompt) ou use o campo "Prompt do Sistema" com cautela — lembre que
+              preencher esse campo desativa o prompt padrão do código.
+            </p>
+            <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap break-words">
+              {promptAtual ?? ""}
+            </pre>
+          </DialogContent>
+        </Dialog>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" disabled={resetMutation.isPending}>
