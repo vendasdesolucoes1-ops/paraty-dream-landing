@@ -5,7 +5,7 @@ import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2 } from "lucide-rea
 import { supabase } from "@/lib/supabase";
 import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
 import { ChatBubble } from "@/components/whatsapp/chat-ui";
-import type { AiAgent, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
+import type { AiAgent } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,18 +44,6 @@ import {
 const DEFAULT_AGENT_NAME = "Agente Moradas de Paraty";
 const DEFAULT_TRANSFER_KEYWORDS = ["atendente", "humano", "falar com alguém", "corretor"];
 const RAG_KEY = "rag_conhecimento";
-
-const TOM_VOZ_OPTIONS: { value: AiAgentTomVoz; label: string }[] = [
-  { value: "profissional", label: "Profissional" },
-  { value: "amigavel", label: "Amigável" },
-  { value: "formal", label: "Formal" },
-  { value: "informal", label: "Informal" },
-];
-
-const MODELO_OPTIONS: { value: AiAgentModelo; label: string }[] = [
-  { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-  { value: "gpt-4o", label: "gpt-4o" },
-];
 
 /** Só o horário, para o carimbo dentro da bolha. */
 function formatHoraTeste(iso: string) {
@@ -145,13 +133,6 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
                 Testar Agente
               </TabsTrigger>
               <TabsTrigger
-                value="prompt"
-                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
-              >
-                <FileText className="h-4 w-4" />
-                Prompt do Sistema
-              </TabsTrigger>
-              <TabsTrigger
                 value="rag"
                 className="w-full justify-start gap-2 data-[state=active]:bg-muted"
               >
@@ -169,10 +150,7 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
 
             <div className="min-w-0 flex-1">
               <TabsContent value="testar" className="mt-0">
-                <TestAgentTab agent={agent} />
-              </TabsContent>
-              <TabsContent value="prompt" className="mt-0">
-                <SystemPromptTab agent={agent} instanceId={instanceId} />
+                <TestAgentTab agent={agent} instanceId={instanceId} />
               </TabsContent>
               <TabsContent value="rag" className="mt-0">
                 <KnowledgeBaseTab />
@@ -191,24 +169,14 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
 function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    name: agent.name,
-    modelo: agent.modelo,
     mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
-    tom_voz: agent.tom_voz,
-    usar_emojis: agent.usar_emojis,
-    ser_breve: agent.ser_breve,
     is_active: agent.is_active,
     keywordsInput: (agent.transfer_keywords ?? []).join(", "),
   });
 
   useEffect(() => {
     setForm({
-      name: agent.name,
-      modelo: agent.modelo,
       mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
-      tom_voz: agent.tom_voz,
-      usar_emojis: agent.usar_emojis,
-      ser_breve: agent.ser_breve,
       is_active: agent.is_active,
       keywordsInput: (agent.transfer_keywords ?? []).join(", "),
     });
@@ -224,12 +192,7 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
       const { error } = await supabase
         .from("ai_agents")
         .update({
-          name: form.name,
-          modelo: form.modelo,
           mensagem_boas_vindas: form.mensagem_boas_vindas || null,
-          tom_voz: form.tom_voz,
-          usar_emojis: form.usar_emojis,
-          ser_breve: form.ser_breve,
           is_active: form.is_active,
           transfer_keywords: keywords,
         })
@@ -261,77 +224,12 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="agent_name">Nome do agente</Label>
-        <Input
-          id="agent_name"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Modelo de IA</Label>
-        <Select
-          value={form.modelo}
-          onValueChange={(v: AiAgentModelo) => setForm((f) => ({ ...f, modelo: v }))}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MODELO_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="welcome_message">Mensagem de boas-vindas</Label>
         <Input
           id="welcome_message"
           placeholder="Olá! Vim pelo site do Moradas de Paraty..."
           value={form.mensagem_boas_vindas}
           onChange={(e) => setForm((f) => ({ ...f, mensagem_boas_vindas: e.target.value }))}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Tom de voz</Label>
-        <Select
-          value={form.tom_voz}
-          onValueChange={(v: AiAgentTomVoz) => setForm((f) => ({ ...f, tom_voz: v }))}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TOM_VOZ_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor="usar_emojis">Usar emojis</Label>
-        <Switch
-          id="usar_emojis"
-          checked={form.usar_emojis}
-          onCheckedChange={(checked) => setForm((f) => ({ ...f, usar_emojis: checked }))}
-        />
-      </div>
-
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor="ser_breve">Ser breve nas respostas</Label>
-        <Switch
-          id="ser_breve"
-          checked={form.ser_breve}
-          onCheckedChange={(checked) => setForm((f) => ({ ...f, ser_breve: checked }))}
         />
       </div>
 
@@ -356,51 +254,14 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
   );
 }
 
-function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
+// Ações do prompt, dentro da aba de teste. A aba "Prompt do Sistema" com
+// textarea editável foi removida de propósito: gravar em ai_agents.system_prompt
+// desliga o buildSystemPrompt() do código, que é onde o prompt real vive
+// versionado — foi exatamente essa porta que fez a Sophia rodar sem base de
+// conhecimento. "Resetar para o padrão" fica como rede de segurança, caso um
+// system_prompt seja gravado por fora (SQL manual, por exemplo).
+function PromptActions({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
   const queryClient = useQueryClient();
-  const [text, setText] = useState(agent.system_prompt ?? "");
-
-  useEffect(() => {
-    setText(agent.system_prompt ?? "");
-  }, [agent]);
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("ai_agents")
-        .update({ system_prompt: text })
-        .eq("id", agent.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Prompt do sistema salvo.");
-      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
-    },
-    onError: () => toast.error("Erro ao salvar o prompt do sistema."),
-  });
-
-  // Zerar system_prompt devolve o agente ao prompt padrão do código. Era a
-  // única forma de sair de um prompt customizado ruim e estava desabilitada,
-  // o que deixou o agente preso a um prompt sem base de conhecimento.
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("ai_agents")
-        .update({ system_prompt: null })
-        .eq("id", agent.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Prompt do sistema restaurado para o padrão.");
-      setText("");
-      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
-    },
-    onError: () => toast.error("Erro ao restaurar o prompt padrão."),
-  });
-
-  // Conferência do prompt REAL: montado pela edge function, com base de
-  // conhecimento e lotes disponíveis já anexados. Remontar isso no front
-  // duplicaria a lógica e sairia do ar no primeiro ajuste do backend.
   const [promptAtual, setPromptAtual] = useState<string | null>(null);
   const [previewAberto, setPreviewAberto] = useState(false);
 
@@ -411,7 +272,7 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
       });
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error ?? "Falha ao montar o prompt.");
-      return data as { prompt: string; usa_prompt_customizado: boolean; lotes_disponiveis: number };
+      return data as { prompt: string; usa_prompt_customizado: boolean };
     },
     onSuccess: (data) => {
       setPromptAtual(data.prompt);
@@ -420,61 +281,69 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
     onError: (e: Error) => toast.error(e.message || "Não foi possível carregar o prompt atual."),
   });
 
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("ai_agents")
+        .update({ system_prompt: null })
+        .eq("id", agent.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Prompt do sistema restaurado para o padrão do código.");
+      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+    },
+    onError: () => toast.error("Erro ao restaurar o prompt padrão."),
+  });
+
+  const temPromptCustomizado = Boolean(agent.system_prompt?.trim());
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Este é o prompt interno que define como o agente se comporta, incluindo lógica de
-        qualificação e estágios do funil. Edite com cuidado.
-      </p>
+    <div className="flex flex-wrap items-center gap-2">
+      <Dialog open={previewAberto} onOpenChange={setPreviewAberto}>
+        <DialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            disabled={previewMutation.isPending}
+            onClick={(e) => {
+              // O clique dispara a busca; o Dialog só abre no onSuccess, senão
+              // o modal apareceria vazio enquanto carrega.
+              e.preventDefault();
+              previewMutation.mutate();
+            }}
+          >
+            <FileText className="h-4 w-4 mr-1.5" />
+            {previewMutation.isPending ? "Carregando..." : "Ver Prompt Atual"}
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">Prompt ativo agora</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isto é o prompt ativo agora, somente para conferência. Ele é montado a partir do código
+            (buildSystemPrompt), mais os lotes disponíveis em tempo real e a base de conhecimento.
+            Para alterá-lo, edite o código.
+          </p>
+          <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap break-words">
+            {promptAtual ?? ""}
+          </pre>
+        </DialogContent>
+      </Dialog>
 
-      <div className="relative">
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          style={{ minHeight: 400 }}
-          className="resize-y"
-        />
-        <span className="absolute bottom-2 right-3 text-xs text-muted-foreground bg-background/80 px-1 rounded">
-          {text.length} caracteres
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? "Salvando..." : "Salvar Prompt do Sistema"}
-        </Button>
-        <Dialog open={previewAberto} onOpenChange={setPreviewAberto}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              disabled={previewMutation.isPending}
-              onClick={(e) => {
-                // O clique dispara a busca; o Dialog só abre no onSuccess,
-                // senão o modal apareceria vazio enquanto carrega.
-                e.preventDefault();
-                previewMutation.mutate();
-              }}
-            >
-              {previewMutation.isPending ? "Carregando..." : "Ver Prompt Atual"}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="font-display">Prompt ativo agora</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              Isto é o prompt ativo agora, somente para conferência. Para alterá-lo, edite o código
-              (buildSystemPrompt) ou use o campo "Prompt do Sistema" com cautela — lembre que
-              preencher esse campo desativa o prompt padrão do código.
-            </p>
-            <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap break-words">
-              {promptAtual ?? ""}
-            </pre>
-          </DialogContent>
-        </Dialog>
+      {/* Só aparece quando há de fato um prompt customizado gravado — sem isso
+          o botão seria uma ação sem efeito na maior parte do tempo. */}
+      {temPromptCustomizado ? (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" disabled={resetMutation.isPending}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-amber-700"
+              disabled={resetMutation.isPending}
+            >
               {resetMutation.isPending ? "Restaurando..." : "Resetar para o padrão"}
             </Button>
           </AlertDialogTrigger>
@@ -484,9 +353,10 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
                 Restaurar o prompt padrão?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                O prompt customizado atual será apagado e o agente volta a usar o prompt padrão do
-                sistema. A base de conhecimento continua sendo aplicada nos dois casos. Esta ação
-                não pode ser desfeita — copie o texto antes se quiser guardá-lo.
+                Existe um prompt customizado gravado no banco para este agente, e ele desliga o
+                prompt padrão do código — inclusive as regras de preço e a base de conhecimento.
+                Restaurar apaga esse texto e devolve o comportamento versionado. Não pode ser
+                desfeito.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -497,7 +367,7 @@ function SystemPromptTab({ agent, instanceId }: { agent: AiAgent; instanceId: st
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -629,7 +499,7 @@ function carregarConversaSalva(): {
   }
 }
 
-function TestAgentTab({ agent }: { agent: AiAgent }) {
+function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
   const [salvo] = useState(carregarConversaSalva);
   const [messages, setMessages] = useState<ChatMessage[]>(salvo.messages);
   const [input, setInput] = useState("");
@@ -799,6 +669,10 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
         >
           <Send className="h-4 w-4" />
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+        <PromptActions agent={agent} instanceId={instanceId} />
       </div>
 
       <p className="text-xs text-muted-foreground">

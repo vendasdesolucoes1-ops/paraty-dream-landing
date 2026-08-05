@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
+import { pauseAI } from "../_shared/ai-takeover.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -24,6 +25,11 @@ const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // se o agente ativo estivesse sem system_prompt customizado no banco, o
 // round-robin nunca disparava.
 const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
+
+// Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
+// de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
+const MENSAGEM_HANDOFF =
+  "Claro! Já estou chamando alguém da equipe pra falar com você por aqui 😊||Só um instantinho.";
 
 // A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
 // prompt final, para valer também quando o agente tem system_prompt
@@ -277,6 +283,40 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Palavras-chave de transferência: checagem determinística, ANTES de chamar
+    // o modelo. Se o lead pediu humano, não faz sentido gastar uma chamada de
+    // IA nem deixar o modelo decidir se atende ao pedido — ele às vezes ignora
+    // e segue vendendo. Também economiza o custo da chamada.
+    const palavrasTransferencia = ((agent.transfer_keywords ?? []) as string[])
+      .map((p) => String(p).trim().toLowerCase())
+      .filter((p) => p.length > 0);
+    const mensagemLower = String(message ?? "").toLowerCase();
+    const pediuHumano =
+      agent.transfer_to_human_enabled !== false &&
+      palavrasTransferencia.some((p) => mensagemLower.includes(p));
+
+    if (pediuHumano) {
+      await pauseAI(supabase, session_id, agent.id);
+      if (lead_id) {
+        await supabase.from("interacoes").insert({
+          lead_id,
+          tipo: "sistema",
+          canal: "sistema",
+          conteudo:
+            "Lead pediu atendimento humano (palavra-chave de transferência). A IA foi pausada para esta conversa.",
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          messages: MENSAGEM_HANDOFF.split("||").map((m) => m.trim()),
+          session_id,
+          lead_qualificado: false,
+          transferido_para_humano: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { data: ragConfig } = await supabase
       .from("configuracoes")
       .select("valor")
@@ -436,11 +476,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (hasTransferirHumano && conversation) {
-      await supabase.from("ai_agent_human_takeover").insert({
-        conversation_id: conversation.id,
-        human_takeover_at: new Date().toISOString(),
-      });
+    // pauseAI em vez de insert direto: o insert cru empilhava uma linha de
+    // takeover por mensagem, e a checagem com maybeSingle() erra com mais de
+    // uma — mesmo bug já corrigido na whatsapp-webhook.
+    if (hasTransferirHumano) {
+      await pauseAI(supabase, session_id, agent.id);
     }
 
     // Pós-qualificação SÓ para lead de teste. Em produção quem dispara é a
