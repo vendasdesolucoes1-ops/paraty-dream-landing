@@ -12,7 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { enviarPrimeiroContato } from "../_shared/primeiro-contato.ts";
+import { DELAY_MAX_MS, DELAY_MIN_MS, montarAbertura } from "../_shared/primeiro-contato.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -105,36 +105,37 @@ Deno.serve(async (req) => {
       }`,
     });
 
-    // Abordagem inicial da Sophia. Roda em background porque espera alguns
-    // minutos antes de enviar — a resposta do formulário não pode ficar presa
-    // nisso. Sem instância conectada não há para onde mandar, e tudo bem: o
-    // lead já está no CRM com vendedor atribuído.
-    const { data: instancia } = await supabase
-      .from("whatsapp_instances")
-      .select("id, api_url, api_key, instance_name")
-      .in("status", ["connected", "open"])
-      .limit(1)
-      .maybeSingle();
+    // Abordagem inicial da Sophia: entra na fila, não é enviada aqui.
+    //
+    // A instância conectada NÃO é mais condição para enfileirar — só para
+    // enviar. Antes, instância fora do ar significava mensagem evaporada em
+    // silêncio; agora a linha fica pendente esperando ela voltar (com teto de
+    // 24h, aplicado no banco).
+    const partes = montarAbertura({
+      nome: body.nome ?? lead.nome ?? null,
+      cidade: body.cidade ?? null,
+      metragem: body.metragem ?? null,
+      tipo: body.tipo ?? null,
+    });
 
-    if (instancia) {
-      const dadosFormulario = {
-        nome: body.nome ?? lead.nome ?? null,
-        cidade: body.cidade ?? null,
-        metragem: body.metragem ?? null,
-        tipo: body.tipo ?? null,
-      };
-      // @ts-expect-error EdgeRuntime existe apenas em runtime
-      EdgeRuntime.waitUntil(
-        enviarPrimeiroContato(
-          supabase,
-          { id: lead.id, telefone },
-          instancia,
-          dadosFormulario,
-        ).catch((e) => console.error("[enrich-lead] primeiro contato falhou:", e)),
-      );
-    } else {
-      console.warn("[enrich-lead] nenhuma instância conectada — sem abordagem inicial", {
+    const espera = DELAY_MIN_MS + Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS));
+
+    // Conflito com uma linha pendente/enviando do mesmo lead é o caso normal de
+    // reenvio do formulário ou retry desta função — o índice único parcial
+    // rejeita, e é exatamente o que queremos. Por isso o erro não é lançado.
+    const { error: filaError } = await supabase.from("mensagens_agendadas").insert({
+      lead_id: lead.id,
+      tipo: "primeiro_contato",
+      telefone,
+      partes,
+      agendado_para: new Date(Date.now() + espera).toISOString(),
+    });
+
+    if (filaError) {
+      console.warn("[enrich-lead] não enfileirou primeiro contato", {
         leadId: lead.id,
+        code: filaError.code,
+        message: filaError.message,
       });
     }
 

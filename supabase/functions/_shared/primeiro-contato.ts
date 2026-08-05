@@ -11,23 +11,24 @@
 //    de novo o que a pessoa acabou de digitar é o jeito mais rápido de queimar
 //    a abertura.
 //
-// Mensagem não solicitada tem risco de denúncia, e denúncia é o que bane o
-// número. Por isso: uma tentativa por lead (garantida pelo banco, não por
-// flag em memória) e um atraso de algumas dezenas de segundos, para não
-// parecer robô.
+// O ENVIO NÃO MORA MAIS AQUI. Este módulo só monta o texto e responde se o
+// lead pode ser abordado; quem envia é a edge function `processar-fila-mensagens`,
+// acionada por pg_cron. A versão anterior esperava dentro de
+// EdgeRuntime.waitUntil com setTimeout, e a mensagem morria junto com o isolate
+// sem deixar rastro nenhum no log. Ver a migration
+// 20260809000000_fila_mensagens_agendadas.sql.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendWhatsAppText } from "./evolution-send.ts";
 
 // Instantâneo denuncia automação: ninguém responde um formulário em 2 segundos.
+// O atraso agora é só uma data no futuro gravada na fila, então o teto não tem
+// mais nada a ver com o wall clock da edge function. O que limita é o bom
+// senso: passou muito tempo, o lead já esqueceu que preencheu.
 //
-// O teto é 60s por causa da plataforma, não do bom gosto: a espera acontece
-// dentro de EdgeRuntime.waitUntil, e edge functions do Supabase são destruídas
-// por volta de 150s de wall clock. Com o intervalo anterior (60-180s) o sorteio
-// decidia se a mensagem saía: abaixo de ~150s ela ia, acima disso a função
-// morria com o timer pendente e nada era enviado, sem erro nenhum no log.
-const DELAY_MIN_MS = 20_000;
-const DELAY_MAX_MS = 60_000;
+// Na prática o cron roda de minuto em minuto, então a mensagem sai entre ~20s
+// e ~2min do preenchimento.
+export const DELAY_MIN_MS = 20_000;
+export const DELAY_MAX_MS = 60_000;
 
 export interface DadosFormulario {
   nome?: string | null;
@@ -93,13 +94,16 @@ const JANELA_CONVERSA_ATIVA_MS = 7 * 24 * 60 * 60 * 1000;
 /**
  * true se este lead não tem conversa ATIVA (mensagem nos últimos 7 dias).
  *
- * Continua sendo a trava de "uma tentativa por lead": reenvio do formulário,
- * retry da edge function ou duas abas abertas não geram segunda abordagem, e
- * quem está conversando agora não é atropelado. O que mudou é o caso de quem
- * falou com a gente semanas atrás e voltou pelo formulário — antes ficava sem
- * resposta nenhuma, que é o pior desfecho possível para um lead quente.
+ * A trava de "uma tentativa por lead" hoje é o índice único parcial em
+ * mensagens_agendadas — esta checagem serve para outra coisa: não atropelar
+ * quem já está conversando. Roda de novo na hora do envio, porque entre o
+ * enfileiramento e o disparo o lead pode ter escrito primeiro.
+ *
+ * Quem falou com a gente semanas atrás e voltou pelo formulário é abordado
+ * normalmente: ficar sem resposta é o pior desfecho possível para um lead
+ * quente.
  */
-async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<boolean> {
+export async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<boolean> {
   const desde = new Date(Date.now() - JANELA_CONVERSA_ATIVA_MS).toISOString();
 
   const { data, error } = await supabase
@@ -116,66 +120,4 @@ async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<bo
     return false;
   }
   return (data ?? []).length === 0;
-}
-
-
-/**
- * Envia a abordagem inicial. Feito para rodar dentro de EdgeRuntime.waitUntil:
- * espera antes de enviar, então nunca deve ser aguardado pela requisição HTTP
- * do formulário.
- */
-export async function enviarPrimeiroContato(
-  supabase: SupabaseClient,
-  lead: { id: string; telefone: string },
-  instancia: InstanciaEvolution,
-  dados: DadosFormulario,
-): Promise<void> {
-  if (!(await podeAbordar(supabase, lead.id))) return;
-
-  const espera = DELAY_MIN_MS + Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS));
-  await new Promise((r) => setTimeout(r, espera));
-
-  // Recheca depois da espera: nesse tempo o lead pode ter escrito primeiro,
-  // e aí a conversa já está acontecendo — abordar agora atropelaria.
-  if (!(await podeAbordar(supabase, lead.id))) return;
-
-  const { data: contato } = await supabase
-    .from("whatsapp_contacts")
-    .select("id")
-    .eq("phone", lead.telefone)
-    .maybeSingle();
-
-  const partes = montarAbertura(dados);
-
-  for (const [i, texto] of partes.entries()) {
-    // Pausa curta entre as partes, como alguém digitando em blocos.
-    if (i > 0) await new Promise((r) => setTimeout(r, 1500));
-
-    const enviado = await sendWhatsAppText(
-      instancia.api_url,
-      instancia.api_key,
-      instancia.instance_name,
-      lead.telefone,
-      texto,
-    );
-
-    await supabase.from("whatsapp_messages").insert({
-      instance_id: instancia.id,
-      contact_id: contato?.id ?? null,
-      lead_id: lead.id,
-      remote_jid: `${lead.telefone}@s.whatsapp.net`,
-      message_id: enviado?.key?.id ?? crypto.randomUUID(),
-      from_me: true,
-      message_type: "text",
-      content: texto,
-      status: "sent",
-    });
-  }
-
-  await supabase.from("interacoes").insert({
-    lead_id: lead.id,
-    tipo: "sistema",
-    canal: "sistema",
-    conteudo: "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
-  });
 }
