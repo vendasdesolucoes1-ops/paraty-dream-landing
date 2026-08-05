@@ -12,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { assertConnected, getEvolutionSession } from "../_shared/evolution-instance.ts";
 import { isHumanTakeoverActive, pauseAI, resumeAI } from "../_shared/ai-takeover.ts";
+import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -85,6 +86,23 @@ async function sendText(leadId: string, texto: string) {
   // erro claro na tela do que uma bolha que nunca chegou ao destinatário.
   assertConnected(await getEvolutionSession(instance));
 
+  const { data: contato } = await supabase
+    .from("whatsapp_contacts")
+    .select("id")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  // Gravada ANTES do envio. Aqui o takeover é intencional (um humano está
+  // digitando), mas o eco chegando antes do insert criaria uma SEGUNDA linha
+  // no histórico — a mesma mensagem em duas bolhas no modal do CRM.
+  const rowId = await registrarEnvio(supabase, {
+    instance_id: instance.id,
+    contact_id: contato?.id ?? null,
+    lead_id: lead.id,
+    remote_jid: `${phone}@s.whatsapp.net`,
+    content: conteudo,
+  });
+
   const response = await fetch(
     `${instance.api_url}/message/sendText/${encodeURIComponent(instance.instance_name)}`,
     {
@@ -96,35 +114,17 @@ async function sendText(leadId: string, texto: string) {
 
   const resultado = await response.json().catch(() => null);
   if (!response.ok) {
+    await descartarEnvio(supabase, rowId);
     throw new Error(`Evolution sendText: ${response.status} ${JSON.stringify(resultado)}`);
   }
 
-  // O message_id vindo da Evolution é o que faz o webhook reconhecer o eco
-  // desta mensagem como nosso e não tratá-la como digitada no celular.
-  const messageId = resultado?.key?.id ?? crypto.randomUUID();
+  await confirmarEnvio(supabase, rowId, resultado?.key?.id);
 
-  const { data: contato } = await supabase
-    .from("whatsapp_contacts")
-    .select("id")
-    .eq("phone", phone)
-    .maybeSingle();
-
-  const { data: gravada, error: insertError } = await supabase
+  const { data: gravada } = await supabase
     .from("whatsapp_messages")
-    .insert({
-      instance_id: instance.id,
-      contact_id: contato?.id ?? null,
-      lead_id: lead.id,
-      remote_jid: `${phone}@s.whatsapp.net`,
-      message_id: messageId,
-      from_me: true,
-      message_type: "text",
-      content: conteudo,
-      status: "sent",
-    })
     .select()
-    .single();
-  if (insertError) throw insertError;
+    .eq("id", rowId!)
+    .maybeSingle();
 
   // Humano assumiu: a IA para de responder este lead até alguém reativar.
   const { data: agent } = await supabase

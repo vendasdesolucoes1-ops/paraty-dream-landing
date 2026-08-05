@@ -8,6 +8,12 @@ import {
   pauseAI as pausarIA,
 } from "../_shared/ai-takeover.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import {
+  confirmarEnvio,
+  descartarEnvio,
+  reconciliarEco,
+  registrarEnvio,
+} from "../_shared/envio-registrado.ts";
 import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -302,25 +308,31 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
       await new Promise((resolve) => setTimeout(resolve, humanizedDelay(messageText)));
     }
 
-    const sendResult = await sendWhatsAppText(
-      instance.api_url,
-      instance.api_key,
-      instance.instance_name,
-      phone,
-      messageText,
-    );
-
-    await supabase.from("whatsapp_messages").insert({
+    // Registra ANTES de enviar: o eco da Evolution chega em milissegundos e
+    // precisa encontrar esta linha, senão handleOutgoingMessage o confunde com
+    // um vendedor digitando no celular e pausa a IA.
+    const rowId = await registrarEnvio(supabase, {
       instance_id: instance.id,
       contact_id: contact.id,
       lead_id: lead.id,
       remote_jid: remoteJid,
-      message_id: sendResult?.key?.id ?? crypto.randomUUID(),
-      from_me: true,
-      message_type: "text",
       content: messageText,
-      status: "sent",
     });
+
+    try {
+      const sendResult = await sendWhatsAppText(
+        instance.api_url,
+        instance.api_key,
+        instance.instance_name,
+        phone,
+        messageText,
+      );
+      await confirmarEnvio(supabase, rowId, sendResult?.key?.id);
+    } catch (error) {
+      // Sem isso ficaria uma bolha no CRM de uma mensagem que não chegou.
+      await descartarEnvio(supabase, rowId);
+      throw error;
+    }
   }
 }
 
@@ -347,6 +359,15 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
     return;
   }
   const text = extractMessageText(data.message);
+
+  // Segunda checagem, imune a timing: pode ser um envio NOSSO cujo message_id
+  // real ainda não voltou da Evolution. Casa por conteúdo com a linha gravada
+  // antes do envio e adota o id real. Sem isso, cada parte de uma resposta
+  // quebrada com || virava um takeover e a IA emudecia para sempre.
+  if (await reconciliarEco(supabase, { remoteJid, content: text, messageIdReal: messageId })) {
+    console.log("=== ECO RECONCILIADO ===", { messageId, phone });
+    return;
+  }
 
   const lead = await findOrCreateLead(phone, data.pushName ?? null);
   const contact = await findOrCreateContact(phone, data.pushName ?? null, remoteJid);

@@ -13,6 +13,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 import { podeAbordar } from "../_shared/primeiro-contato.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -81,25 +82,30 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
   for (const [i, texto] of partes.entries()) {
     if (i > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
 
-    const enviado = await sendWhatsAppText(
-      instancia.api_url,
-      instancia.api_key,
-      instancia.instance_name,
-      m.telefone,
-      texto,
-    );
-
-    await supabase.from("whatsapp_messages").insert({
+    // Gravado ANTES do envio, para o eco da Evolution encontrar a linha. Aqui
+    // isso pesa mais que em qualquer outro lugar: são 4 partes em sequência,
+    // ou seja, 4 ecos concorrendo com 4 inserts.
+    const rowId = await registrarEnvio(supabase, {
       instance_id: instancia.id,
       contact_id: contato?.id ?? null,
       lead_id: m.lead_id,
       remote_jid: `${m.telefone}@s.whatsapp.net`,
-      message_id: enviado?.key?.id ?? crypto.randomUUID(),
-      from_me: true,
-      message_type: "text",
       content: texto,
-      status: "sent",
     });
+
+    try {
+      const enviado = await sendWhatsAppText(
+        instancia.api_url,
+        instancia.api_key,
+        instancia.instance_name,
+        m.telefone,
+        texto,
+      );
+      await confirmarEnvio(supabase, rowId, enviado?.key?.id);
+    } catch (error) {
+      await descartarEnvio(supabase, rowId);
+      throw error;
+    }
   }
 
   await supabase.from("interacoes").insert({
