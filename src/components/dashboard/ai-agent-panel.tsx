@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
+import { ChatBubble } from "@/components/whatsapp/chat-ui";
 import type { AiAgent, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,9 +57,17 @@ const MODELO_OPTIONS: { value: AiAgentModelo; label: string }[] = [
   { value: "gpt-4o", label: "gpt-4o" },
 ];
 
+/** Só o horário, para o carimbo dentro da bolha. */
+function formatHoraTeste(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 interface ChatMessage {
   role: "user" | "agent";
   text: string;
+  /** ISO do envio, para o carimbo de hora na bolha. Ausente em conversas
+      salvas antes deste campo existir. */
+  at?: string;
 }
 
 export function AiAgentPanel({ instanceId }: { instanceId: string }) {
@@ -122,38 +132,55 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
             </Button>
           </div>
         ) : (
-          <Tabs defaultValue="geral">
-            <TabsList>
-              <TabsTrigger value="geral" className="gap-1.5">
-                <Bot className="h-4 w-4" />
-                Geral
-              </TabsTrigger>
-              <TabsTrigger value="prompt" className="gap-1.5">
-                <FileText className="h-4 w-4" />
-                Prompt do Sistema
-              </TabsTrigger>
-              <TabsTrigger value="rag" className="gap-1.5">
-                <BookOpen className="h-4 w-4" />
-                Base de Conhecimento
-              </TabsTrigger>
-              <TabsTrigger value="testar" className="gap-1.5">
+          // Navegação vertical: a lista de abas vira uma barra lateral à
+          // esquerda do conteúdo. "Testar Agente" é a aba padrão — é o que se
+          // usa no dia a dia; as outras três são configuração.
+          <Tabs defaultValue="testar" className="flex flex-col gap-4 sm:flex-row">
+            <TabsList className="h-auto w-full shrink-0 flex-row justify-start gap-1 overflow-x-auto bg-transparent p-0 sm:w-52 sm:flex-col sm:overflow-visible">
+              <TabsTrigger
+                value="testar"
+                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+              >
                 <MessageSquare className="h-4 w-4" />
                 Testar Agente
               </TabsTrigger>
+              <TabsTrigger
+                value="prompt"
+                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+              >
+                <FileText className="h-4 w-4" />
+                Prompt do Sistema
+              </TabsTrigger>
+              <TabsTrigger
+                value="rag"
+                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+              >
+                <BookOpen className="h-4 w-4" />
+                Base de Conhecimento
+              </TabsTrigger>
+              <TabsTrigger
+                value="geral"
+                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+              >
+                <Bot className="h-4 w-4" />
+                Geral
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="geral" className="pt-4">
-              <GeneralTab agent={agent} instanceId={instanceId} />
-            </TabsContent>
-            <TabsContent value="prompt" className="pt-4">
-              <SystemPromptTab agent={agent} instanceId={instanceId} />
-            </TabsContent>
-            <TabsContent value="rag" className="pt-4">
-              <KnowledgeBaseTab />
-            </TabsContent>
-            <TabsContent value="testar" className="pt-4">
-              <TestAgentTab agent={agent} />
-            </TabsContent>
+            <div className="min-w-0 flex-1">
+              <TabsContent value="testar" className="mt-0">
+                <TestAgentTab agent={agent} />
+              </TabsContent>
+              <TabsContent value="prompt" className="mt-0">
+                <SystemPromptTab agent={agent} instanceId={instanceId} />
+              </TabsContent>
+              <TabsContent value="rag" className="mt-0">
+                <KnowledgeBaseTab />
+              </TabsContent>
+              <TabsContent value="geral" className="mt-0">
+                <GeneralTab agent={agent} instanceId={instanceId} />
+              </TabsContent>
+            </div>
           </Tabs>
         )}
       </CardContent>
@@ -673,7 +700,7 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
       // devolver tudo de uma vez — mutationFn só resolve depois da última.
       for (const [index, text] of (result.messages ?? []).entries()) {
         if (index > 0) await sleep(humanizedDelay(text));
-        setMessages((prev) => [...prev, { role: "agent", text }]);
+        setMessages((prev) => [...prev, { role: "agent", text, at: new Date().toISOString() }]);
       }
 
       return result;
@@ -688,7 +715,7 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
   function handleSend() {
     const trimmed = input.trim();
     if (!trimmed || sendMutation.isPending) return;
-    setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
+    setMessages((prev) => [...prev, { role: "user", text: trimmed, at: new Date().toISOString() }]);
     setInput("");
     sendMutation.mutate(trimmed);
   }
@@ -722,54 +749,61 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
 
       <div
         ref={scrollRef}
-        className="rounded-lg border bg-muted/30 p-4 overflow-y-auto space-y-3"
-        style={{ height: 350 }}
+        className="overflow-y-auto rounded-lg border p-3"
+        style={{ height: 380, background: CHAT_BG }}
       >
         {messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-10">
-            Envie uma mensagem para começar a testar o agente.
+          <p className="rounded bg-background/90 p-2 text-center text-sm text-muted-foreground">
+            Envie uma mensagem para começar a conversa com a Sophia.
           </p>
         ) : (
-          messages.map((m, i) => (
-            <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div
-                className={
-                  m.role === "user"
-                    ? "max-w-[80%] rounded-lg px-3 py-2 text-sm bg-forest-deep text-ivory"
-                    : "max-w-[80%] rounded-lg px-3 py-2 text-sm bg-background border"
-                }
-              >
-                {m.text}
-              </div>
-            </div>
-          ))
+          <div className="space-y-1">
+            {messages.map((m, i) => (
+              <ChatBubble
+                key={i}
+                texto={m.text}
+                nossa={m.role === "user"}
+                horario={m.at ? formatHoraTeste(m.at) : ""}
+              />
+            ))}
+          </div>
         )}
         {sendMutation.isPending ? (
-          <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm bg-background border text-muted-foreground">
+          <div className="flex justify-start pt-1">
+            <div
+              className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-sm italic text-neutral-500 shadow-sm"
+              style={{ background: BOLHA_LEAD }}
+            >
               Digitando...
             </div>
           </div>
         ) : null}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/60 p-2">
         <Input
-          placeholder="Digite uma mensagem..."
+          placeholder="Mensagem"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSend();
           }}
+          className="rounded-full border-none bg-background shadow-sm focus-visible:ring-1"
         />
-        <Button onClick={handleSend} disabled={sendMutation.isPending || !input.trim()}>
-          <Send className="h-4 w-4 mr-1.5" />
-          Enviar
+        <Button
+          onClick={handleSend}
+          size="icon"
+          className="h-9 w-9 shrink-0 rounded-full"
+          disabled={sendMutation.isPending || !input.trim()}
+          title="Enviar"
+        >
+          <Send className="h-4 w-4" />
         </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Este é um ambiente de teste. As mensagens não são enviadas pelo WhatsApp nem salvas no CRM.
+        Ambiente de teste: nada é enviado pelo WhatsApp do lead. A conversa cria um card marcado
+        como TESTE no CRM, para você acompanhar a movimentação automática.
       </p>
     </div>
   );

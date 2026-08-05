@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn, readFunctionError, whatsappLink } from "@/lib/utils";
+import { CHAT_BG, iniciais } from "@/components/whatsapp/chat-theme";
+import { ChatBubble, ChatDateSeparator } from "@/components/whatsapp/chat-ui";
 import {
   LEAD_ORIGEM_OPTIONS,
   LEAD_STATUS_COLUMNS,
@@ -542,48 +544,6 @@ function HistoricoTab({ leadId }: { leadId: string }) {
   );
 }
 
-// Textura do fundo do chat: o padrão do WhatsApp é uma arte proprietária, e
-// embutir o asset original seria cópia. Esta é uma aproximação em CSS puro —
-// mesma leitura visual (bege claro levemente pontilhado) sem depender de
-// imagem externa, que a CSP do app bloquearia de qualquer forma.
-const CHAT_BG =
-  "radial-gradient(circle at 1px 1px, rgba(0,0,0,0.045) 1px, transparent 0) 0 0 / 22px 22px, " +
-  "linear-gradient(#EFE7DE, #EFE7DE)";
-
-const BOLHA_NOSSA = "#DCF8C6";
-const BOLHA_LEAD = "#FFFFFF";
-
-/** Iniciais para o avatar quando não há foto de perfil. */
-function iniciais(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  if (partes.length === 0) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
-
-/**
- * Ticks do WhatsApp: um risco = enviado ao servidor, dois = entregue,
- * dois azuis = lido. Só aparecem nas mensagens que saíram daqui.
- */
-function StatusTicks({ status }: { status: string | null }) {
-  if (status === "failed") {
-    return <span title="Falha no envio">⚠️</span>;
-  }
-  if (status === "pending" || !status) {
-    return <Clock className="inline h-3 w-3 opacity-60" aria-label="Enviando" />;
-  }
-  if (status === "sent") {
-    return <Check className="inline h-3 w-3 opacity-60" aria-label="Enviado" />;
-  }
-  const lido = status === "read";
-  return (
-    <CheckCheck
-      className={cn("inline h-3 w-3", lido ? "text-sky-500" : "opacity-60")}
-      aria-label={lido ? "Lido" : "Entregue"}
-    />
-  );
-}
-
 function WhatsappTab({
   leadId,
   nome,
@@ -739,34 +699,15 @@ function WhatsappTab({
               return (
                 <div key={message.id}>
                   {dia !== diaAnterior ? (
-                    <div className="flex justify-center py-2">
-                      <span className="rounded-md bg-background/85 px-2 py-0.5 text-[11px] text-muted-foreground shadow-sm">
-                        {formatDateSeparator(message.created_at)}
-                      </span>
-                    </div>
+                    <ChatDateSeparator label={formatDateSeparator(message.created_at)} />
                   ) : null}
 
-                  <div className={cn("flex", message.from_me ? "justify-end" : "justify-start")}>
-                    <div
-                      className={cn(
-                        "relative max-w-[78%] px-2.5 py-1.5 text-sm text-neutral-900 shadow-sm",
-                        // O "rabinho" da bolha: canto quadrado só do lado de
-                        // quem falou, como no app.
-                        message.from_me ? "rounded-lg rounded-tr-sm" : "rounded-lg rounded-tl-sm",
-                      )}
-                      style={{ background: message.from_me ? BOLHA_NOSSA : BOLHA_LEAD }}
-                    >
-                      {/* whitespace-pre-wrap preserva as quebras de linha que o
-                          agente manda; break-words evita link longo estourar. */}
-                      <p className="whitespace-pre-wrap break-words">
-                        {message.content || <span className="italic opacity-60">(sem texto)</span>}
-                      </p>
-                      <span className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-neutral-500">
-                        {formatTime(message.created_at)}
-                        {message.from_me ? <StatusTicks status={message.status} /> : null}
-                      </span>
-                    </div>
-                  </div>
+                  <ChatBubble
+                    texto={message.content}
+                    nossa={message.from_me}
+                    horario={formatTime(message.created_at)}
+                    status={message.status}
+                  />
                 </div>
               );
             })}
