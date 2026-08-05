@@ -13,14 +13,21 @@
 //
 // Mensagem não solicitada tem risco de denúncia, e denúncia é o que bane o
 // número. Por isso: uma tentativa por lead (garantida pelo banco, não por
-// flag em memória) e um atraso de alguns minutos, para não parecer robô.
+// flag em memória) e um atraso de algumas dezenas de segundos, para não
+// parecer robô.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendWhatsAppText } from "./evolution-send.ts";
 
 // Instantâneo denuncia automação: ninguém responde um formulário em 2 segundos.
-const DELAY_MIN_MS = 60_000;
-const DELAY_MAX_MS = 180_000;
+//
+// O teto é 60s por causa da plataforma, não do bom gosto: a espera acontece
+// dentro de EdgeRuntime.waitUntil, e edge functions do Supabase são destruídas
+// por volta de 150s de wall clock. Com o intervalo anterior (60-180s) o sorteio
+// decidia se a mensagem saía: abaixo de ~150s ela ia, acima disso a função
+// morria com o timer pendente e nada era enviado, sem erro nenhum no log.
+const DELAY_MIN_MS = 20_000;
+const DELAY_MAX_MS = 60_000;
 
 export interface DadosFormulario {
   nome?: string | null;
@@ -107,8 +114,8 @@ async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<bo
 
 /**
  * Envia a abordagem inicial. Feito para rodar dentro de EdgeRuntime.waitUntil:
- * espera alguns minutos antes de enviar, então nunca deve ser aguardado pela
- * requisição HTTP do formulário.
+ * espera antes de enviar, então nunca deve ser aguardado pela requisição HTTP
+ * do formulário.
  */
 export async function enviarPrimeiroContato(
   supabase: SupabaseClient,
@@ -121,7 +128,7 @@ export async function enviarPrimeiroContato(
   const espera = DELAY_MIN_MS + Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS));
   await new Promise((r) => setTimeout(r, espera));
 
-  // Recheca depois da espera: nesses minutos o lead pode ter escrito primeiro,
+  // Recheca depois da espera: nesse tempo o lead pode ter escrito primeiro,
   // e aí a conversa já está acontecendo — abordar agora atropelaria.
   if (!(await podeAbordar(supabase, lead.id))) return;
 

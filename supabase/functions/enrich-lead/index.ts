@@ -20,6 +20,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 interface EnrichBody {
+  /** id devolvido pelo upsert_lead_from_form. Fonte primária de verdade. */
+  lead_id?: string | null;
   telefone: string; // já normalizado (55DDDNUMERO)
   nome?: string;
   cidade?: string | null;
@@ -37,16 +39,42 @@ Deno.serve(async (req) => {
     const telefone = body.telefone?.trim();
     if (!telefone) throw new Error("telefone is required");
 
-    // Locate the lead the anon client just inserted (telefone has a unique index).
-    const { data: lead, error: findError } = await supabase
-      .from("leads")
-      .select("id, nome, telefone, vendedor_id")
-      .eq("telefone", telefone)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (findError) throw findError;
-    if (!lead) throw new Error("lead not found for telefone");
+    // O lead vem por id, devolvido pelo RPC — assim a abordagem só acontece se
+    // o registro foi mesmo persistido. A busca por telefone fica como fallback
+    // para a janela de deploy em que o frontend ainda não manda lead_id (e
+    // para o RPC antigo, que era RETURNS void).
+    let lead: {
+      id: string;
+      nome: string | null;
+      telefone: string;
+      vendedor_id: string | null;
+    } | null = null;
+
+    if (body.lead_id) {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, nome, telefone, vendedor_id")
+        .eq("id", body.lead_id)
+        .maybeSingle();
+      if (error) throw error;
+      lead = data;
+    }
+
+    if (!lead) {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, nome, telefone, vendedor_id")
+        .eq("telefone", telefone)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      lead = data;
+    }
+
+    // Sem lead persistido não há abordagem: falar com quem não tem registro no
+    // CRM deixa a conversa órfã e o vendedor sem contexto nenhum.
+    if (!lead) throw new Error("lead not found (lead_id e telefone não resolveram)");
 
     // Round-robin assignment — only now, after the lead is confirmed to exist,
     // and only if it doesn't already have a salesperson.

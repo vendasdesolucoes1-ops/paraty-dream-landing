@@ -58,14 +58,17 @@ export function LeadForm() {
       // instead of 409ing, and preserves its CRM progress (status_crm,
       // vendedor_id, origem). anon gets no direct SELECT/UPDATE on leads.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: rpcError } = await (supabase.rpc as any)("upsert_lead_from_form", {
-        p_nome: lead.nome,
-        p_email: lead.email || null,
-        p_telefone: telefoneNormalizado,
-        p_cidade: lead.cidade || null,
-        p_metragem_interesse: parseMetragem(lead.metragem),
-        p_tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
-      });
+      const { data: leadId, error: rpcError } = await (supabase.rpc as any)(
+        "upsert_lead_from_form",
+        {
+          p_nome: lead.nome,
+          p_email: lead.email || null,
+          p_telefone: telefoneNormalizado,
+          p_cidade: lead.cidade || null,
+          p_metragem_interesse: parseMetragem(lead.metragem),
+          p_tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
+        },
+      );
 
       if (rpcError) throw rpcError;
 
@@ -78,6 +81,10 @@ export function LeadForm() {
       supabase.functions
         .invoke("enrich-lead", {
           body: {
+            // O id vem do RPC: a abordagem da Sophia passa a depender do lead
+            // ter sido de fato persistido, em vez de a edge function reencontrá-lo
+            // pelo telefone e arriscar não achar.
+            lead_id: leadId ?? null,
             telefone: telefoneNormalizado,
             nome: lead.nome,
             cidade: lead.cidade || null,
