@@ -87,20 +87,26 @@ export function montarAbertura(dados: DadosFormulario): string[] {
   return partes;
 }
 
+/** Conversa parada há mais que isso conta como contato frio: pode reabordar. */
+const JANELA_CONVERSA_ATIVA_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
- * true se este lead ainda não tem nenhuma mensagem registrada.
+ * true se este lead não tem conversa ATIVA (mensagem nos últimos 7 dias).
  *
- * É a trava de "uma tentativa por lead", e ela mora no banco de propósito:
- * reenvio do formulário, retry da edge function ou duas abas abertas não podem
- * gerar uma segunda abordagem. Também protege o caso do lead que já conversou
- * pelo WhatsApp antes de preencher o formulário — esse não deve ser abordado
- * como se fosse contato novo.
+ * Continua sendo a trava de "uma tentativa por lead": reenvio do formulário,
+ * retry da edge function ou duas abas abertas não geram segunda abordagem, e
+ * quem está conversando agora não é atropelado. O que mudou é o caso de quem
+ * falou com a gente semanas atrás e voltou pelo formulário — antes ficava sem
+ * resposta nenhuma, que é o pior desfecho possível para um lead quente.
  */
 async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<boolean> {
+  const desde = new Date(Date.now() - JANELA_CONVERSA_ATIVA_MS).toISOString();
+
   const { data, error } = await supabase
     .from("whatsapp_messages")
     .select("id")
     .eq("lead_id", leadId)
+    .gte("created_at", desde)
     .limit(1);
 
   // Na dúvida (erro de consulta), NÃO aborda: mandar duas vezes é pior do que
@@ -111,6 +117,7 @@ async function podeAbordar(supabase: SupabaseClient, leadId: string): Promise<bo
   }
   return (data ?? []).length === 0;
 }
+
 
 /**
  * Envia a abordagem inicial. Feito para rodar dentro de EdgeRuntime.waitUntil:
