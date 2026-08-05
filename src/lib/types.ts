@@ -44,7 +44,8 @@ export interface Lead {
   /** Lead criado pelo painel "Testar Agente": não é cliente real. */
   is_teste: boolean;
   /** Como o lead conheceu o empreendimento (extraído da conversa). */
-  canal_origem: string | null;
+  // Não existe como coluna em `leads`; fica opcional para não quebrar os casts.
+  canal_origem?: string | null;
 }
 
 export type ProfileRole = "admin" | "gestor" | "vendedor";
