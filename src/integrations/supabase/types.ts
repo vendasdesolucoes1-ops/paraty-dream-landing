@@ -844,12 +844,13 @@ export type Database = {
           created_at: string
           deletado_em: string | null
           email: string | null
-          canal_origem: string | null
+          forma_pagamento: string | null
           id: string
           is_teste: boolean
           lote_interesse_id: string | null
           metragem_interesse: number | null
           nome: string
+          objetivo: string | null
           origem: string | null
           score: number
           status_crm: string
@@ -863,12 +864,13 @@ export type Database = {
           created_at?: string
           deletado_em?: string | null
           email?: string | null
-          canal_origem?: string | null
+          forma_pagamento?: string | null
           id?: string
           is_teste?: boolean
           lote_interesse_id?: string | null
           metragem_interesse?: number | null
           nome: string
+          objetivo?: string | null
           origem?: string | null
           score?: number
           status_crm?: string
@@ -882,12 +884,13 @@ export type Database = {
           created_at?: string
           deletado_em?: string | null
           email?: string | null
-          canal_origem?: string | null
+          forma_pagamento?: string | null
           id?: string
           is_teste?: boolean
           lote_interesse_id?: string | null
           metragem_interesse?: number | null
           nome?: string
+          objetivo?: string | null
           origem?: string | null
           score?: number
           status_crm?: string
@@ -1284,12 +1287,15 @@ export type Database = {
           contact_id: string | null
           content: string | null
           created_at: string
+          duration_seconds: number | null
           from_me: boolean
           id: string
           instance_id: string | null
           lead_id: string | null
+          media_url: string | null
           message_id: string | null
           message_type: string | null
+          mime_type: string | null
           remote_jid: string | null
           status: string | null
         }
@@ -1297,12 +1303,15 @@ export type Database = {
           contact_id?: string | null
           content?: string | null
           created_at?: string
+          duration_seconds?: number | null
           from_me?: boolean
           id?: string
           instance_id?: string | null
           lead_id?: string | null
+          media_url?: string | null
           message_id?: string | null
           message_type?: string | null
+          mime_type?: string | null
           remote_jid?: string | null
           status?: string | null
         }
@@ -1310,12 +1319,15 @@ export type Database = {
           contact_id?: string | null
           content?: string | null
           created_at?: string
+          duration_seconds?: number | null
           from_me?: boolean
           id?: string
           instance_id?: string | null
           lead_id?: string | null
+          media_url?: string | null
           message_id?: string | null
           message_type?: string | null
+          mime_type?: string | null
           remote_jid?: string | null
           status?: string | null
         }
@@ -1379,6 +1391,17 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      upsert_lead_from_form: {
+        Args: {
+          p_cidade: string
+          p_email: string
+          p_metragem_interesse: number
+          p_nome: string
+          p_telefone: string
+          p_tipo_lote_interesse: string
+        }
+        Returns: string
       }
     }
     Enums: {
