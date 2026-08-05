@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LeadCard } from "@/components/dashboard/lead-card";
 import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
 import { LeadDetailDrawer } from "@/components/dashboard/lead-detail-drawer";
@@ -109,14 +110,22 @@ function CrmPage() {
     },
   });
 
+  // Leads de teste ficam visíveis por padrão — é justamente para acompanhar a
+  // movimentação automática que eles existem. O filtro serve para limpar a
+  // visão quando o funil real é o que importa.
+  const [mostrarTestes, setMostrarTestes] = useState(true);
+
+  const totalTestes = useMemo(() => (leads ?? []).filter((l) => l.is_teste).length, [leads]);
+
   const columns = useMemo(() => {
     const grouped = new Map<string, Lead[]>();
     for (const column of LEAD_STATUS_COLUMNS) grouped.set(column.value, []);
     for (const lead of leads ?? []) {
+      if (!mostrarTestes && lead.is_teste) continue;
       grouped.get(lead.status_crm)?.push(lead);
     }
     return grouped;
-  }, [leads]);
+  }, [leads, mostrarTestes]);
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const selectedLead = useMemo(
@@ -236,7 +245,18 @@ function CrmPage() {
           <p className="eyebrow text-muted-foreground">Relacionamento</p>
           <h1 className="text-3xl font-display text-primary">CRM</h1>
         </div>
-        <LeadFormDialog />
+        <div className="flex items-center gap-3">
+          {totalTestes > 0 ? (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={mostrarTestes}
+                onCheckedChange={(v: boolean | "indeterminate") => setMostrarTestes(v === true)}
+              />
+              Mostrar leads de teste ({totalTestes})
+            </label>
+          ) : null}
+          <LeadFormDialog />
+        </div>
       </div>
 
       {isLoading ? (

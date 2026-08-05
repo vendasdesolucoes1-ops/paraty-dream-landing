@@ -845,6 +845,7 @@ export type Database = {
           deletado_em: string | null
           email: string | null
           id: string
+          is_teste: boolean
           lote_interesse_id: string | null
           metragem_interesse: number | null
           nome: string
@@ -862,6 +863,7 @@ export type Database = {
           deletado_em?: string | null
           email?: string | null
           id?: string
+          is_teste?: boolean
           lote_interesse_id?: string | null
           metragem_interesse?: number | null
           nome: string
@@ -879,6 +881,7 @@ export type Database = {
           deletado_em?: string | null
           email?: string | null
           id?: string
+          is_teste?: boolean
           lote_interesse_id?: string | null
           metragem_interesse?: number | null
           nome?: string

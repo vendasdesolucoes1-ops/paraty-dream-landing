@@ -3,6 +3,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -414,6 +415,38 @@ Deno.serve(async (req) => {
         conversation_id: conversation.id,
         human_takeover_at: new Date().toISOString(),
       });
+    }
+
+    // Pós-qualificação SÓ para lead de teste. Em produção quem dispara é a
+    // whatsapp-webhook, ao ver `lead_qualificado` na resposta abaixo — se esta
+    // função também disparasse, a sequência inteira (round-robin, notificação,
+    // resumo) rodaria duas vezes para todo lead real.
+    if (hasLeadQualificado && lead_id) {
+      const { data: leadDoTeste } = await supabase
+        .from("leads")
+        .select(
+          "id, nome, telefone, cidade, objetivo, metragem_interesse, status_crm, vendedor_id, is_teste",
+        )
+        .eq("id", lead_id)
+        .maybeSingle();
+
+      if (leadDoTeste?.is_teste) {
+        const { data: instanciaTeste } = await supabase
+          .from("whatsapp_instances")
+          .select("api_url, api_key, instance_name")
+          .eq("id", agent.instance_id)
+          .maybeSingle();
+
+        if (instanciaTeste) {
+          try {
+            await handleLeadQualification(supabase, leadDoTeste, instanciaTeste, OPENAI_API_KEY);
+          } catch (e) {
+            // A conversa de teste não pode cair por causa da automação — o erro
+            // aparece no log e no histórico do lead.
+            console.error("[ai-agent-chat] pós-qualificação de teste falhou:", e);
+          }
+        }
+      }
     }
 
     return new Response(

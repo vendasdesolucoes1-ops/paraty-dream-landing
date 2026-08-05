@@ -43,6 +43,14 @@ export function LeadCard({
         <div className="flex items-start justify-between gap-2">
           <p className="font-medium text-sm leading-tight">{lead.nome}</p>
           <div className="flex items-center gap-1 shrink-0">
+            {lead.is_teste ? (
+              <Badge
+                className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs font-normal"
+                title="Lead gerado pelo painel Testar Agente — não é um cliente real."
+              >
+                TESTE
+              </Badge>
+            ) : null}
             <Badge variant="outline" className="text-xs font-normal">
               {lead.score} pts
             </Badge>

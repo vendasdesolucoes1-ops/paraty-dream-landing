@@ -18,6 +18,11 @@ import { sendWhatsAppText } from "./evolution-send.ts";
 // por lead qualificado irrelevante.
 const EXTRACTION_MODEL = "gpt-4o-mini";
 
+// Destino do resumo quando o lead é de teste. O round-robin continua rodando
+// normalmente (a atribuição no CRM é parte do que se quer observar), mas o
+// WhatsApp jamais chega no celular do vendedor real — só neste número.
+const TESTE_VENDEDOR_TELEFONE = (Deno.env.get("TESTE_VENDEDOR_TELEFONE") ?? "").replace(/\D/g, "");
+
 /** Campos do lead usados aqui; o resto do registro passa direto. */
 export interface LeadRecord {
   id: string;
@@ -29,6 +34,7 @@ export interface LeadRecord {
   forma_pagamento?: string | null;
   status_crm?: string | null;
   vendedor_id?: string | null;
+  is_teste?: boolean | null;
 }
 
 /** Instância da Evolution por onde o resumo é enviado. */
@@ -251,11 +257,31 @@ export async function handleLeadQualification(
     .eq("id", lead.id)
     .maybeSingle();
 
-  const resumo = montarResumoQualificacao(leadAtual ?? { ...lead, ...updates });
+  const ehTeste = lead.is_teste === true;
+  const resumo = ehTeste
+    ? `🧪 *LEAD DE TESTE* — gerado pelo painel, não é um cliente real.\n\n${montarResumoQualificacao(leadAtual ?? { ...lead, ...updates })}`
+    : montarResumoQualificacao(leadAtual ?? { ...lead, ...updates });
+
+  // Em lead de teste o destinatário é fixo, independente de quem o round-robin
+  // escolheu — o vendedor real não pode receber resumo de cliente fictício.
+  const destino = ehTeste ? TESTE_VENDEDOR_TELEFONE : (vendedor?.telefone ?? "");
+
+  if (ehTeste && !destino) {
+    const aviso =
+      "Lead de teste qualificado, mas TESTE_VENDEDOR_TELEFONE não está configurado nos secrets — resumo não enviado. A atribuição no CRM foi feita normalmente.";
+    console.error("=== TESTE SEM TELEFONE CONFIGURADO ===", { leadId: lead.id });
+    await supabase.from("interacoes").insert({
+      lead_id: lead.id,
+      tipo: "sistema",
+      canal: "sistema",
+      conteudo: aviso,
+    });
+    return;
+  }
 
   // Vendedor sem telefone não pode falhar em silêncio: fica registrado no log,
   // na timeline do lead e como alerta in-app pra quem administra o painel.
-  if (!vendedor?.telefone) {
+  if (!ehTeste && !destino) {
     const aviso = `Lead qualificado, mas o vendedor ${vendedor?.nome ?? "da vez"} não tem telefone cadastrado — resumo não enviado por WhatsApp. Cadastre o telefone em Configurações → Equipe.`;
     console.error("=== VENDEDOR SEM TELEFONE ===", { leadId: lead.id, vendedorId });
 
@@ -289,14 +315,16 @@ export async function handleLeadQualification(
       instance.api_url,
       instance.api_key,
       instance.instance_name,
-      vendedor.telefone,
+      destino,
       resumo,
     );
     await supabase.from("interacoes").insert({
       lead_id: lead.id,
       tipo: "sistema",
       canal: "sistema",
-      conteudo: `Resumo da qualificação enviado por WhatsApp para ${vendedor.nome ?? "o vendedor"} (${vendedor.telefone}).`,
+      conteudo: ehTeste
+        ? `Resumo de TESTE enviado por WhatsApp para o número de teste (${destino}). O round-robin escolheu ${vendedor?.nome ?? "um vendedor"}, que não foi notificado.`
+        : `Resumo da qualificação enviado por WhatsApp para ${vendedor?.nome ?? "o vendedor"} (${destino}).`,
     });
   } catch (error) {
     // Envio falhou (instância caiu, número inválido): registra visível em vez
@@ -307,7 +335,7 @@ export async function handleLeadQualification(
       lead_id: lead.id,
       tipo: "sistema",
       canal: "sistema",
-      conteudo: `Falha ao enviar o resumo da qualificação por WhatsApp para ${vendedor.nome ?? "o vendedor"}: ${msg.slice(0, 300)}`,
+      conteudo: `Falha ao enviar o resumo da qualificação por WhatsApp para ${vendedor?.nome ?? "o vendedor"}: ${msg.slice(0, 300)}`,
     });
   }
 }

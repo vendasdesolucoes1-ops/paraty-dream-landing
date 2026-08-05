@@ -579,14 +579,22 @@ function sleep(ms: number) {
 // paralelo. A sessão também é preservada para o histórico continuar coerente.
 const TEST_CHAT_STORAGE_KEY = "ai-agent-test-chat";
 
-function carregarConversaSalva(): { messages: ChatMessage[]; sessionId: string } {
-  const vazio = { messages: [], sessionId: `test_${Date.now()}` };
+function carregarConversaSalva(): {
+  messages: ChatMessage[];
+  sessionId: string;
+  leadId: string | null;
+} {
+  const vazio = { messages: [], sessionId: `test_${Date.now()}`, leadId: null };
   try {
     const bruto = localStorage.getItem(TEST_CHAT_STORAGE_KEY);
     if (!bruto) return vazio;
     const salvo = JSON.parse(bruto);
     if (!Array.isArray(salvo?.messages)) return vazio;
-    return { messages: salvo.messages, sessionId: salvo.sessionId ?? vazio.sessionId };
+    return {
+      messages: salvo.messages,
+      sessionId: salvo.sessionId ?? vazio.sessionId,
+      leadId: salvo.leadId ?? null,
+    };
   } catch {
     // localStorage indisponível ou conteúdo corrompido: começa limpo em vez de
     // derrubar a aba inteira.
@@ -599,18 +607,47 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
   const [messages, setMessages] = useState<ChatMessage[]>(salvo.messages);
   const [input, setInput] = useState("");
   const [sessionId] = useState(salvo.sessionId);
+  // Lead real, marcado com is_teste, para a movimentação automática aparecer no
+  // CRM. Fica no storage junto da conversa: o mesmo teste continua no mesmo
+  // card quando você volta da aba do CRM.
+  const [leadId, setLeadId] = useState<string | null>(salvo.leadId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
-      localStorage.setItem(TEST_CHAT_STORAGE_KEY, JSON.stringify({ messages, sessionId }));
+      localStorage.setItem(TEST_CHAT_STORAGE_KEY, JSON.stringify({ messages, sessionId, leadId }));
     } catch {
       // Cota estourada não pode quebrar o envio da mensagem.
     }
-  }, [messages, sessionId]);
+  }, [messages, sessionId, leadId]);
+
+  // Telefone fictício e único: leads.telefone tem índice único, e o prefixo
+  // 5500 deixa claro no CRM que não é número de gente.
+  async function garantirLeadDeTeste(): Promise<string | null> {
+    if (leadId) return leadId;
+    const { data, error } = await supabase
+      .from("leads")
+      .insert({
+        nome: "Lead de Teste (painel)",
+        telefone: `5500${Date.now().toString().slice(-9)}`,
+        origem: "whatsapp",
+        status_crm: "novo",
+        is_teste: true,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      // Sem lead o teste ainda funciona como conversa — só não move o CRM.
+      toast.error(`Não foi possível criar o lead de teste: ${error.message}`);
+      return null;
+    }
+    setLeadId(data.id);
+    return data.id;
+  }
 
   const sendMutation = useMutation({
     mutationFn: async (message: string) => {
+      const idDoLead = await garantirLeadDeTeste();
       // Sem lead_id real, ai-agent-chat não tem como buscar histórico no banco
       // (.eq("lead_id", null) nunca casa nada em Postgres) — por isso o painel
       // manda a própria conversa local como histórico explícito.
@@ -624,7 +661,7 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
           message,
           contact_phone: "teste_painel",
           contact_name: "Teste",
-          lead_id: null,
+          lead_id: idDoLead,
           session_id: sessionId,
           history,
         },
@@ -667,6 +704,9 @@ function TestAgentTab({ agent }: { agent: AiAgent }) {
           size="sm"
           onClick={() => {
             setMessages([]);
+            // Zera o vínculo: o próximo teste nasce num card novo, em vez de
+            // continuar movimentando o lead do teste anterior.
+            setLeadId(null);
             try {
               localStorage.removeItem(TEST_CHAT_STORAGE_KEY);
             } catch {

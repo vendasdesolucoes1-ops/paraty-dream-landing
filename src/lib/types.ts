@@ -41,6 +41,8 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   deletado_em: string | null;
+  /** Lead criado pelo painel "Testar Agente": não é cliente real. */
+  is_teste: boolean;
 }
 
 export type ProfileRole = "admin" | "gestor" | "vendedor";
