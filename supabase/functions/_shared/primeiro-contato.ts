@@ -62,8 +62,8 @@ function primeiroNome(nome: string | null | undefined): string {
 export function montarAbertura(dados: DadosFormulario): string[] {
   const nome = primeiroNome(dados.nome);
   const saudacao = nome
-    ? `Oi, ${nome}! Aqui é a Sophia, do Moradas de Paraty 😊`
-    : "Oi! Aqui é a Sophia, do Moradas de Paraty 😊";
+    ? `Oi, ${nome}! Aqui é a Sophia, do Moradas de Paraty.`
+    : "Oi! Aqui é a Sophia, do Moradas de Paraty.";
 
   const partes = [saudacao, "Vi que você deixou seu contato no nosso site."];
 
