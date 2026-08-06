@@ -95,12 +95,18 @@ Deno.serve(async (req) => {
     // atribuição, notificação in-app e resumo por WhatsApp), e duplicá-la aqui
     // faria as duas divergirem no primeiro ajuste.
     //
-    // Efeito colateral desejado e verificado: como a guarda interna é
-    // `status_crm === 'novo'`, quando a Sophia emitir [LEAD_QUALIFICADO] mais
-    // tarde nesta mesma conversa o status já não será 'novo' — a sequência
-    // atualiza o status e retorna sem notificar de novo. O vendedor recebe UM
-    // aviso, no momento da criação, não dois.
-    if (lead.status_crm === "novo") {
+    // O vendedor recebe UM aviso, no momento da criação: quando a Sophia
+    // emitir [LEAD_QUALIFICADO] mais tarde na mesma conversa, a interação de
+    // qualificação já existe e a sequência retorna sem notificar de novo.
+    //
+    // Sem guarda de status aqui: quem decide se já notificou é
+    // handleLeadQualification, olhando a interação de qualificação registrada.
+    //
+    // A guarda que existia (`status_crm === 'novo'`) quebrou quando o
+    // upsert_lead_from_form passou a criar o lead já como 'qualificado' — a
+    // condição nascia falsa e o vendedor deixava de ser avisado exatamente do
+    // lead mais completo que existe, o que preencheu a ficha inteira.
+    {
       const { data: instancia } = await supabase
         .from("whatsapp_instances")
         .select("api_url, api_key, instance_name")

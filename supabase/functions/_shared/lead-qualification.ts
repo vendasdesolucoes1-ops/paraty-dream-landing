@@ -184,24 +184,69 @@ function montarResumoQualificacao(lead: Record<string, unknown>): string {
 // marker. Marca o lead como qualificado, garante a atribuição por round-robin
 // e manda o resumo por WhatsApp pro vendedor da vez. Uma tabela de vendedores
 // vazia é esperada e não é erro — o lead só fica sem dono.
+
+/** Marca durável de "este lead já foi qualificado e o vendedor já foi avisado". */
+const CANAL_QUALIFICACAO = "qualificacao";
+
+/**
+ * true se a qualificação deste lead já foi registrada alguma vez.
+ *
+ * Casa por duas vias de propósito: o canal novo, e o texto da interação que
+ * esta função sempre gravou ("... via round-robin."). Sem a segunda, todo lead
+ * qualificado ANTES desta mudança seria lido como não-notificado e receberia um
+ * resumo repetido no primeiro contato novo — uma enxurrada no WhatsApp dos
+ * vendedores por causa de um deploy.
+ */
+async function qualificacaoJaRegistrada(
+  supabase: SupabaseClient,
+  leadId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("interacoes")
+    .select("id")
+    .eq("lead_id", leadId)
+    .or(`canal.eq.${CANAL_QUALIFICACAO},conteudo.ilike.%via round-robin%`)
+    .limit(1);
+
+  // Na dúvida, considera que JÁ notificou: repetir resumo no WhatsApp do
+  // vendedor é pior do que deixar de repetir, e o lead aparece no CRM de
+  // qualquer forma.
+  if (error) {
+    console.error("=== CHECAGEM DE QUALIFICACAO FALHOU ===", error.message);
+    return true;
+  }
+  return (data ?? []).length > 0;
+}
+
 export async function handleLeadQualification(
   supabase: SupabaseClient,
   lead: LeadRecord,
   instance: InstanceRecord,
   openaiKey: string,
 ): Promise<void> {
-  // A marca pode reaparecer em mensagens seguintes da mesma conversa; sem esta
-  // guarda o vendedor receberia o mesmo resumo várias vezes. Só a transição
-  // de "novo" para "qualificado" dispara notificação.
-  const primeiraQualificacao = lead.status_crm === "novo";
+  // A guarda de "já notifiquei" é o registro em interacoes, não o status_crm.
+  //
+  // Era `status_crm === 'novo'`, e isso quebrou quando o upsert do formulário
+  // passou a criar o lead já como 'qualificado': a condição nascia falsa e o
+  // vendedor NUNCA era avisado do lead que mais interessa — o que preencheu a
+  // ficha inteira. Status é estado atual e pode ser mexido por qualquer lado
+  // (formulário, Kanban, outra automação); a interação é fato consumado e não
+  // volta atrás.
+  const jaNotificado = await qualificacaoJaRegistrada(supabase, lead.id);
 
-  const { error: statusError } = await supabase
-    .from("leads")
-    .update({ status_crm: "qualificado" })
-    .eq("id", lead.id);
-  if (statusError) throw statusError;
+  // Promove só quem está no começo do funil — mesma regra do upsert do
+  // formulário. Sem isso, uma segunda passagem por aqui puxaria um lead
+  // 'agendado' de volta para 'qualificado', apagando progresso real.
+  const statusAtual = lead.status_crm ?? "novo";
+  if (statusAtual === "novo" || statusAtual === "perdido") {
+    const { error: statusError } = await supabase
+      .from("leads")
+      .update({ status_crm: "qualificado" })
+      .eq("id", lead.id);
+    if (statusError) throw statusError;
+  }
 
-  if (!primeiraQualificacao) return;
+  if (jaNotificado) return;
 
   // Best-effort: falha aqui não pode impedir atribuição nem notificação.
   const extraido = await extrairDadosQualificacao(supabase, lead.id, openaiKey);
@@ -249,10 +294,13 @@ export async function handleLeadQualification(
     });
   }
 
+  // canal = CANAL_QUALIFICACAO: é esta linha que qualificacaoJaRegistrada()
+  // procura depois para não notificar duas vezes. O texto continua igual,
+  // porque leads antigos são reconhecidos por ele.
   await supabase.from("interacoes").insert({
     lead_id: lead.id,
     tipo: "sistema",
-    canal: "sistema",
+    canal: CANAL_QUALIFICACAO,
     conteudo: `Lead atribuído automaticamente a ${vendedor?.nome ?? "vendedor"} via round-robin.`,
   });
 
