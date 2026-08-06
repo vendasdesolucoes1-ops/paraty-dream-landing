@@ -958,6 +958,59 @@ export type Database = {
         }
         Relationships: []
       }
+      mensagens_agendadas: {
+        Row: {
+          agendado_para: string
+          atualizado_em: string
+          criado_em: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          lead_id: string
+          partes: Json
+          status: string
+          telefone: string
+          tentativas: number
+          tipo: string
+        }
+        Insert: {
+          agendado_para?: string
+          atualizado_em?: string
+          criado_em?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          lead_id: string
+          partes: Json
+          status?: string
+          telefone: string
+          tentativas?: number
+          tipo?: string
+        }
+        Update: {
+          agendado_para?: string
+          atualizado_em?: string
+          criado_em?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          lead_id?: string
+          partes?: Json
+          status?: string
+          telefone?: string
+          tentativas?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_agendadas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1360,6 +1413,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      excluir_lead_definitivo: { Args: { p_lead_id: string }; Returns: Json }
       get_my_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
@@ -1390,6 +1444,29 @@ export type Database = {
           to: "imagery_acervo"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      reivindicar_mensagens_agendadas: {
+        Args: { p_limite?: number }
+        Returns: {
+          agendado_para: string
+          atualizado_em: string
+          criado_em: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          lead_id: string
+          partes: Json
+          status: string
+          telefone: string
+          tentativas: number
+          tipo: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mensagens_agendadas"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       upsert_lead_from_form: {
