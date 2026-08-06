@@ -57,16 +57,17 @@ export function Carousel({
     >
       {slides.map((s, i) => (
         <div
-          key={s.src}
+          // Índice, não src: duas imagens iguais em bytes viram o MESMO arquivo
+          // no build (o Vite deduplica por conteúdo), e aí dois slides passam a
+          // ter src idêntico. Com key={s.src} isso vira key duplicada, o React
+          // reconcilia errado a cada troca do carrossel e um dos slides aparece
+          // quebrado — só em produção, porque o dev server não deduplica.
+          // A lista é fixa e nunca reordena, então o índice é key estável.
+          key={i}
           className="absolute inset-0 transition-opacity duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] pointer-events-none"
           style={{ opacity: i === index ? 1 : 0 }}
         >
-          <img
-            src={s.src}
-            alt={s.alt}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
+          <img src={s.src} alt={s.alt} loading="lazy" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
           <div className="absolute left-0 right-0 bottom-0 px-8 py-7">
             <div className="font-display text-ivory text-2xl sm:text-[1.75rem] leading-tight">
