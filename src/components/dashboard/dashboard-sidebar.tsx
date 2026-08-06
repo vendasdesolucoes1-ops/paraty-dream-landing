@@ -72,11 +72,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           arquivo é #0F2A4A, quase idêntico ao bg-forest-deep daqui — sem o
           override de fill ele simplesmente sumiria. Recolorir por CSS mantém o
           SVG original intocado: só a renderização se adapta ao fundo escuro. */}
-      <div className="px-6 py-8 border-b border-ivory/10">
-        <Logo variante="compacto" className="w-full h-auto [&_text]:fill-ivory" />
+      {/* Altura fixa e shrink-0: com w-full o logo ocupava ~180px e, somado ao
+          menu, estourava a viewport — a sidebar passava a rolar e o rodapé
+          ("Modo escuro" / "Sair") ficava fora de vista. Limitar a altura aqui
+          é o que devolve o menu inteiro à tela sem depender de scroll. */}
+      <div className="shrink-0 px-6 py-5 border-b border-ivory/10">
+        <Logo variante="compacto" className="mx-auto h-24 w-auto [&_text]:fill-ivory" />
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
