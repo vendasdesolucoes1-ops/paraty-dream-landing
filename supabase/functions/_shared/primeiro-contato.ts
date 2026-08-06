@@ -99,7 +99,7 @@ export function montarAbertura(dados: DadosFormulario): string[] {
 const JANELA_CONVERSA_ATIVA_MS = 2 * 60 * 60 * 1000;
 
 /**
- * true se este lead não tem conversa ATIVA (mensagem nos últimos 7 dias).
+ * true se este lead não tem conversa ATIVA (mensagem nas últimas 2 horas).
  *
  * A trava de "uma tentativa por lead" hoje é o índice único parcial em
  * mensagens_agendadas — esta checagem serve para outra coisa: não atropelar
