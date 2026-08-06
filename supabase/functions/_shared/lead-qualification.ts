@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendWhatsAppText } from "./evolution-send.ts";
+import { carregarLead } from "./lead-record.ts";
 
 // Extração é tarefa curta e mecânica — o modelo pequeno basta e mantém o custo
 // por lead qualificado irrelevante.
@@ -256,11 +257,7 @@ export async function handleLeadQualification(
   });
 
   // O resumo sai das colunas do lead já atualizadas, não do objeto em memória.
-  const { data: leadAtual } = await supabase
-    .from("leads")
-    .select("nome, telefone, cidade, objetivo, metragem_interesse, forma_pagamento, canal_origem")
-    .eq("id", lead.id)
-    .maybeSingle();
+  const leadAtual = (await carregarLead(supabase, lead.id)) as LeadRecord | null;
 
   const ehTeste = lead.is_teste === true;
   const resumo = ehTeste

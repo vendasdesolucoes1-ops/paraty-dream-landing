@@ -7,6 +7,7 @@ import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
 import { proximosDias } from "../_shared/data-br.ts";
+import { carregarLead } from "../_shared/lead-record.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -504,17 +505,13 @@ Deno.serve(async (req) => {
     // Dados já conhecidos do lead. Falha aqui não derruba a conversa: sem o
     // bloco a Sophia volta a perguntar o que já sabe, o que é ruim mas não
     // impede o atendimento.
+    // Tolerante a migration pendente: com canal_origem ausente, o select antigo
+    // falhava inteiro e o bloco simplesmente não era montado — a Sophia voltava
+    // a perguntar nome e metragem que já estavam no banco, sem nada no log que
+    // ligasse um sintoma ao outro.
     let leadConhecido: LeadConhecido | null = null;
     if (lead_id) {
-      const { data: leadRow, error: leadError } = await supabase
-        .from("leads")
-        .select("nome, cidade, objetivo, metragem_interesse, canal_origem")
-        .eq("id", lead_id)
-        .maybeSingle();
-      if (leadError) {
-        console.error("[ai-agent-chat] leitura do lead falhou:", leadError.message);
-      }
-      leadConhecido = (leadRow as LeadConhecido | null) ?? null;
+      leadConhecido = (await carregarLead(supabase, lead_id)) as LeadConhecido | null;
     }
 
     const systemPrompt = montarPromptFinal(

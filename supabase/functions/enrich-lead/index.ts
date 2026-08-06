@@ -14,6 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { DELAY_MAX_MS, DELAY_MIN_MS, montarAbertura } from "../_shared/primeiro-contato.ts";
 import { handleLeadQualification, type LeadRecord } from "../_shared/lead-qualification.ts";
+import { carregarLead, carregarLeadPorTelefone } from "../_shared/lead-record.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -54,26 +55,16 @@ Deno.serve(async (req) => {
     // resumo do vendedor e para a guarda de "primeira qualificação".
     let lead: LeadRecord | null = null;
 
+    // Leitura tolerante: uma coluna de migration pendente NÃO pode derrubar a
+    // captação. Antes o select citava canal_origem direto e, sem a migration
+    // 20260807000000 aplicada, a função inteira morria com 500 — sem interação
+    // no histórico, sem abordagem da Sophia e sem qualificação.
     if (body.lead_id) {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, nome, telefone, cidade, objetivo, metragem_interesse, forma_pagamento, canal_origem, status_crm, vendedor_id, is_teste")
-        .eq("id", body.lead_id)
-        .maybeSingle();
-      if (error) throw error;
-      lead = data;
+      lead = (await carregarLead(supabase, body.lead_id)) as LeadRecord | null;
     }
 
     if (!lead) {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, nome, telefone, cidade, objetivo, metragem_interesse, forma_pagamento, canal_origem, status_crm, vendedor_id, is_teste")
-        .eq("telefone", telefone)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      lead = data;
+      lead = (await carregarLeadPorTelefone(supabase, telefone)) as LeadRecord | null;
     }
 
     // Sem lead persistido não há abordagem: falar com quem não tem registro no
