@@ -17,6 +17,11 @@ import toboga1Img from "@/assets/cachoeira-toboga-1.jpg";
 import toboga2Img from "@/assets/cachoeira-toboga-2.jpg";
 import empreendimentoAntesImg from "@/assets/empreendimento-antes.jpg";
 import empreendimentoDepoisImg from "@/assets/empreendimento-depois.jpg";
+import obraVistaAereaImg from "@/assets/obra-vista-aerea-serra.jpg";
+import obraRuasImg from "@/assets/obra-ruas-pavimentadas.jpg";
+import obraQuadrasImg from "@/assets/obra-quadras-vista-alta.jpg";
+import obraPlaygroundImg from "@/assets/obra-playground-academia.jpg";
+import obraEntradaImg from "@/assets/obra-entrada-stand.jpg";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
@@ -132,13 +137,44 @@ const lifeSlides: CarouselSlide[] = [
   },
 ];
 
-// Fotos reais da obra entregue — as únicas do site que não são geradas por IA.
+// Fotos reais da obra entregue — as ÚNICAS do site que não são geradas por IA.
+// Por isso ficam nesta faixa, que é a de prova concreta: o resto da página
+// mostra Paraty, aqui se mostra o que já está construído.
 //
-// VAZIO POR ORA: os cinco arquivos foram enviados como imagem no chat, não como
-// arquivo, e foto não dá para reconstituir a partir de um render. Assim que
-// entrarem em src/assets/, é só preencher esta lista: o carrossel abaixo já
-// está montado e aparece sozinho quando houver slide.
-const obraSlides: CarouselSlide[] = [];
+// Chegaram como PNG de ~7 MB cada (33,5 MB no total, 2830px de largura).
+// Convertidas para JPEG a 1600px: 1,1 MB no total, sem perda visível na tela.
+const obraSlides: CarouselSlide[] = [
+  {
+    src: obraVistaAereaImg,
+    alt: "Vista aérea do loteamento Moradas de Paraty com a Serra do Mar ao fundo",
+    titulo: "Entre a serra e o centro",
+    descricao: "O loteamento pronto, cercado de mata, a nove minutos do Centro Histórico.",
+  },
+  {
+    src: obraRuasImg,
+    alt: "Ruas pavimentadas e demarcadas do loteamento",
+    titulo: "Infraestrutura entregue",
+    descricao: "Ruas asfaltadas, sinalizadas e com iluminação — nada no papel.",
+  },
+  {
+    src: obraQuadrasImg,
+    alt: "Quadras do loteamento vistas do alto, com o bairro vizinho ao lado",
+    titulo: "Quadras demarcadas",
+    descricao: "Lotes prontos para construir, junto a um bairro já consolidado.",
+  },
+  {
+    src: obraPlaygroundImg,
+    alt: "Playground e academia ao ar livre do loteamento",
+    titulo: "Lazer para a família",
+    descricao: "Playground e academia ao ar livre, à beira da Mata Atlântica.",
+  },
+  {
+    src: obraEntradaImg,
+    alt: "Entrada do loteamento com palmeiras e o stand de vendas",
+    titulo: "Entrada do loteamento",
+    descricao: "Acesso arborizado e stand de vendas aberto para visita.",
+  },
+];
 
 const DIFERENCIAIS = [
   {
