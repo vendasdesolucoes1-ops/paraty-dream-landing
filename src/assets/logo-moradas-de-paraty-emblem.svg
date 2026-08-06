@@ -1,0 +1,14 @@
+<svg width="160" height="160" viewBox="260 70 160 160" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Emblema Moradas de Paraty</title>
+<defs>
+<clipPath id="circleClip3"><circle cx="340" cy="150" r="68"/></clipPath>
+</defs>
+<circle cx="340" cy="150" r="70" fill="none" stroke="#C9A227" stroke-width="2.5"/>
+<circle cx="340" cy="150" r="68" fill="#0F2A4A"/>
+<g clip-path="url(#circleClip3)">
+  <circle cx="368" cy="122" r="14" fill="#C9A227"/>
+  <path d="M262 182 L302 138 L326 160 L352 120 L392 182 Z" fill="#0B2038"/>
+  <path d="M270 190 L310 150 L335 172 L362 132 L418 190 Z" fill="#123657"/>
+  <line x1="272" y1="196" x2="408" y2="196" stroke="#C9A227" stroke-width="1.5"/>
+</g>
+</svg>

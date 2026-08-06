@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Logo } from "@/components/logo";
 import heroImg from "@/assets/hero-aerial-paraty.jpg";
 import locationImg from "@/assets/location-paraty.jpg";
 import igrejaImg from "@/assets/centro-igreja-santa-rita.png";
@@ -148,9 +149,13 @@ function Nav() {
   return (
     <header className="fixed top-0 inset-x-0 z-40">
       <div className="container-x flex items-center justify-between py-5">
-        <a href="#top" className="flex flex-col leading-none">
-          <span className="font-display text-xl text-ivory drop-shadow-sm">Moradas</span>
-          <span className="eyebrow text-ivory/80">de Paraty</span>
+        <a href="#top" className="flex items-center leading-none">
+          {/* Mesma questão de contraste da sidebar: o nome da marca é navy e o
+              header flutua sobre a foto escura do hero. A placa clara mantém o
+              arquivo original intacto e legível sobre qualquer imagem. */}
+          <span className="rounded-md bg-ivory/95 px-4 py-3 backdrop-blur-sm">
+            <Logo variante="completo" className="h-16 w-auto" />
+          </span>
         </a>
         <Link
           to="/login"

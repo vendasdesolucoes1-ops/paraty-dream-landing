@@ -3,6 +3,7 @@
  * Exibe o menu de seções do sistema em uma sidebar fixa no desktop e em um drawer no mobile.
  */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Logo } from "@/components/logo";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -67,9 +68,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-forest-deep text-ivory">
+      {/* Placa clara atrás do logo: a marca tem o texto "MORADAS" em #0F2A4A,
+          que é praticamente a mesma cor do bg-forest-deep da sidebar — aplicado
+          direto, o nome sumiria e sobraria só o anel dourado. A placa preserva
+          o arquivo original sem recolorir a marca. */}
       <div className="px-6 py-8 border-b border-ivory/10">
-        <p className="eyebrow text-gold">Moradas de</p>
-        <h1 className="text-2xl font-display text-ivory">Paraty</h1>
+        <div className="rounded-md bg-ivory px-5 py-4">
+          <Logo variante="compacto" className="w-full h-auto" />
+        </div>
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
@@ -145,7 +151,12 @@ export function DashboardSidebar() {
       </aside>
 
       <div className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between bg-forest-deep text-ivory px-4 py-3">
-        <span className="font-display text-lg">Moradas de Paraty</span>
+        <span className="flex items-center gap-2">
+          {/* Só o emblema: a barra mobile tem ~44px de altura e o anel dourado
+              se destaca sozinho no fundo escuro, sem precisar de placa. */}
+          <Logo variante="emblema" className="h-8 w-8" />
+          <span className="font-display text-lg">Moradas de Paraty</span>
+        </span>
         <div className="flex items-center gap-1">
           <MobileThemeToggle />
           <Sheet open={open} onOpenChange={setOpen}>

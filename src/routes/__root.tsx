@@ -89,6 +89,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0f878e0b-8398-4d07-9558-92f716749f40/id-preview-12f33f23--317497cc-c75a-4253-8a40-ec725bbdce6b.lovable.app-1782235940480.png" },
     ],
     links: [
+      // Só o emblema circular: em 16px o texto da marca vira borrão.
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
