@@ -21,6 +21,7 @@ import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
+import { Banknote, PawPrint, PlugZap, Users } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -131,11 +132,98 @@ const lifeSlides: CarouselSlide[] = [
   },
 ];
 
+// Fotos reais da obra entregue — as únicas do site que não são geradas por IA.
+//
+// VAZIO POR ORA: os cinco arquivos foram enviados como imagem no chat, não como
+// arquivo, e foto não dá para reconstituir a partir de um render. Assim que
+// entrarem em src/assets/, é só preencher esta lista: o carrossel abaixo já
+// está montado e aparece sozinho quando houver slide.
+const obraSlides: CarouselSlide[] = [];
+
+const DIFERENCIAIS = [
+  {
+    Icon: Banknote,
+    titulo: "Financiamento direto com o loteador",
+    texto: "Sem banco, sem burocracia, em até 240x.",
+  },
+  {
+    Icon: PlugZap,
+    titulo: "Lote pronto pra construir",
+    texto: "Água, luz e ruas pavimentadas já entregues.",
+  },
+  {
+    Icon: Users,
+    titulo: "Bairro planejado",
+    texto: "Com associação de moradores.",
+  },
+  {
+    Icon: PawPrint,
+    titulo: "Lazer para a família",
+    texto: "Espaço pet, academia ao ar livre e playground.",
+  },
+] as const;
+
+/**
+ * Faixa persuasiva logo depois do hero: o que o lead precisa saber antes de
+ * qualquer outra coisa. Fundo navy para separar do restante da página, que é
+ * claro, e para o dourado dos ícones ter contraste.
+ */
+function SemComplicacao() {
+  return (
+    <section className="bg-forest-deep text-ivory py-24 sm:py-32">
+      <div className="container-x">
+        <Reveal>
+          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] max-w-3xl">
+            Sua casa em Paraty,
+            <br />
+            <em className="not-italic text-sand">sem complicação.</em>
+          </h2>
+        </Reveal>
+
+        <Reveal delay={150}>
+          <ul className="mt-14 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+            {DIFERENCIAIS.map(({ Icon, titulo, texto }) => (
+              <li key={titulo} className="flex gap-4">
+                <Icon className="h-6 w-6 shrink-0 text-gold mt-0.5" strokeWidth={1.5} />
+                <div>
+                  <div className="font-display text-xl leading-snug">{titulo}</div>
+                  <div className="mt-1 text-ivory/75 font-light">{texto}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        {obraSlides.length > 0 && (
+          <Reveal delay={300}>
+            <div className="mt-16">
+              <Carousel slides={obraSlides} />
+            </div>
+          </Reveal>
+        )}
+
+        <Reveal delay={450}>
+          <div className="mt-14 flex flex-wrap gap-4 items-center">
+            <a
+              href="#formulario"
+              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
+            >
+              Quero mais informações
+              <span className="transition-transform group-hover:translate-x-1">→</span>
+            </a>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 function Landing() {
   return (
     <div className="bg-background text-foreground">
       <Nav />
       <Hero />
+      <SemComplicacao />
       <Localizacao />
       <EstiloDeVida />
       <Maquete />
