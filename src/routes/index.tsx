@@ -216,39 +216,45 @@ function SemComplicacao() {
           </h2>
         </Reveal>
 
-        <Reveal delay={150}>
-          <ul className="mt-14 grid gap-x-10 gap-y-8 sm:grid-cols-2">
-            {DIFERENCIAIS.map(({ Icon, titulo, texto }) => (
-              <li key={titulo} className="flex gap-4">
-                <Icon className="h-6 w-6 shrink-0 text-gold mt-0.5" strokeWidth={1.5} />
-                <div>
-                  <div className="font-display text-xl leading-snug">{titulo}</div>
-                  <div className="mt-1 text-ivory/75 font-light">{texto}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Reveal>
+        {/* Duas colunas no desktop: os diferenciais ocupam a esquerda e o
+            carrossel a direita, em vez de empilhados. Empilhado, o carrossel
+            sozinho passava de 800px de altura e deixava metade da faixa vazia
+            à direita. */}
+        <div className="mt-14 grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-center">
+          <div>
+            <Reveal delay={150}>
+              <ul className="grid gap-y-7">
+                {DIFERENCIAIS.map(({ Icon, titulo, texto }) => (
+                  <li key={titulo} className="flex gap-4">
+                    <Icon className="h-6 w-6 shrink-0 text-gold mt-0.5" strokeWidth={1.5} />
+                    <div>
+                      <div className="font-display text-xl leading-snug">{titulo}</div>
+                      <div className="mt-1 text-ivory/75 font-light">{texto}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
 
-        {obraSlides.length > 0 && (
-          <Reveal delay={300}>
-            <div className="mt-16">
-              <Carousel slides={obraSlides} />
-            </div>
-          </Reveal>
-        )}
-
-        <Reveal delay={450}>
-          <div className="mt-14 flex flex-wrap gap-4 items-center">
-            <a
-              href="#formulario"
-              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
-            >
-              Quero mais informações
-              <span className="transition-transform group-hover:translate-x-1">→</span>
-            </a>
+            <Reveal delay={450}>
+              <div className="mt-10 flex flex-wrap gap-4 items-center">
+                <a
+                  href="#formulario"
+                  className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
+                >
+                  Quero mais informações
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </a>
+              </div>
+            </Reveal>
           </div>
-        </Reveal>
+
+          {obraSlides.length > 0 && (
+            <Reveal delay={300}>
+              <Carousel slides={obraSlides} aspect="aspect-[4/3]" maxCaptionWidth="26rem" />
+            </Reveal>
+          )}
+        </div>
       </div>
     </section>
   );
