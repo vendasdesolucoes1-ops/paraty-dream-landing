@@ -6,7 +6,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
-import { hojeEmSaoPaulo } from "../_shared/data-br.ts";
+import { proximosDias } from "../_shared/data-br.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,6 +26,10 @@ const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // se o agente ativo estivesse sem system_prompt customizado no banco, o
 // round-robin nunca disparava.
 const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
+
+// Janela do calendário injetado no prompt. Três semanas cobrem com folga o
+// horizonte de uma visita agendada por WhatsApp sem inchar o prompt.
+const DIAS_NO_CALENDARIO = 21;
 
 // Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
 // de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
@@ -305,23 +309,34 @@ ${campos.join("\n")}
  * que era sábado. Modelo de linguagem não tem relógio.
  */
 function blocoDataDeHoje(agora: Date): string {
-  const { data, diaSemana } = hojeEmSaoPaulo(agora);
+  const dias = proximosDias(agora, DIAS_NO_CALENDARIO);
+  const hoje = dias[0];
+  const tabela = dias
+    .map((d, i) => `${d.ddmm} - ${d.diaSemana}${i === 0 ? "  <- hoje" : ""}`)
+    .join("\n");
 
   return `---
-HOJE (regra dura sobre datas)
+CALENDÁRIO (regra dura — leia antes de falar qualquer data)
 
-Hoje é ${data}, ${diaSemana}, no horário de Paraty.
+Hoje é ${hoje.ddmm} (${hoje.iso}), ${hoje.diaSemana}, no horário de Paraty.
 
-- Quando falar de datas, calcule sempre a partir de hoje. "Sábado que vem",
-  "semana que vem", "dia 12" — tudo se resolve a partir da data acima.
-- NUNCA confirme uma visita sem conferir se o dia da semana bate com a data.
-- Se a pessoa citar um dia da semana e uma data que NÃO correspondem, não
-  escolha um dos dois por conta própria e não confirme: aponte a divergência e
-  pergunte qual ela quer. Exemplo:
-  "Só confirmando: dia 9 de agosto cai num domingo, não sábado. || Pode ser
-  domingo mesmo ou prefere outro dia?"
-- Na dúvida sobre qual data a pessoa quis dizer, pergunte antes de confirmar.
-  Visita marcada no dia errado faz alguém viajar à toa.`;
+${tabela}
+
+- Você NUNCA calcula dia da semana. Nunca. Toda vez que for dizer, confirmar ou
+  interpretar uma data, LEIA a linha correspondente na tabela acima e use o que
+  está escrito nela. A tabela é a única fonte — sua intuição sobre calendário
+  está errada com frequência.
+- Isso vale nos dois sentidos: para descobrir o dia da semana de uma data
+  ("dia 9" -> procure "09/" na tabela) e para descobrir a data de um dia da
+  semana ("sexta que vem" -> ache a próxima linha com "sexta").
+- Se a pessoa citar um dia da semana e uma data que NÃO batem na tabela, não
+  escolha um dos dois e não confirme: mostre a divergência e pergunte. Exemplo:
+  "Só confirmando: dia 9 cai num domingo. || Pode ser domingo mesmo ou você
+  quis dizer outro dia?"
+- Se a data que ela mencionar NÃO estiver na tabela (mais de ${DIAS_NO_CALENDARIO} dias à
+  frente), não arrisque: pergunte qual dia da semana ela tem em mente, ou
+  proponha uma data que esteja na tabela.
+- Visita marcada no dia errado faz alguém viajar à toa.`;
 }
 
 /** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
@@ -551,6 +566,22 @@ Deno.serve(async (req) => {
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
     const hasLeadQualificado = rawText.includes(LEAD_QUALIFICADO_TAG);
+
+    // Log dedicado às marcas. O `=== AI RESPONSE ===` da whatsapp-webhook corta
+    // em 300 caracteres e as flags ficam no FIM do JSON, depois das mensagens —
+    // ou seja, some justamente o que se precisa ver para saber se o modelo
+    // emitiu a marca ou se ela se perdeu depois. Aqui sai antes de qualquer
+    // limpeza, com o começo do texto cru para conferência.
+    console.log(
+      "=== MARCAS DO MODELO ===",
+      JSON.stringify({
+        lead_id,
+        lead_qualificado: hasLeadQualificado,
+        visita_agendada: hasVisitaAgendada,
+        transferir_humano: hasTransferirHumano,
+        raw_inicio: rawText.slice(0, 160),
+      }),
+    );
 
     // As três marcas são limpas aqui, na única função que fala com o modelo —
     // antes, só VISITA_AGENDADA/TRANSFERIR_HUMANO eram removidas aqui e
