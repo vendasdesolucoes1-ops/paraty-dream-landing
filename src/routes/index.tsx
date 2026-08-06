@@ -314,11 +314,12 @@ function Hero() {
 
       <div className="relative container-x min-h-screen flex flex-col justify-end pb-20 pt-32">
         <Reveal>
-          {/* Sem "Sophia Saíde": a razão social do loteamento não é o que
-              vende no primeiro segundo, e disputa atenção com a marca. Ela
-              continua no rodapé, junto com matrícula e incorporadora, que é
-              onde a informação legal pertence. */}
-          <p className="eyebrow text-ivory/85 mb-6">Loteamento Residencial · Paraty / RJ</p>
+          {/* Nome comercial, não a razão social. "Sophia Saíde" continua no
+              rodapé, junto com matrícula e incorporadora — que é onde a
+              informação legal pertence. */}
+          <p className="eyebrow text-ivory/85 mb-6">
+            Loteamento Residencial Moradas de Paraty · RJ
+          </p>
         </Reveal>
         <Reveal delay={150}>
           <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
