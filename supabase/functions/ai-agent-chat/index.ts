@@ -32,6 +32,18 @@ const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
 // horizonte de uma visita agendada por WhatsApp sem inchar o prompt.
 const DIAS_NO_CALENDARIO = 21;
 
+// Linhas de whatsapp_messages carregadas como histórico.
+//
+// Eram 10, e 10 é pouco pelo modo como gravamos: cada parte do `||` é uma
+// linha, então uma resposta da Sophia gasta 2 a 4 e a janela cobria só ~3
+// trocas. Numa conversa real o "morar" que o lead respondeu às 00:03 já tinha
+// saído da janela às 00:12, e a Sophia perguntou de novo — três vezes.
+//
+// 80 linhas ≈ 25 trocas, ou seja, a conversa inteira na prática. O custo é
+// pequeno perto do system prompt, que já carrega calendário, lotes e a base de
+// conhecimento inteira.
+const LINHAS_DE_HISTORICO = 80;
+
 // Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
 // de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
 const MENSAGEM_HANDOFF =
@@ -370,6 +382,37 @@ interface ChatMessage {
   content: string;
 }
 
+/**
+ * Junta linhas consecutivas do mesmo remetente numa mensagem só.
+ *
+ * Cada parte do `||` vira uma linha em whatsapp_messages, então uma única
+ * resposta da Sophia chega aqui como 2 a 4 mensagens de assistant seguidas, e
+ * o lead que escreve em blocos vira várias de user. Para o modelo isso lê como
+ * uma dúzia de turnos picados em vez da meia dúzia de trocas que de fato
+ * aconteceram — e é assim que "tudo bem?" e "morar", digitados com 2 segundos
+ * de diferença, viram dois turnos distintos e o segundo passa despercebido.
+ *
+ * Agrupar é transformação em memória: o banco continua com uma linha por
+ * mensagem enviada, que é o que o CRM precisa exibir.
+ */
+function agruparConsecutivas(mensagens: ChatMessage[]): ChatMessage[] {
+  const agrupadas: ChatMessage[] = [];
+
+  for (const m of mensagens) {
+    const conteudo = String(m.content ?? "").trim();
+    if (!conteudo) continue;
+
+    const anterior = agrupadas[agrupadas.length - 1];
+    if (anterior && anterior.role === m.role) {
+      anterior.content = `${anterior.content}\n${conteudo}`;
+    } else {
+      agrupadas.push({ role: m.role, content: conteudo });
+    }
+  }
+
+  return agrupadas;
+}
+
 interface ChatRequestBody {
   agent_id: string;
   /** "preview_prompt" devolve o prompt montado sem chamar a OpenAI. */
@@ -461,16 +504,16 @@ Deno.serve(async (req) => {
     // é pulada e usamos o histórico explícito mandado no corpo da requisição.
     let history: ChatMessage[];
     if (explicitHistory) {
-      history = explicitHistory;
+      history = agruparConsecutivas(explicitHistory);
     } else if (lead_id) {
       const { data: historyRows } = await supabase
         .from("whatsapp_messages")
         .select("content, from_me, created_at")
         .eq("lead_id", lead_id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(LINHAS_DE_HISTORICO);
 
-      history = (historyRows ?? [])
+      const linhas: ChatMessage[] = (historyRows ?? [])
         .slice()
         .reverse()
         .map((row) => ({
@@ -479,13 +522,20 @@ Deno.serve(async (req) => {
         }));
 
       // O whatsapp-webhook grava a mensagem recebida no banco ANTES de
-      // chamar esta function, então ela já vem dentro dos "últimos 10" acima
-      // — sem isto, ela seria enviada duplicada (uma vez do histórico, outra
-      // já embaixo como a mensagem atual).
-      const last = history[history.length - 1];
-      if (last && last.role === "user" && last.content === message) {
-        history = history.slice(0, -1);
-      }
+      // chamar esta function, então ela já vem dentro das linhas acima — sem
+      // isto, ela seria enviada duplicada (uma vez do histórico, outra já
+      // embaixo como a mensagem atual).
+      //
+      // Precisa acontecer ANTES do agrupamento: depois de agrupado, o último
+      // bloco do lead seria "tudo bem?\nmorar", que não é igual a "morar", a
+      // comparação falharia e a mensagem apareceria duas vezes.
+      const ultima = linhas[linhas.length - 1];
+      const semDuplicata =
+        ultima && ultima.role === "user" && ultima.content === message
+          ? linhas.slice(0, -1)
+          : linhas;
+
+      history = agruparConsecutivas(semDuplicata);
     } else {
       history = [];
     }
