@@ -68,14 +68,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-forest-deep text-ivory">
-      {/* Placa clara atrás do logo: a marca tem o texto "MORADAS" em #0F2A4A,
-          que é praticamente a mesma cor do bg-forest-deep da sidebar — aplicado
-          direto, o nome sumiria e sobraria só o anel dourado. A placa preserva
-          o arquivo original sem recolorir a marca. */}
+      {/* O logo fica solto sobre o fundo escuro, sem placa. O wordmark do
+          arquivo é #0F2A4A, quase idêntico ao bg-forest-deep daqui — sem o
+          override de fill ele simplesmente sumiria. Recolorir por CSS mantém o
+          SVG original intocado: só a renderização se adapta ao fundo escuro. */}
       <div className="px-6 py-8 border-b border-ivory/10">
-        <div className="rounded-md bg-ivory px-5 py-4">
-          <Logo variante="compacto" className="w-full h-auto" />
-        </div>
+        <Logo variante="compacto" className="w-full h-auto [&_text]:fill-ivory" />
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">

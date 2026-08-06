@@ -150,12 +150,11 @@ function Nav() {
     <header className="fixed top-0 inset-x-0 z-40">
       <div className="container-x flex items-center justify-between py-5">
         <a href="#top" className="flex items-center leading-none">
-          {/* Mesma questão de contraste da sidebar: o nome da marca é navy e o
-              header flutua sobre a foto escura do hero. A placa clara mantém o
-              arquivo original intacto e legível sobre qualquer imagem. */}
-          <span className="rounded-md bg-ivory/95 px-4 py-3 backdrop-blur-sm">
-            <Logo variante="completo" className="h-16 w-auto" />
-          </span>
+          {/* Sem placa: o logo fica direto sobre a foto do hero. O wordmark
+              navy do arquivo desapareceria contra a imagem escura, então vira
+              ivory por CSS — mesma solução da sidebar, com drop-shadow para
+              segurar a leitura sobre trechos claros da foto. */}
+          <Logo variante="completo" className="h-16 w-auto [&_text]:fill-ivory drop-shadow-md" />
         </a>
         <Link
           to="/login"
