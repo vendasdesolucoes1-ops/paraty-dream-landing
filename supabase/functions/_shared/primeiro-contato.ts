@@ -88,8 +88,15 @@ export function montarAbertura(dados: DadosFormulario): string[] {
   return partes;
 }
 
-/** Conversa parada há mais que isso conta como contato frio: pode reabordar. */
-const JANELA_CONVERSA_ATIVA_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Conversa parada há mais que isso conta como contato frio: pode reabordar.
+ *
+ * Era 7 dias, e isso engolia o caso mais comum: quem já trocou mensagem com a
+ * gente nos últimos dias e volta pelo formulário ficava sem nenhuma resposta.
+ * Preencher o formulário é um pedido explícito de contato — só faz sentido
+ * segurar a abordagem se a conversa está literalmente acontecendo agora.
+ */
+const JANELA_CONVERSA_ATIVA_MS = 2 * 60 * 60 * 1000;
 
 /**
  * true se este lead não tem conversa ATIVA (mensagem nos últimos 7 dias).
