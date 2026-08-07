@@ -1,12 +1,15 @@
 // Histórico de campanhas de disparo em massa: cada linha é uma campanha já
-// registrada — mudar o filtro/fonte no card acima não altera o que já rodou.
+// registrada — mudar o filtro/fonte na aba de disparo não altera o que já rodou.
+//
+// É um painel, não um card: vive dentro do MassDispatcherCard como aba, para
+// quem acabou de disparar conferir o resultado sem sair da tela nem rolar até
+// outro card.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { History, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { DisparoCampanha, DisparoItem } from "@/lib/types";
-import { ToolCard } from "@/components/ferramentas/tool-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -151,7 +154,7 @@ function CampanhaRow({ campanha }: { campanha: DisparoCampanha }) {
   );
 }
 
-export function DispatchHistoryCard() {
+export function DispatchHistoryPanel() {
   const { data: campanhas, isLoading } = useQuery({
     queryKey: ["disparos-campanhas"],
     queryFn: async () => {
@@ -165,27 +168,25 @@ export function DispatchHistoryCard() {
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if ((campanhas ?? []).length === 0) {
+    return <p className="text-sm text-muted-foreground">Nenhuma campanha disparada ainda.</p>;
+  }
+
   return (
-    <ToolCard
-      icon={History}
-      title="Histórico de disparos"
-      subtitle="Campanhas já disparadas, com o status de envio de cada contato"
-    >
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : (campanhas ?? []).length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma campanha disparada ainda.</p>
-      ) : (
-        <div className="space-y-2">
-          {(campanhas ?? []).map((campanha) => (
-            <CampanhaRow key={campanha.id} campanha={campanha} />
-          ))}
-        </div>
-      )}
-    </ToolCard>
+    <div className="space-y-2">
+      {(campanhas ?? []).map((campanha) => (
+        <CampanhaRow key={campanha.id} campanha={campanha} />
+      ))}
+    </div>
   );
 }

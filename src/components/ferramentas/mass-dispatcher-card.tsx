@@ -7,6 +7,8 @@ import { parseContactsCsv, parseManualContacts } from "@/lib/csv";
 import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
 import { LEAD_STATUS_COLUMNS } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
+import { DispatchHistoryPanel } from "@/components/ferramentas/dispatch-history-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -281,202 +283,220 @@ export function MassDispatcherCard() {
       title="Disparador em massa"
       subtitle="Envie mensagens de WhatsApp para leads, um CSV ou uma lista manual"
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Instância</Label>
-          <Select value={instanceId} onValueChange={setInstanceId} disabled={isRunning}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a instância" />
-            </SelectTrigger>
-            <SelectContent>
-              {(instances ?? []).map((i) => (
-                <SelectItem key={i.id} value={i.id}>
-                  {i.instance_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* O histórico virou aba deste card em vez de card próprio mais abaixo na
+          página: quem acaba de disparar quer conferir o resultado ali mesmo, e
+          antes precisava rolar até outro bloco. O disparo em andamento não é
+          afetado por trocar de aba — o laço roda num callback com refs, fora do
+          JSX, então continua mesmo com o conteúdo desmontado. */}
+      <Tabs defaultValue="disparar">
+        <TabsList>
+          <TabsTrigger value="disparar">Disparar</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-2">
-          <Label>Fonte dos contatos</Label>
-          <Select
-            value={source}
-            onValueChange={(v: ContactSource) => setSource(v)}
-            disabled={isRunning}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="crm">Leads do CRM</SelectItem>
-              <SelectItem value="csv">Upload CSV</SelectItem>
-              <SelectItem value="manual">Lista manual</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+        <TabsContent value="disparar" className="space-y-4 pt-2">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Instância</Label>
+              <Select value={instanceId} onValueChange={setInstanceId} disabled={isRunning}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a instância" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(instances ?? []).map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.instance_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="mass-message">Mensagem</Label>
-        <Textarea
-          id="mass-message"
-          placeholder="Olá {{nome}}, temos novidades sobre o Moradas de Paraty..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          disabled={isRunning}
-          rows={4}
-        />
-        <p className="text-xs text-muted-foreground">
-          Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
-        </p>
-      </div>
-
-      {source === "crm" ? (
-        <div className="space-y-2 max-w-xs">
-          <Label>Filtrar por status do lead</Label>
-          <Select
-            value={crmStatusFilter}
-            onValueChange={(v: LeadStatus | "todos") => setCrmStatusFilter(v)}
-            disabled={isRunning}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              {LEAD_STATUS_COLUMNS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : source === "csv" ? (
-        <div className="space-y-2">
-          <Label htmlFor="csv-upload">Arquivo CSV (colunas: nome, telefone)</Label>
-          <Input
-            id="csv-upload"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleCsvUpload}
-            disabled={isRunning}
-          />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <Label htmlFor="manual-contacts">Números (separados por vírgula ou linha)</Label>
-          <Textarea
-            id="manual-contacts"
-            placeholder={"5511999999999\n5521988888888"}
-            value={manualText}
-            onChange={(e) => setManualText(e.target.value)}
-            disabled={isRunning}
-            rows={4}
-          />
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm">
-          <span className="font-medium">{contacts.length}</span> contatos serão impactados
-        </p>
-      </div>
-
-      <div className="space-y-2 max-w-sm">
-        <Label>Intervalo entre mensagens: {interval}s</Label>
-        <Slider
-          min={5}
-          max={60}
-          step={1}
-          value={[interval]}
-          onValueChange={([v]) => setIntervalValue(v)}
-          disabled={isRunning}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {!isRunning ? (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700"
-                disabled={contacts.length === 0 || !message.trim() || !instanceId}
+            <div className="space-y-2">
+              <Label>Fonte dos contatos</Label>
+              <Select
+                value={source}
+                onValueChange={(v: ContactSource) => setSource(v)}
+                disabled={isRunning}
               >
-                Iniciar Disparo
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar disparo em massa</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Você está prestes a enviar {contacts.length} mensagens. Confirmar?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => runDispatch()}>Confirmar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : (
-          <>
-            <Button variant="outline" onClick={handlePauseResume}>
-              {dispatchState === "paused" ? "Retomar" : "Pausar"}
-            </Button>
-            <Button variant="destructive" onClick={handleStop}>
-              Parar
-            </Button>
-          </>
-        )}
-      </div>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="crm">Leads do CRM</SelectItem>
+                  <SelectItem value="csv">Upload CSV</SelectItem>
+                  <SelectItem value="manual">Lista manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      {dispatchState !== "idle" ? (
-        <div className="space-y-2">
-          <Progress value={contacts.length ? (sentCount / contacts.length) * 100 : 0} />
-          <p className="text-sm text-muted-foreground">
-            {sentCount} de {contacts.length} enviadas
-            {dispatchState === "paused" ? " — pausado" : ""}
-          </p>
-        </div>
-      ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="mass-message">Mensagem</Label>
+            <Textarea
+              id="mass-message"
+              placeholder="Olá {{nome}}, temos novidades sobre o Moradas de Paraty..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              disabled={isRunning}
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
+            </p>
+          </div>
 
-      {log.length > 0 ? (
-        <div className="rounded-lg border overflow-x-auto max-h-64 overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Horário</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {log
-                .slice()
-                .reverse()
-                .map((entry, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{entry.telefone}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          entry.status === "Enviado"
-                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal"
-                            : "bg-red-100 text-red-800 hover:bg-red-100 font-normal"
-                        }
-                      >
-                        {entry.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{entry.horario}</TableCell>
+          {source === "crm" ? (
+            <div className="space-y-2 max-w-xs">
+              <Label>Filtrar por status do lead</Label>
+              <Select
+                value={crmStatusFilter}
+                onValueChange={(v: LeadStatus | "todos") => setCrmStatusFilter(v)}
+                disabled={isRunning}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  {LEAD_STATUS_COLUMNS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : source === "csv" ? (
+            <div className="space-y-2">
+              <Label htmlFor="csv-upload">Arquivo CSV (colunas: nome, telefone)</Label>
+              <Input
+                id="csv-upload"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleCsvUpload}
+                disabled={isRunning}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="manual-contacts">Números (separados por vírgula ou linha)</Label>
+              <Textarea
+                id="manual-contacts"
+                placeholder={"5511999999999\n5521988888888"}
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                disabled={isRunning}
+                rows={4}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <p className="text-sm">
+              <span className="font-medium">{contacts.length}</span> contatos serão impactados
+            </p>
+          </div>
+
+          <div className="space-y-2 max-w-sm">
+            <Label>Intervalo entre mensagens: {interval}s</Label>
+            <Slider
+              min={5}
+              max={60}
+              step={1}
+              value={[interval]}
+              onValueChange={([v]) => setIntervalValue(v)}
+              disabled={isRunning}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!isRunning ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={contacts.length === 0 || !message.trim() || !instanceId}
+                  >
+                    Iniciar Disparo
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar disparo em massa</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Você está prestes a enviar {contacts.length} mensagens. Confirmar?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => runDispatch()}>Confirmar</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <>
+                <Button variant="outline" onClick={handlePauseResume}>
+                  {dispatchState === "paused" ? "Retomar" : "Pausar"}
+                </Button>
+                <Button variant="destructive" onClick={handleStop}>
+                  Parar
+                </Button>
+              </>
+            )}
+          </div>
+
+          {dispatchState !== "idle" ? (
+            <div className="space-y-2">
+              <Progress value={contacts.length ? (sentCount / contacts.length) * 100 : 0} />
+              <p className="text-sm text-muted-foreground">
+                {sentCount} de {contacts.length} enviadas
+                {dispatchState === "paused" ? " — pausado" : ""}
+              </p>
+            </div>
+          ) : null}
+
+          {log.length > 0 ? (
+            <div className="rounded-lg border overflow-x-auto max-h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Horário</TableHead>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : null}
+                </TableHeader>
+                <TableBody>
+                  {log
+                    .slice()
+                    .reverse()
+                    .map((entry, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{entry.telefone}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              entry.status === "Enviado"
+                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal"
+                                : "bg-red-100 text-red-800 hover:bg-red-100 font-normal"
+                            }
+                          >
+                            {entry.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{entry.horario}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="historico" className="pt-2">
+          <DispatchHistoryPanel />
+        </TabsContent>
+      </Tabs>
     </ToolCard>
   );
 }
