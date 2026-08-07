@@ -18,6 +18,24 @@ export function toWhatsappNumber(raw: string | null | undefined): string | null 
 }
 
 /**
+ * Chave de comparação entre telefones de origens diferentes: os últimos 10
+ * dígitos (DDD + número).
+ *
+ * Existe porque o mesmo contato aparece em formatos distintos pelo sistema —
+ * lead do CRM com DDI, linha de CSV sem, número digitado à mão com máscara.
+ * Comparar a string crua daria "não é o mesmo" para o mesmo telefone. Dez
+ * dígitos é o que sobra em comum: com o DDI de fora, o 9 inicial do celular
+ * ainda entra, então a chave continua específica.
+ *
+ * Devolve null quando não sobra dígito suficiente para afirmar nada — comparar
+ * por 6 dígitos casaria contatos diferentes, que é pior do que não casar.
+ */
+export function chaveTelefone(raw: string | null | undefined): string | null {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : null;
+}
+
+/**
  * Lê a mensagem de erro real do corpo da resposta de uma edge function.
  * Sem isto, o supabase-js entrega só "non-2xx status code" e a causa (que a
  * função devolve em `error` no JSON) se perde antes de chegar na tela.

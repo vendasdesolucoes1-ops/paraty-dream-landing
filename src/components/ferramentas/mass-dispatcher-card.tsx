@@ -8,6 +8,7 @@ import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
 import { LEAD_STATUS_COLUMNS } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { DispatchHistoryPanel } from "@/components/ferramentas/dispatch-history-panel";
+import { LeadSelectionList } from "@/components/ferramentas/lead-selection-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,7 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 
-type ContactSource = "crm" | "csv" | "manual";
+type ContactSource = "crm" | "selecao" | "csv" | "manual";
 type DispatchState = "idle" | "running" | "paused" | "done";
 
 interface Contact {
@@ -76,6 +77,9 @@ export function MassDispatcherCard() {
   const [crmStatusFilter, setCrmStatusFilter] = useState<LeadStatus | "todos">("todos");
   const [csvContacts, setCsvContacts] = useState<Contact[]>([]);
   const [manualText, setManualText] = useState("");
+  // Seleção manual de leads (fonte "selecao"): ids escolhidos a dedo, em vez de
+  // aceitar todo mundo que casa com um filtro de status.
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [interval, setIntervalValue] = useState(15);
   // Intervalo aleatório: 15s exatos entre cada envio, centenas de vezes, é a
   // assinatura que a detecção de automação procura. Sorteando dentro de uma
@@ -119,15 +123,37 @@ export function MassDispatcherCard() {
 
   const manualContacts = useMemo(() => parseManualContacts(manualText), [manualText]);
 
+  // Os leads escolhidos vêm de outra consulta que não a do filtro por status:
+  // a seleção é por id e ignora status, então reaproveitar `crmLeads` traria
+  // só os que casam com o filtro atual da outra fonte.
+  const { data: leadsSelecionados } = useQuery({
+    queryKey: ["disparador-leads-selecionados", [...selectedLeadIds].sort().join(",")],
+    queryFn: async () => {
+      if (selectedLeadIds.size === 0) return [];
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, nome, telefone")
+        .in("id", [...selectedLeadIds]);
+      if (error) throw error;
+      return data as Pick<Lead, "id" | "nome" | "telefone">[];
+    },
+    enabled: source === "selecao" && selectedLeadIds.size > 0,
+  });
+
   const contacts: Contact[] = useMemo(() => {
     if (source === "crm") {
       return (crmLeads ?? [])
         .filter((l) => l.telefone)
         .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
     }
+    if (source === "selecao") {
+      return (leadsSelecionados ?? [])
+        .filter((l) => l.telefone)
+        .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
+    }
     if (source === "csv") return csvContacts;
     return manualContacts;
-  }, [source, crmLeads, csvContacts, manualContacts]);
+  }, [source, crmLeads, leadsSelecionados, csvContacts, manualContacts]);
 
   const selectedInstance = instances?.find((i) => i.id === instanceId);
 
@@ -178,7 +204,10 @@ export function MassDispatcherCard() {
         instancia_id: selectedInstance.id,
         instancia_nome: selectedInstance.instance_name,
         mensagem_template: message,
-        fonte_contatos: source,
+        // O CHECK da tabela só aceita crm/csv/manual, e a seleção manual é,
+        // na origem, leads do CRM — só que escolhidos a dedo em vez de por
+        // filtro. Gravar como 'crm' mantém o histórico coerente sem migration.
+        fonte_contatos: source === "selecao" ? "crm" : source,
         filtro_status: source === "crm" && crmStatusFilter !== "todos" ? crmStatusFilter : null,
         // Valor nominal no insert; no fim da campanha é sobrescrito pela média
         // dos sorteios que de fato aconteceram (ver `intervaloEfetivo` abaixo).
@@ -365,7 +394,8 @@ export function MassDispatcherCard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="crm">Leads do CRM</SelectItem>
+                  <SelectItem value="crm">Leads do CRM (por status)</SelectItem>
+                  <SelectItem value="selecao">Escolher leads</SelectItem>
                   <SelectItem value="csv">Upload CSV</SelectItem>
                   <SelectItem value="manual">Lista manual</SelectItem>
                 </SelectContent>
@@ -409,6 +439,12 @@ export function MassDispatcherCard() {
                 </SelectContent>
               </Select>
             </div>
+          ) : source === "selecao" ? (
+            <LeadSelectionList
+              selectedIds={selectedLeadIds}
+              onChange={setSelectedLeadIds}
+              disabled={isRunning}
+            />
           ) : source === "csv" ? (
             <div className="space-y-2">
               <Label htmlFor="csv-upload">Arquivo CSV (colunas: nome, telefone)</Label>
