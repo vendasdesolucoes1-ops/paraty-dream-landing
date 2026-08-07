@@ -347,6 +347,8 @@ export type Database = {
           iniciado_em: string
           instancia_id: string | null
           instancia_nome: string
+          intervalo_max_segundos: number | null
+          intervalo_min_segundos: number | null
           intervalo_segundos: number
           mensagem_template: string
           status: string
@@ -363,6 +365,8 @@ export type Database = {
           iniciado_em?: string
           instancia_id?: string | null
           instancia_nome: string
+          intervalo_max_segundos?: number | null
+          intervalo_min_segundos?: number | null
           intervalo_segundos: number
           mensagem_template: string
           status?: string
@@ -379,6 +383,8 @@ export type Database = {
           iniciado_em?: string
           instancia_id?: string | null
           instancia_nome?: string
+          intervalo_max_segundos?: number | null
+          intervalo_min_segundos?: number | null
           intervalo_segundos?: number
           mensagem_template?: string
           status?: string
