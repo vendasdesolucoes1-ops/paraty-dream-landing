@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Send } from "lucide-react";
+import { Paperclip, Send, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { parseContactsCsv, parseManualContacts } from "@/lib/csv";
 import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
@@ -60,6 +60,29 @@ interface LogEntry {
   horario: string;
 }
 
+const BUCKET_MIDIA = "disparos-midia";
+
+/**
+ * Validade da URL assinada do anexo. Precisa cobrir a campanha inteira: 300
+ * contatos a 30s passam de 2h30. Seis horas dão folga sem deixar o link vivo
+ * indefinidamente.
+ */
+const TTL_URL_MIDIA = 6 * 60 * 60;
+
+/** O que a Evolution precisa saber sobre o anexo, deduzido do MIME do arquivo. */
+function tipoDeMidia(file: File): "image" | "video" | "audio" | "document" {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+function tamanhoLegivel(bytes: number): string {
+  return bytes >= 1048576
+    ? `${(bytes / 1048576).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -80,6 +103,9 @@ export function MassDispatcherCard() {
   // Seleção manual de leads (fonte "selecao"): ids escolhidos a dedo, em vez de
   // aceitar todo mundo que casa com um filtro de status.
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  // Anexo da campanha: um arquivo só, enviado a todos os contatos. Sobe uma
+  // vez antes do laço e a URL assinada é reaproveitada em cada envio.
+  const [midia, setMidia] = useState<File | null>(null);
   const [interval, setIntervalValue] = useState(15);
   // Intervalo aleatório: 15s exatos entre cada envio, centenas de vezes, é a
   // assinatura que a detecção de automação procura. Sorteando dentro de uma
@@ -174,8 +200,8 @@ export function MassDispatcherCard() {
       toast.error("Selecione uma instância.");
       return;
     }
-    if (!message.trim()) {
-      toast.error("Escreva uma mensagem.");
+    if (!message.trim() && !midia) {
+      toast.error("Escreva uma mensagem ou anexe um arquivo.");
       return;
     }
     if (contacts.length === 0) {
@@ -188,6 +214,32 @@ export function MassDispatcherCard() {
     setDispatchState("running");
     setSentCount(0);
     setLog([]);
+
+    // Sobe o anexo UMA vez e reaproveita a URL assinada em todos os envios.
+    // Subir por contato seria pagar o upload N vezes pelo mesmo arquivo.
+    let midiaUrl: string | null = null;
+    let midiaPath: string | null = null;
+    if (midia) {
+      const caminho = `${crypto.randomUUID()}-${midia.name.replace(/[^\w.-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET_MIDIA)
+        .upload(caminho, midia, { contentType: midia.type || "application/octet-stream" });
+      if (uploadError) {
+        toast.error(`Não foi possível subir o anexo: ${uploadError.message}`);
+        setDispatchState("idle");
+        return;
+      }
+      const { data: assinada, error: urlError } = await supabase.storage
+        .from(BUCKET_MIDIA)
+        .createSignedUrl(caminho, TTL_URL_MIDIA);
+      if (urlError || !assinada?.signedUrl) {
+        toast.error("Anexo subiu, mas não foi possível gerar o link de envio.");
+        setDispatchState("idle");
+        return;
+      }
+      midiaUrl = assinada.signedUrl;
+      midiaPath = caminho;
+    }
 
     // Snapshot da instância e do filtro no momento do início: se o usuário
     // mudar a fonte/filtro na tela enquanto a campanha corre, o registro já
@@ -218,6 +270,9 @@ export function MassDispatcherCard() {
         intervalo_max_segundos: randomInterval ? intervalRange[1] : null,
         total_contatos: contacts.length,
         disparado_por: user?.id ?? null,
+        midia_url: midiaPath,
+        midia_tipo: midia ? tipoDeMidia(midia) : null,
+        midia_nome: midia?.name ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
       .select()
@@ -273,6 +328,9 @@ export function MassDispatcherCard() {
             phone: contact.telefone,
             nome: contact.nome,
             message,
+            midia_url: midiaUrl,
+            midia_tipo: midia ? tipoDeMidia(midia) : undefined,
+            midia_nome: midia?.name,
           },
         });
         if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "erro");
@@ -415,6 +473,48 @@ export function MassDispatcherCard() {
             />
             <p className="text-xs text-muted-foreground">
               Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
+            </p>
+          </div>
+
+          {/* Anexo: um arquivo por campanha, o mesmo para todos os contatos.
+              Com texto preenchido saem duas mensagens (texto e depois a mídia),
+              porque legenda em documento o WhatsApp ignora e em imagem trunca. */}
+          <div className="space-y-2">
+            <Label htmlFor="midia-upload">Anexo (opcional)</Label>
+            {midia ? (
+              <div className="flex items-center gap-3 rounded-lg border p-2.5">
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm truncate">{midia.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {tipoDeMidia(midia) === "audio"
+                      ? "Áudio — enviado como mensagem de voz"
+                      : tipoDeMidia(midia)}{" "}
+                    · {tamanhoLegivel(midia.size)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMidia(null)}
+                  disabled={isRunning}
+                  aria-label="Remover anexo"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Input
+                id="midia-upload"
+                type="file"
+                accept="image/*,video/*,audio/*,.pdf"
+                onChange={(e) => setMidia(e.target.files?.[0] ?? null)}
+                disabled={isRunning}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Imagem, vídeo, áudio ou PDF. Áudio vai como mensagem de voz, não como arquivo anexado.
             </p>
           </div>
 

@@ -1,11 +1,22 @@
-// Supabase Edge Function — sends a single WhatsApp text message via the Evolution API.
-// Called once per contact by the frontend's mass-dispatch loop, which controls the
-// delay between sends (client-side) so progress/pause/stop can be shown live and
-// large lists never risk an Edge Function timeout.
+// Supabase Edge Function — envia UMA mensagem de WhatsApp pela Evolution API.
+// Chamada uma vez por contato pelo laço do frontend, que controla o intervalo
+// entre envios (no cliente) para poder mostrar progresso/pausa/parada ao vivo e
+// para lista grande nunca esbarrar no timeout da edge function.
+//
+// Aceita texto, mídia (imagem/vídeo/documento) ou os dois. Com os dois, saem
+// como DUAS mensagens: primeiro o texto, depois a mídia. É de propósito —
+// legenda em documento é ignorada pelo WhatsApp, e mesmo em imagem a legenda
+// longa fica truncada na conversa. Duas mensagens é o que uma pessoa faria.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { assertConnected, getEvolutionSession } from "../_shared/evolution-instance.ts";
+import {
+  sendWhatsAppAudio,
+  sendWhatsAppMedia,
+  sendWhatsAppText,
+  type EvolutionMediaType,
+} from "../_shared/evolution-send.ts";
 
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -22,6 +33,11 @@ interface DispatchBody {
   phone: string;
   nome?: string;
   message: string;
+  /** URL pública (assinada) do anexo. Ausente = só texto. */
+  midia_url?: string;
+  /** 'audio' usa a rota de PTT; o resto vai por sendMedia. */
+  midia_tipo?: EvolutionMediaType | "audio";
+  midia_nome?: string;
 }
 
 Deno.serve(async (req) => {
@@ -30,7 +46,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { instance_name, phone, nome, message }: DispatchBody = await req.json();
+    const { instance_name, phone, nome, message, midia_url, midia_tipo, midia_nome }: DispatchBody =
+      await req.json();
 
     const { data: instance, error } = await supabase
       .from("whatsapp_instances")
@@ -44,19 +61,25 @@ Deno.serve(async (req) => {
 
     const text = renderTemplate(message, { nome: nome ?? "", telefone: phone });
 
+    // Texto primeiro, quando houver: quem recebe vê o contexto antes do anexo.
+    if (text.trim()) {
+      await sendWhatsAppText(instance.api_url, instance.api_key, instance_name, phone, text);
+    }
 
-    const evolutionResponse = await fetch(
-      `${instance.api_url}/message/sendText/${instance_name}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: instance.api_key },
-        body: JSON.stringify({ number: phone, text }),
-      },
-    );
+    if (midia_url) {
+      if (midia_tipo === "audio") {
+        await sendWhatsAppAudio(instance.api_url, instance.api_key, instance_name, phone, midia_url);
+      } else {
+        await sendWhatsAppMedia(instance.api_url, instance.api_key, instance_name, phone, {
+          url: midia_url,
+          tipo: midia_tipo ?? "image",
+          nomeArquivo: midia_nome,
+        });
+      }
+    }
 
-    if (!evolutionResponse.ok) {
-      const errText = await evolutionResponse.text();
-      throw new Error(`Evolution API sendText error: ${errText}`);
+    if (!text.trim() && !midia_url) {
+      throw new Error("nada a enviar: mensagem e mídia vazias");
     }
 
     return new Response(JSON.stringify({ ok: true }), {
