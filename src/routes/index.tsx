@@ -286,12 +286,11 @@ function Nav() {
               segurar a leitura sobre trechos claros da foto. */}
           <Logo variante="completo" className="h-16 w-auto [&_text]:fill-ivory drop-shadow-md" />
         </a>
-        <Link
-          to="/login"
-          className="eyebrow text-ivory/90 hover:text-primary hover:bg-ivory/90 border border-ivory/40 hover:border-ivory px-4 py-2 rounded-[3px] backdrop-blur-sm transition-colors"
-        >
-          Entrar no sistema
-        </Link>
+        {/* "Entrar no sistema" ocultado a pedido: é o acesso do CRM interno, e
+            não tem função para quem visita a landing atrás de informação sobre
+            o loteamento — só distraía e convidava clique de curioso. O Link
+            continua importado porque outras partes do arquivo podem usá-lo;
+            se não usarem mais, o lint acusa e aí sim removemos o import. */}
       </div>
     </header>
   );
@@ -349,7 +348,7 @@ function Hero() {
         <Reveal delay={700}>
           <div className="mt-16 sm:mt-20 grid grid-cols-3 gap-6 max-w-2xl border-t border-ivory/20 pt-8">
             <Stat n="9 min" l="do Centro Histórico" />
-            <Stat n="250 – 450" l="m² por lote" />
+            <Stat n="250 – 450" l="m² · lotes residenciais e comerciais" />
             <Stat n="100%" l="cercado de natureza" />
           </div>
         </Reveal>
@@ -361,7 +360,13 @@ function Hero() {
 function Stat({ n, l }: { n: string; l: string }) {
   return (
     <div>
-      <div className="font-display text-ivory text-2xl sm:text-4xl">{n}</div>
+      {/* [font-variant-numeric:lining-nums]: a Cormorant Garamond usa algarismo
+          "estilo antigo" por padrão, e o "1" nesse estilo não tem serifa e fica
+          baixo — em "100%" lê-se quase como "i00%". lining-nums força o "1"
+          de caixa alta, do tamanho da linha do texto, sem ambiguidade. */}
+      <div className="font-display text-ivory text-2xl sm:text-4xl [font-variant-numeric:lining-nums]">
+        {n}
+      </div>
       <div className="eyebrow text-ivory/70 mt-2 text-[0.65rem]">{l}</div>
     </div>
   );
