@@ -351,6 +351,9 @@ export type Database = {
           intervalo_min_segundos: number | null
           intervalo_segundos: number
           mensagem_template: string
+          midia_nome: string | null
+          midia_tipo: string | null
+          midia_url: string | null
           status: string
           total_contatos: number
           total_enviado: number
@@ -369,6 +372,9 @@ export type Database = {
           intervalo_min_segundos?: number | null
           intervalo_segundos: number
           mensagem_template: string
+          midia_nome?: string | null
+          midia_tipo?: string | null
+          midia_url?: string | null
           status?: string
           total_contatos: number
           total_enviado?: number
@@ -387,6 +393,9 @@ export type Database = {
           intervalo_min_segundos?: number | null
           intervalo_segundos?: number
           mensagem_template?: string
+          midia_nome?: string | null
+          midia_tipo?: string | null
+          midia_url?: string | null
           status?: string
           total_contatos?: number
           total_enviado?: number
