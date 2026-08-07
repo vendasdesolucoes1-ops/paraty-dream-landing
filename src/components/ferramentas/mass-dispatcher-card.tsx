@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -62,6 +63,11 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Inteiro entre min e max, inclusive nas duas pontas. */
+function sortearSegundos(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
 export function MassDispatcherCard() {
   const queryClient = useQueryClient();
   const [instanceId, setInstanceId] = useState<string>("");
@@ -71,6 +77,11 @@ export function MassDispatcherCard() {
   const [csvContacts, setCsvContacts] = useState<Contact[]>([]);
   const [manualText, setManualText] = useState("");
   const [interval, setIntervalValue] = useState(15);
+  // Intervalo aleatório: 15s exatos entre cada envio, centenas de vezes, é a
+  // assinatura que a detecção de automação procura. Sorteando dentro de uma
+  // faixa o ritmo deixa de ser previsível.
+  const [randomInterval, setRandomInterval] = useState(false);
+  const [intervalRange, setIntervalRange] = useState<[number, number]>([10, 30]);
   const [dispatchState, setDispatchState] = useState<DispatchState>("idle");
   const [sentCount, setSentCount] = useState(0);
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -160,16 +171,26 @@ export function MassDispatcherCard() {
     } = await supabase.auth.getUser();
     const { data: campanha, error: campanhaError } = await supabase
       .from("disparos_campanha")
+      // Cast: os tipos gerados em integrations/supabase/types.ts ainda não
+      // conhecem intervalo_min/max_segundos — a migration é aplicada à mão e o
+      // arquivo é regerado depois. Sem isto o insert inteiro vira `never`.
       .insert({
         instancia_id: selectedInstance.id,
         instancia_nome: selectedInstance.instance_name,
         mensagem_template: message,
         fonte_contatos: source,
         filtro_status: source === "crm" && crmStatusFilter !== "todos" ? crmStatusFilter : null,
-        intervalo_segundos: interval,
+        // Valor nominal no insert; no fim da campanha é sobrescrito pela média
+        // dos sorteios que de fato aconteceram (ver `intervaloEfetivo` abaixo).
+        intervalo_segundos: randomInterval
+          ? Math.round((intervalRange[0] + intervalRange[1]) / 2)
+          : interval,
+        intervalo_min_segundos: randomInterval ? intervalRange[0] : null,
+        intervalo_max_segundos: randomInterval ? intervalRange[1] : null,
         total_contatos: contacts.length,
         disparado_por: user?.id ?? null,
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
       .select()
       .single();
 
@@ -198,6 +219,11 @@ export function MassDispatcherCard() {
 
     let totalEnviado = 0;
     let totalFalhou = 0;
+    // Somatório dos intervalos realmente aplicados, para gravar a média no fim.
+    // Com faixa, o valor nominal (o meio) não descreve a campanha: uma parada
+    // no meio do caminho pode ter sorteado só valores baixos.
+    let somaIntervalos = 0;
+    let esperasAplicadas = 0;
 
     for (let i = 0; i < contacts.length; i++) {
       if (stopRef.current) break;
@@ -243,18 +269,34 @@ export function MassDispatcherCard() {
       setSentCount(i + 1);
 
       if (i < contacts.length - 1) {
-        for (let waited = 0; waited < interval * 1000; waited += 250) {
+        // Sorteia por envio, não uma vez por campanha: um valor único sorteado
+        // no início seria só outro intervalo fixo.
+        const esperaSegundos = randomInterval
+          ? sortearSegundos(intervalRange[0], intervalRange[1])
+          : interval;
+        somaIntervalos += esperaSegundos;
+        esperasAplicadas++;
+
+        for (let waited = 0; waited < esperaSegundos * 1000; waited += 250) {
           if (stopRef.current) break;
           await sleep(250);
         }
       }
     }
 
+    const intervaloEfetivo =
+      esperasAplicadas > 0
+        ? Math.round(somaIntervalos / esperasAplicadas)
+        : randomInterval
+          ? Math.round((intervalRange[0] + intervalRange[1]) / 2)
+          : interval;
+
     await supabase
       .from("disparos_campanha")
       .update({
         total_enviado: totalEnviado,
         total_falhou: totalFalhou,
+        intervalo_segundos: intervaloEfetivo,
         status: stopRef.current ? "interrompido" : "concluido",
         finalizado_em: new Date().toISOString(),
       })
@@ -398,16 +440,54 @@ export function MassDispatcherCard() {
             </p>
           </div>
 
-          <div className="space-y-2 max-w-sm">
-            <Label>Intervalo entre mensagens: {interval}s</Label>
-            <Slider
-              min={5}
-              max={60}
-              step={1}
-              value={[interval]}
-              onValueChange={([v]) => setIntervalValue(v)}
-              disabled={isRunning}
-            />
+          {/* max-w-xl, não max-w-sm: com o toggle na mesma linha do rótulo, os
+              384px antigos não cabiam os dois e o switch quebrava para baixo. */}
+          <div className="space-y-2 max-w-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Label>
+                {randomInterval
+                  ? `Intervalo entre mensagens: ${intervalRange[0]}s a ${intervalRange[1]}s`
+                  : `Intervalo entre mensagens: ${interval}s`}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="intervalo-aleatorio"
+                  checked={randomInterval}
+                  onCheckedChange={setRandomInterval}
+                  disabled={isRunning}
+                />
+                <Label htmlFor="intervalo-aleatorio" className="text-sm font-normal">
+                  Intervalo aleatório
+                </Label>
+              </div>
+            </div>
+
+            {randomInterval ? (
+              <Slider
+                min={5}
+                max={120}
+                step={1}
+                minStepsBetweenThumbs={1}
+                value={intervalRange}
+                onValueChange={([min, max]) => setIntervalRange([min, max])}
+                disabled={isRunning}
+              />
+            ) : (
+              <Slider
+                min={5}
+                max={60}
+                step={1}
+                value={[interval]}
+                onValueChange={([v]) => setIntervalValue(v)}
+                disabled={isRunning}
+              />
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {randomInterval
+                ? "Cada envio sorteia um valor dentro da faixa — o ritmo deixa de ter padrão fixo, que é o que a detecção de automação procura."
+                : "Todos os envios usam o mesmo intervalo. Em listas grandes, o padrão repetido é detectável."}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

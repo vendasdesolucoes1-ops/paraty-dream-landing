@@ -331,7 +331,12 @@ export interface DisparoCampanha {
   mensagem_template: string;
   fonte_contatos: DisparoFonteContatos;
   filtro_status: string | null;
+  /** Intervalo efetivo médio: o próprio valor quando fixo, a média dos sorteios quando aleatório. */
   intervalo_segundos: number;
+  /** Piso da faixa quando a campanha usou intervalo aleatório; null = intervalo fixo. */
+  intervalo_min_segundos: number | null;
+  /** Teto da faixa quando a campanha usou intervalo aleatório; null = intervalo fixo. */
+  intervalo_max_segundos: number | null;
   total_contatos: number;
   total_enviado: number;
   total_falhou: number;
