@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Instagram,
   Download,
-  Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -37,12 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  CONFIRM_THRESHOLD_USD,
-  estimatePlannedCost,
-  estimatePostCost,
-  formatUsd,
-} from "@/lib/imagery-cost";
+import { CONFIRM_THRESHOLD_USD, estimatePlannedCost, formatUsd } from "@/lib/imagery-cost";
 
 const PILARES = [
   { value: "lugar", label: "Lugar — paisagem, rio, mata, cachoeiras" },
@@ -141,7 +135,10 @@ export function CreatePostTab() {
   const [tema, setTema] = useState("");
   const [nicho, setNicho] = useState("lugar");
   const [objetivo, setObjetivo] = useState("desejo");
-  const [tipo, setTipo] = useState("carrossel");
+  // Padrão "imagem_unica" porque a opção Carrossel está oculta no seletor
+  // abaixo: deixar o padrão em "carrossel" com a opção escondida daria um
+  // Select sem rótulo visível e um post de N slides sem ninguém ter pedido.
+  const [tipo, setTipo] = useState("imagem_unica");
   const [nSlides, setNSlides] = useState("5");
 
   const [planning, setPlanning] = useState(false);
@@ -260,7 +257,6 @@ export function CreatePostTab() {
   };
 
   // Estimativa grosseira mostrada no briefing, antes de existir um plano.
-  const briefingEstimate = useMemo(() => estimatePostCost(Number(nSlides)), [nSlides]);
   // Estimativa precisa, já sabendo quais slides pedem imagem e de que tipo.
   const plannedEstimate = useMemo(() => estimatePlannedCost(slides), [slides]);
 
@@ -381,7 +377,11 @@ export function CreatePostTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="carrossel">Carrossel</SelectItem>
+                  {/* Carrossel oculto por ora: cada slide é uma geração de
+                      imagem paga e uma chance a mais de sair torto. O suporte
+                      continua inteiro no back — para reativar, basta devolver
+                      esta linha:
+                      <SelectItem value="carrossel">Carrossel</SelectItem> */}
                   <SelectItem value="imagem_unica">Imagem única</SelectItem>
                 </SelectContent>
               </Select>
@@ -400,19 +400,11 @@ export function CreatePostTab() {
             </div>
           </div>
 
-          <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Wallet className="h-3.5 w-3.5 shrink-0" />
-              Custo estimado:{" "}
-              <strong className="text-foreground font-medium">
-                {formatUsd(postId ? plannedEstimate.estimado : briefingEstimate.estimado)}
-              </strong>
-            </span>
-            <span className="mt-1 block">
-              Até {formatUsd(postId ? plannedEstimate.maximo : briefingEstimate.maximo)} se algum
-              slide precisar de uma segunda tentativa.
-            </span>
-          </div>
+          {/* Custo estimado não aparece mais no briefing: é informação de
+              controle interno, não decisão de quem está escrevendo o post. O
+              modelo de custo (estimatePostCost/estimatePlannedCost) segue
+              intacto e continua alimentando o diálogo de confirmação antes de
+              gastar — só o painel informativo saiu. */}
 
           {billingError ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
