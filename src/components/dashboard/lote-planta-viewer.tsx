@@ -193,9 +193,14 @@ export function LotePlantaViewer({
 
   return (
     <div className="space-y-4">
+      {/* A altura acompanha a proporção da planta (~19:9) em vez de ser fixa:
+          com altura travada, um desenho landscape sobra em cima e embaixo e
+          desperdiça justamente a largura que o formato veio buscar. O teto
+          evita que em telas muito largas o mapa empurre o resto da página para
+          fora da dobra, e o piso mantém a área utilizável no celular. */}
       <div
         ref={containerRef}
-        className={`relative border rounded-lg overflow-hidden bg-card h-[32rem] cursor-grab active:cursor-grabbing ${PLANTA_SCOPE}`}
+        className={`relative border rounded-lg overflow-hidden bg-card aspect-[19/9] min-h-[20rem] max-h-[38rem] cursor-grab active:cursor-grabbing ${PLANTA_SCOPE}`}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -247,7 +252,12 @@ export function LotePlantaViewer({
           </Button>
         </div>
 
-        <div className="absolute top-3 left-3 rounded-lg border bg-card/95 p-3 text-xs space-y-1.5 shadow-sm">
+        {/* Canto inferior esquerdo, não superior: no arranjo em duas colunas a
+            primeira quadra encosta no topo, e a legenda (que tem tamanho fixo
+            em px enquanto o desenho escala) passava por cima da moldura dela em
+            telas menores. Embaixo à esquerda a planta é vazada — a coluna da
+            esquerda termina numa quadra estreita e centralizada. */}
+        <div className="absolute bottom-3 left-3 rounded-lg border bg-card/95 p-3 text-xs space-y-1.5 shadow-sm">
           <p className="font-display text-sm text-primary mb-1">Legenda</p>
           {(Object.keys(STATUS_LABELS) as LoteStatus[]).map((status) => (
             <div key={status} className="flex items-center gap-2">
