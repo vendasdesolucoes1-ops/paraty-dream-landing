@@ -132,6 +132,11 @@ function useDashboardData() {
   });
 }
 
+// Recharts pinta os rotulos de eixo com um #666 fixo quando nao recebe fill.
+// No claro isso passa; no escuro e cinza-medio sobre quase-preto, e os eixos
+// somem. O token acompanha os dois temas.
+const axisTick = { fontSize: 12, fill: "var(--muted-foreground)" };
+
 const tooltipStyle = {
   borderRadius: 8,
   border: "1px solid var(--border)",
@@ -167,7 +172,7 @@ function DashboardHome() {
         {metricCards.map(({ label, value, icon: Icon }) => (
           <Card key={label} className="shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-forest-deep/10 text-forest-deep flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
@@ -195,12 +200,12 @@ function DashboardHome() {
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={data?.porStatus} layout="vertical" margin={{ left: 8, right: 24 }}>
                   <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="0" />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <XAxis type="number" allowDecimals={false} tick={axisTick} />
                   <YAxis
                     type="category"
                     dataKey="status"
                     width={82}
-                    tick={{ fontSize: 12 }}
+                    tick={axisTick}
                     axisLine={false}
                     tickLine={false}
                   />
@@ -242,7 +247,10 @@ function DashboardHome() {
                       <Cell key={entry.origem} fill={ORIGEM_COLORS[entry.origem]} />
                     ))}
                   </Pie>
-                  <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                  <Legend
+                    iconSize={10}
+                    wrapperStyle={{ fontSize: 12, color: "var(--muted-foreground)" }}
+                  />
                   <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
@@ -268,11 +276,11 @@ function DashboardHome() {
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={data?.last7} margin={{ left: 8, right: 24, top: 8 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="0" />
-                <XAxis dataKey="dia" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="dia" tick={axisTick} axisLine={false} tickLine={false} />
                 <YAxis
                   allowDecimals={false}
                   width={32}
-                  tick={{ fontSize: 12 }}
+                  tick={axisTick}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -299,7 +307,7 @@ function DashboardHome() {
           </CardTitle>
           <Link
             to="/dashboard/crm"
-            className="text-sm text-forest-deep hover:text-accent underline underline-offset-4"
+            className="text-sm text-primary hover:text-accent underline underline-offset-4"
           >
             Ver todos
           </Link>

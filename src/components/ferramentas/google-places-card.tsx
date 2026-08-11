@@ -163,7 +163,7 @@ export function GooglePlacesCard() {
                           href={r.website}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-forest-deep underline underline-offset-4"
+                          className="text-primary underline underline-offset-4"
                         >
                           {r.website}
                         </a>

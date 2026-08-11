@@ -115,7 +115,7 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
                           href={`https://www.instagram.com/p/${post.instagram_post_id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-forest-deep hover:text-accent"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:text-accent"
                         >
                           Ver <ExternalLink className="h-3.5 w-3.5" />
                         </a>

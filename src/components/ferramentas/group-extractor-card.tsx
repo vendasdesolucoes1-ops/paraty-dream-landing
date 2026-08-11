@@ -183,7 +183,7 @@ export function GroupExtractorCard() {
                   className="h-9 w-9 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="h-9 w-9 rounded-full bg-forest-deep/10 text-forest-deep flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <UsersRound className="h-4 w-4" />
                 </div>
               )}

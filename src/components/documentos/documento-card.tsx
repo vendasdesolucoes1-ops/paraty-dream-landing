@@ -26,9 +26,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 function DocumentoIcon({ tipoArquivo }: { tipoArquivo: string }) {
-  if (isPdfTipo(tipoArquivo)) return <FileText className="h-8 w-8 text-forest-deep" />;
-  if (isImageTipo(tipoArquivo)) return <FileImage className="h-8 w-8 text-forest-deep" />;
-  return <FileIcon className="h-8 w-8 text-forest-deep" />;
+  if (isPdfTipo(tipoArquivo)) return <FileText className="h-8 w-8 text-primary" />;
+  if (isImageTipo(tipoArquivo)) return <FileImage className="h-8 w-8 text-primary" />;
+  return <FileIcon className="h-8 w-8 text-primary" />;
 }
 
 export function DocumentoCard({
@@ -120,7 +120,7 @@ export function DocumentoCard({
               </Badge>
             ) : null}
             {documento.compra ? (
-              <Badge variant="outline" className="text-xs font-normal border-gold text-forest-deep">
+              <Badge variant="outline" className="text-xs font-normal border-gold text-primary">
                 {compraLabel(documento.compra)}
               </Badge>
             ) : null}

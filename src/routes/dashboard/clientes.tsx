@@ -112,7 +112,7 @@ function ClientesPage() {
               >
                 <CardContent className="p-4 flex flex-wrap items-center gap-3">
                   <div className="rounded-md bg-secondary/60 p-2 shrink-0">
-                    <UserCheck className="h-5 w-5 text-forest-deep" />
+                    <UserCheck className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-lg text-primary truncate">{cliente.nome}</p>

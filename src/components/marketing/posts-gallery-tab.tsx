@@ -57,7 +57,7 @@ const STATUS_STYLE: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   generating: "bg-amber-100 text-amber-800 hover:bg-amber-100",
   ready: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  published: "bg-forest-deep/10 text-forest-deep hover:bg-forest-deep/10",
+  published: "bg-primary/10 text-primary hover:bg-primary/10",
   failed: "bg-red-100 text-red-800 hover:bg-red-100",
 };
 
@@ -335,7 +335,7 @@ export function PostsGalleryTab() {
                           href={post.ig_permalink}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-forest-deep hover:text-accent"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:text-accent"
                         >
                           Ver no Instagram <ExternalLink className="h-3 w-3" />
                         </a>

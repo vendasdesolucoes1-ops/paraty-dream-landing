@@ -526,7 +526,7 @@ export function CreatePostTab() {
                         href={slide.final_png_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-forest-deep hover:text-accent"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:text-accent"
                       >
                         <Download className="h-3 w-3" /> Abrir arte
                       </a>
