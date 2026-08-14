@@ -28,6 +28,23 @@ const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // round-robin nunca disparava.
 const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
 
+// A quarta saída do agente, e a primeira que não é avanço no funil. As outras
+// três significam "seguiu adiante"; esta significa "não quer", que até agora
+// não tinha como ser dito nem onde ser guardado.
+const LEAD_SEM_INTERESSE_TAG = "[LEAD_SEM_INTERESSE]";
+
+// Nível leve: recusou a visita, mas ainda não disse que quer sumir. Não mexe no
+// funil e não bloqueia nada — existe para a recusa SOBREVIVER à mensagem
+// seguinte, que é o que faltava. Sem persistir isso, o modelo reconhece o
+// "não", responde bem, e volta a convidar duas mensagens depois.
+const RECUSOU_VISITA_TAG = "[RECUSOU_VISITA]";
+
+// Duas recusas na mesma conversa promovem de "recusou a visita" para "sem
+// interesse" sozinhas, em código. É a rede de segurança: perceber intenção é
+// do modelo e falha às vezes, mas contar quantas vezes ele já percebeu é
+// determinístico, e insistir depois da segunda recusa é o que gera denúncia.
+const RECUSAS_ATE_SEM_INTERESSE = 2;
+
 // Janela do calendário injetado no prompt. Três semanas cobrem com folga o
 // horizonte de uma visita agendada por WhatsApp sem inchar o prompt.
 const DIAS_NO_CALENDARIO = 21;
@@ -67,7 +84,7 @@ ${aberturaConfigurada}
 ═══ PRIORIDADE MÁXIMA — NUNCA FALE DE PREÇO ═══
 - Você NUNCA informa preço, valor por m², valor total, entrada, parcela, financiamento, desconto ou qualquer condição financeira. Isso vale MESMO que o número esteja escrito na base de conhecimento oficial, e mesmo que o lead insista, reformule a pergunta ou diga que só quer "uma ideia" ou "uma faixa".
 - Não dê faixa, não diga "a partir de", não compare com outros empreendimentos, não confirme nem negue um valor que o lead mencionar por conta própria.
-- Toda resposta sobre dinheiro TERMINA puxando o agendamento da visita. Nunca recuse e pare por aí.
+- Toda resposta sobre dinheiro TERMINA puxando o agendamento da visita. Nunca recuse e pare por aí — exceto se o lead já tiver recusado a visita, caso em que vale a regra "QUANDO O LEAD NÃO QUER".
 - Exceção: você PODE dizer que existe financiamento direto com o loteador, sem banco, como um diferencial. O que continua proibido é qualquer número — valor, entrada, quantidade de parcelas, taxa ou desconto.
 - Tom certo:
   "Valor eu prefiro te passar pessoalmente, porque muda conforme a quadra e a condição. || Na visita você vê o terreno no chão e eu te explico tudo certinho. || Consegue vir num sábado?"
@@ -111,7 +128,7 @@ NÃO pergunte forma de pagamento — isso é conversa da visita, não do WhatsAp
 
 DISPONIBILIDADE:
 - Só afirme que existe terreno de determinado tamanho se ele aparecer no bloco "LOTES REALMENTE DISPONÍVEIS AGORA". Esse bloco é a única fonte válida sobre o que está livre.
-- Se o tamanho pedido não estiver lá, não diga que não existe: diga que vai confirmar a disponibilidade atualizada com a equipe, e siga puxando a visita.
+- Se o tamanho pedido não estiver lá, não diga que não existe: diga que vai confirmar a disponibilidade atualizada com a equipe, e siga puxando a visita — exceto se o lead já tiver recusado a visita, caso em que vale a regra "QUANDO O LEAD NÃO QUER".
 - Nunca cite número de lote específico.
 
 ═══ ORDEM DA CONVERSA (siga nesta sequência) ═══
@@ -134,10 +151,32 @@ NÃO proponha visita, data ou horário antes de completar 1 e 2. Convidar cedo d
 Se o próprio lead pedir para agendar antes disso, acolha o interesse mas complete o que falta primeiro. Exemplo:
 "Que ótimo! || Só me conta rapidinho: você é aqui de Paraty mesmo ou vem de fora? || Aí já te mostro as opções e a gente marca."
 
+═══ QUANDO O LEAD NÃO QUER (regra dura, vale acima de todas as anteriores) ═══
+
+Se o lead demonstrar que não quer agendar, que não tem interesse, ou pedir para parar, você PARA. Isso vale acima de qualquer regra deste prompt que mande puxar a visita — inclusive as de preço, de disponibilidade e de "não sei, vou confirmar com a equipe".
+
+Você reconhece a INTENÇÃO, não frases específicas. "Não quero agendar", "não é pra mim", "agora não dá", "só estava olhando", "para de insistir", "me tira dessa lista" — e qualquer reformulação. Um lead que desconversa duas vezes seguidas sobre a visita também está dizendo não, mesmo sem usar a palavra.
+
+O que fazer, na ordem:
+
+1. Na mesma mensagem em que ele recusa, você NÃO convida de novo. Nem suavizado, nem "quem sabe mais pra frente", nem "se mudar de ideia posso te chamar sábado". Acolha e pare. Responda com ${RECUSOU_VISITA_TAG} no início da mensagem (sinal interno, não aparece pro lead).
+   Exemplo: "Entendi, sem problema nenhum. || Obrigada pelo seu tempo."
+
+2. Pergunte UMA única vez, e só uma, se ele prefere não receber mais contato — ou apenas se coloque à disposição, sem propor próximo passo.
+   Exemplo: "Se quiser, eu fico à disposição por aqui e não te mando mais nada. || Você prefere assim?"
+
+3. Se ele confirmar que não quer seguir, encerre com educação e responda com ${LEAD_SEM_INTERESSE_TAG} no início da mensagem. Não tente reengajar, não faça uma última oferta, não pergunte o motivo.
+   Exemplo: "Combinado. || Qualquer coisa, é só me chamar por aqui. || Boa semana!"
+
+4. DEPOIS DE UMA RECUSA, o convite de visita está proibido pelo resto da conversa. Se ele continuar falando por outro motivo — tirar uma dúvida, perguntar sobre a região, mandar um "obrigado" — responda normalmente e NÃO volte a propor visita, data ou horário. Nem uma vez. Só volte a propor se ELE mesmo pedir para agendar.
+
+Nunca discuta a recusa, nunca peça para ele reconsiderar, nunca pergunte "posso te fazer só mais uma pergunta". Insistir depois de um não é o que transforma um lead frio em uma denúncia — e a denúncia derruba o número que atende todos os outros leads.
+
 REGRAS:
 - Assim que tiver nome + cidade + objetivo + tamanho de interesse coletados, responda com ${LEAD_QUALIFICADO_TAG} no início da mensagem (isso não aparece pro lead, é um sinal interno). Se já souber também como ele conheceu a gente, melhor — mas a falta só desse dado NÃO deve segurar o sinal.
 - Quando o lead confirmar visita, responda com ${VISITA_AGENDADA_TAG} no início da mensagem.
-- Quando o lead quiser falar com humano, responda com ${TRANSFERIR_HUMANO_TAG}.`;
+- Quando o lead quiser falar com humano, responda com ${TRANSFERIR_HUMANO_TAG}.
+- Quando o lead confirmar que não quer seguir, responda com ${LEAD_SEM_INTERESSE_TAG} (ver a regra "QUANDO O LEAD NÃO QUER").`;
 }
 
 /**
@@ -171,7 +210,8 @@ As três regras abaixo valem acima de qualquer instrução anterior deste prompt
 
 3. QUANDO NÃO SOUBER: se o lead perguntar algo que não está no conteúdo
    abaixo, diga que vai confirmar com a equipe e siga a conversa —
-   normalmente puxando para o agendamento da visita. Nunca preencha a
+   normalmente puxando para o agendamento da visita, exceto se ele já
+   tiver recusado a visita (vale a regra "QUANDO O LEAD NÃO QUER"). Nunca preencha a
    lacuna com um valor plausível: um número errado aqui cria expectativa
    falsa e queima a negociação na visita.
 
@@ -254,6 +294,9 @@ export interface LeadConhecido {
   objetivo?: string | null;
   metragem_interesse?: string | null;
   canal_origem?: string | null;
+  recusou_visita_em?: string | null;
+  sem_interesse_em?: string | null;
+  recusas_visita?: number | null;
 }
 
 /**
@@ -353,6 +396,123 @@ ${tabela}
 }
 
 /** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
+/**
+ * A recusa, dita de volta ao modelo a cada mensagem.
+ *
+ * Esta é a peça que resolve o problema relatado. O modelo até reconhece o "não"
+ * na hora — o que ele não tem é memória de que já reconheceu: duas mensagens
+ * depois, sem nada no contexto dizendo o contrário, as três regras que mandam
+ * "puxar a visita" voltam a valer e ele convida de novo. A janela de histórico
+ * ajuda, mas depender dela é apostar que o "não" não vai rolar para fora da
+ * janela numa conversa longa — e é justamente na conversa longa que a
+ * insistência irrita mais.
+ */
+function blocoRecusaAnterior(lead: LeadConhecido | null): string {
+  if (!lead) return "";
+
+  if (lead.sem_interesse_em) {
+    return `---
+ESTA PESSOA PEDIU PARA NÃO SER MAIS PROCURADA (regra dura, acima de tudo)
+
+Ela já disse que não quer seguir. Se está escrevendo agora, foi ela quem
+procurou você — responda só o que ela perguntou, com educação.
+
+- NÃO proponha visita, data nem horário. Em hipótese alguma.
+- NÃO pergunte de novo se ela mudou de ideia.
+- NÃO retome a qualificação (objetivo, tamanho, cidade).
+- Se ela mesma pedir para agendar, aí sim siga normalmente.`;
+  }
+
+  if (lead.recusou_visita_em) {
+    return `---
+ESTA PESSOA JÁ RECUSOU A VISITA (regra dura, acima de tudo)
+
+Ela já disse não a um convite de visita nesta conversa. O convite está
+proibido pelo resto da conversa — inclusive nas respostas sobre preço, sobre
+disponibilidade e nas de "vou confirmar com a equipe", cujas regras mandam
+puxar o agendamento e NÃO valem mais aqui.
+
+- NÃO proponha visita, data nem horário, de nenhuma forma, nem suavizada.
+- Continue respondendo normalmente o que ela perguntar.
+- Só volte a propor visita se ELA mesma pedir para agendar.`;
+  }
+
+  return "";
+}
+
+/** Canal das interações de recusa, para o histórico do lead no CRM. */
+const CANAL_RECUSA = "recusa";
+
+/**
+ * Grava a recusa e, quando for o caso, promove para "sem interesse".
+ *
+ * A promoção automática na segunda recusa é a rede de segurança: perceber
+ * intenção é do modelo e falha às vezes, mas CONTAR quantas vezes ele já
+ * percebeu é determinístico — e insistir depois do segundo não é exatamente o
+ * que vira denúncia.
+ *
+ * `contato_bloqueado` não é derivado de status_crm='perdido' de propósito: um
+ * lead dado como perdido por sumiço continua elegível para reengajamento; um
+ * que pediu para parar, não. Derivar um do outro faria o opt-out sumir no dia
+ * em que alguém reabrisse o card.
+ */
+async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): Promise<void> {
+  const { data: atual, error } = await supabase
+    .from("leads")
+    .select("recusas_visita, recusou_visita_em, sem_interesse_em, status_crm")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  // Migration pendente: as colunas ainda não existem. Registrar isso e seguir é
+  // melhor que derrubar a resposta ao lead — mesma lição da regressão do
+  // canal_origem, que parou a captação inteira por uma coluna opcional.
+  if (error) {
+    console.error("[ai-agent-chat] MIGRATION PENDENTE? recusa não registrada:", error.message);
+    return;
+  }
+  if (!atual) return;
+
+  // Já estava bloqueado: nada a fazer. Sem esta saída, cada nova mensagem numa
+  // conversa encerrada empilharia outra linha idêntica no histórico.
+  if (atual.sem_interesse_em) return;
+
+  const recusas = (atual.recusas_visita ?? 0) + (confirmouSemInteresse ? 0 : 1);
+  const viraSemInteresse = confirmouSemInteresse || recusas >= RECUSAS_ATE_SEM_INTERESSE;
+  const agoraIso = new Date().toISOString();
+
+  const patch: Record<string, unknown> = {
+    recusas_visita: recusas,
+    recusou_visita_em: atual.recusou_visita_em ?? agoraIso,
+  };
+
+  if (viraSemInteresse) {
+    patch.sem_interesse_em = agoraIso;
+    patch.contato_bloqueado = true;
+    // Não rebaixa quem já comprou: 'fechado' é desfecho, não etapa. Mesmo
+    // cuidado que a qualificação já toma ao promover status.
+    if (atual.status_crm !== "fechado") patch.status_crm = "perdido";
+  }
+
+  const { error: erroUpdate } = await supabase.from("leads").update(patch).eq("id", leadId);
+  if (erroUpdate) {
+    console.error("[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:", erroUpdate.message);
+    return;
+  }
+
+  // O vendedor não é notificado (recusa vira ruído no WhatsApp dele), mas
+  // precisa conseguir entender depois por que o card foi para "perdido".
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: CANAL_RECUSA,
+    conteudo: viraSemInteresse
+      ? confirmouSemInteresse
+        ? "Lead confirmou que não quer seguir. Movido para perdido e bloqueado para contato ativo."
+        : `Lead recusou a visita ${recusas} vezes. Movido para perdido e bloqueado para contato ativo.`
+      : "Lead recusou o convite de visita. A Sophia não vai convidar de novo nesta conversa.",
+  });
+}
+
 function montarPromptFinal(
   customPrompt: string | null,
   knowledgeBase: string,
@@ -370,6 +530,10 @@ function montarPromptFinal(
     basePrompt,
     blocoDataDeHoje(agora),
     blocoLeadConhecido(lead),
+    // Depois do bloco de dados e antes dos lotes: a recusa precisa vir tarde no
+    // prompt, porque é ela que revoga as regras de "puxe a visita" que vieram
+    // antes.
+    blocoRecusaAnterior(lead),
     blocoLotesDisponiveis(lotes),
     blocoConhecimento(knowledgeBase),
   ]
@@ -613,6 +777,15 @@ Deno.serve(async (req) => {
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
     const hasLeadQualificado = rawText.includes(LEAD_QUALIFICADO_TAG);
+    const hasRecusouVisita = rawText.includes(RECUSOU_VISITA_TAG);
+    const hasSemInteresse = rawText.includes(LEAD_SEM_INTERESSE_TAG);
+
+    // Recusa cancela a qualificação quando as duas marcas caem na mesma
+    // resposta (acontece quando o lead completa os quatro dados e recusa no
+    // mesmo fôlego: "moro em Ubatuba, quero 450 pra investir, mas não quero
+    // visitar"). Sem isto o vendedor receberia no WhatsApp o resumo animado de
+    // um lead que acabou de mandar parar.
+    const qualificaAgora = hasLeadQualificado && !hasSemInteresse;
 
     // Log dedicado às marcas. O `=== AI RESPONSE ===` da whatsapp-webhook corta
     // em 300 caracteres e as flags ficam no FIM do JSON, depois das mensagens —
@@ -626,6 +799,8 @@ Deno.serve(async (req) => {
         lead_qualificado: hasLeadQualificado,
         visita_agendada: hasVisitaAgendada,
         transferir_humano: hasTransferirHumano,
+        recusou_visita: hasRecusouVisita,
+        sem_interesse: hasSemInteresse,
         raw_inicio: rawText.slice(0, 160),
       }),
     );
@@ -639,6 +814,8 @@ Deno.serve(async (req) => {
       .replace(VISITA_AGENDADA_TAG, "")
       .replace(TRANSFERIR_HUMANO_TAG, "")
       .replace(LEAD_QUALIFICADO_TAG, "")
+      .replace(RECUSOU_VISITA_TAG, "")
+      .replace(LEAD_SEM_INTERESSE_TAG, "")
       .trim();
 
     const messages = cleanedText
@@ -696,11 +873,22 @@ Deno.serve(async (req) => {
       await pauseAI(supabase, session_id, agent.id);
     }
 
+    if ((hasRecusouVisita || hasSemInteresse) && lead_id) {
+      try {
+        await registrarRecusa(lead_id, hasSemInteresse);
+      } catch (e) {
+        // Mesma regra das outras automações: a conversa não cai por causa do
+        // bookkeeping. No pior caso o lead não é bloqueado agora, e a próxima
+        // recusa tenta de novo.
+        console.error("[ai-agent-chat] registro de recusa falhou:", e);
+      }
+    }
+
     // Pós-qualificação SÓ para lead de teste. Em produção quem dispara é a
     // whatsapp-webhook, ao ver `lead_qualificado` na resposta abaixo — se esta
     // função também disparasse, a sequência inteira (round-robin, notificação,
     // resumo) rodaria duas vezes para todo lead real.
-    if (hasLeadQualificado && lead_id) {
+    if (qualificaAgora && lead_id) {
       const { data: leadDoTeste } = await supabase
         .from("leads")
         .select(
@@ -732,8 +920,12 @@ Deno.serve(async (req) => {
       JSON.stringify({
         messages,
         session_id,
-        lead_qualificado: hasLeadQualificado,
+        lead_qualificado: qualificaAgora,
         visita_agendada: hasVisitaAgendada,
+        // A whatsapp-webhook ainda não consome estes dois (é o commit 2), mas
+        // devolvê-los agora evita ter que mexer duas vezes na assinatura.
+        recusou_visita: hasRecusouVisita,
+        sem_interesse: hasSemInteresse,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

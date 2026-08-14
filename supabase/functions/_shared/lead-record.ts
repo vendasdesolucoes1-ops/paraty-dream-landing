@@ -22,7 +22,8 @@ export const COLUNAS_BASE = "id, nome, telefone, cidade, metragem_interesse, sta
 
 /** Tudo que o CRM usa hoje, incluindo colunas de migrations recentes. */
 export const COLUNAS_COMPLETAS =
-  `${COLUNAS_BASE}, objetivo, forma_pagamento, canal_origem, is_teste`;
+  `${COLUNAS_BASE}, objetivo, forma_pagamento, canal_origem, is_teste, ` +
+  `recusou_visita_em, recusas_visita, sem_interesse_em, contato_bloqueado`;
 
 /** PostgreSQL: undefined_column. É o erro que sinaliza migration pendente. */
 const UNDEFINED_COLUMN = "42703";
