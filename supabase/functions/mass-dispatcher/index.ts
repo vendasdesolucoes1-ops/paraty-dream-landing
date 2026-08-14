@@ -17,6 +17,7 @@ import {
   sendWhatsAppText,
   type EvolutionMediaType,
 } from "../_shared/evolution-send.ts";
+import { telefoneBloqueado } from "../_shared/contato-bloqueado.ts";
 
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -48,6 +49,22 @@ Deno.serve(async (req) => {
   try {
     const { instance_name, phone, nome, message, midia_url, midia_tipo, midia_nome }: DispatchBody =
       await req.json();
+
+    // Antes de qualquer coisa, inclusive de tocar na instância: quem pediu para
+    // não ser mais procurado não recebe disparo. A checagem é aqui no servidor
+    // e não só na interface porque a lista de contatos é montada no navegador e
+    // enviada contato a contato — uma campanha aberta antes do bloqueio, ou uma
+    // aba deixada aberta, continuaria disparando com a lista velha.
+    //
+    // 200 é o código certo, não erro: para o laço do frontend este contato foi
+    // resolvido e a campanha segue para o próximo. Um 500 aqui faria a interface
+    // mostrar falha de envio, que é diferente de "não devia enviar".
+    if (await telefoneBloqueado(supabase, phone)) {
+      console.log("[mass-dispatcher] contato bloqueado, envio pulado");
+      return new Response(JSON.stringify({ ok: true, pulado: "contato_bloqueado" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: instance, error } = await supabase
       .from("whatsapp_instances")

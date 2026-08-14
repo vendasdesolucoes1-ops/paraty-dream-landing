@@ -14,6 +14,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendWhatsAppText } from "./evolution-send.ts";
 import { carregarLead } from "./lead-record.ts";
+import { leadBloqueado } from "./contato-bloqueado.ts";
 
 // Extração é tarefa curta e mecânica — o modelo pequeno basta e mantém o custo
 // por lead qualificado irrelevante.
@@ -224,6 +225,18 @@ export async function handleLeadQualification(
   instance: InstanceRecord,
   openaiKey: string,
 ): Promise<void> {
+  // Quem pediu para não ser mais procurado sai daqui antes de tudo.
+  //
+  // Não é só sobre não notificar o vendedor (recusa vira ruído no WhatsApp
+  // dele). É que a promoção logo abaixo trata 'perdido' como começo de funil e
+  // puxa o lead de volta para 'qualificado' — ou seja, sem esta saída o card de
+  // quem acabou de mandar parar voltaria sozinho para o meio do funil, com
+  // resumo animado para o vendedor junto.
+  if (await leadBloqueado(supabase, lead.id)) {
+    console.log("[qualificação] lead bloqueou contato, pós-qualificação ignorada");
+    return;
+  }
+
   // A guarda de "já notifiquei" é o registro em interacoes, não o status_crm.
   //
   // Era `status_crm === 'novo'`, e isso quebrou quando o upsert do formulário

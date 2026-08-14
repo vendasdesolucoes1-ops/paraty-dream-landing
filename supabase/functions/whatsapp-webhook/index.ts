@@ -15,6 +15,7 @@ import {
   registrarEnvio,
 } from "../_shared/envio-registrado.ts";
 import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
+import { desbloquearContato } from "../_shared/contato-bloqueado.ts";
 import { handleVisitaAgendada as criarVisita } from "../_shared/lead-visita.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -204,6 +205,14 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   if (contact.lead_id !== lead.id) {
     await supabase.from("whatsapp_contacts").update({ lead_id: lead.id }).eq("id", contact.id);
   }
+
+  // A pessoa escreveu: o bloqueio de envio ATIVO cai. Foi ela quem procurou a
+  // gente, então responder não é insistir — insistir seria escrever primeiro.
+  //
+  // O histórico da recusa (sem_interesse_em, recusas_visita) NÃO é limpo: é ele
+  // que faz o blocoRecusaAnterior seguir proibindo o convite de visita nesta
+  // conversa. Voltar a conversar não é voltar a poder convidar.
+  await desbloquearContato(supabase, lead.id);
 
   // 5. Save incoming message
   await supabase.from("whatsapp_messages").insert({

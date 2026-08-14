@@ -15,6 +15,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
 import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 import { podeAbordar } from "../_shared/primeiro-contato.ts";
+import { leadBloqueado } from "../_shared/contato-bloqueado.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -173,6 +174,24 @@ Deno.serve(async (req) => {
 
     for (const m of mensagens) {
       try {
+        // Entre o enfileiramento e agora o lead pode ter pedido para parar.
+        // Este é o caso mais provável de todos: a mensagem foi enfileirada,
+        // demorou os minutos da fila, e nesse meio-tempo a conversa terminou em
+        // recusa. Sem esta checagem, a Sophia despede-se educadamente e volta a
+        // escrever cinco minutos depois.
+        if (await leadBloqueado(supabase, m.lead_id)) {
+          await supabase
+            .from("mensagens_agendadas")
+            .update({
+              status: "cancelado",
+              erro: "lead pediu para não ser mais procurado",
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("id", m.id);
+          canceladas++;
+          continue;
+        }
+
         // Entre o enfileiramento e agora o lead pode ter escrito primeiro — e
         // aí a conversa já está acontecendo. Abordar agora atropelaria.
         if (!(await podeAbordar(supabase, m.lead_id))) {
