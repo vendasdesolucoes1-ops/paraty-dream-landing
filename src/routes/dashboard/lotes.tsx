@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -30,8 +30,16 @@ import { LoteFormDialog } from "@/components/dashboard/lote-form-dialog";
 import { LotePlantaViewer } from "@/components/dashboard/lote-planta-viewer";
 import type { Lote, LoteStatus, LoteTipo } from "@/lib/types";
 
+// three.js + @react-three/fiber pesam ~1MB — carregado só quando o usuário de
+// fato abre a aba 3D, não em toda visita à página de Lotes (Tabela/Planta).
+const Loteamento3DView = lazy(() =>
+  import("@/components/loteamento-3d/Loteamento3DView").then((m) => ({
+    default: m.Loteamento3DView,
+  })),
+);
+
 const VIEW_STORAGE_KEY = "lotes-view";
-type LotesView = "tabela" | "planta";
+type LotesView = "tabela" | "planta" | "3d";
 
 export const Route = createFileRoute("/dashboard/lotes")({
   head: () => ({ meta: [{ title: "Lotes — Moradas de Paraty" }] }),
@@ -85,7 +93,7 @@ function LotesPage() {
   const [view, setView] = useState<LotesView>(() => {
     if (typeof window === "undefined") return "tabela";
     const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-    return stored === "planta" ? "planta" : "tabela";
+    return stored === "planta" || stored === "3d" ? stored : "tabela";
   });
 
   useEffect(() => {
@@ -216,6 +224,9 @@ function LotesPage() {
               </ToggleGroupItem>
               <ToggleGroupItem value="planta" aria-label="Visualização em planta">
                 Planta
+              </ToggleGroupItem>
+              <ToggleGroupItem value="3d" aria-label="Visualização em 3D">
+                3D
               </ToggleGroupItem>
             </ToggleGroup>
             <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
@@ -361,6 +372,16 @@ function LotesPage() {
 
         {view === "planta" ? (
           <LotePlantaViewer lotes={filtered} onSelectLote={setEditingLote} />
+        ) : view === "3d" ? (
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm h-[50vh]">
+                Carregando visualização 3D…
+              </div>
+            }
+          >
+            <Loteamento3DView lotes={filtered} onSelectLote={setEditingLote} />
+          </Suspense>
         ) : (
           <>
             <div className="rounded-lg border bg-card overflow-x-auto">
