@@ -63,8 +63,8 @@ export function BeforeAfterSlider({
         className="absolute inset-y-0 w-0.5 bg-ivory shadow-[0_0_12px_rgba(0,0,0,0.45)] pointer-events-none"
         style={{ left: `${position}%` }}
       >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-ivory/95 shadow-md flex items-center justify-center">
-          <span className="text-forest-deep text-xs font-medium tracking-tight">⇔</span>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-ivory/95 shadow-md flex items-center justify-center">
+          <span className="text-forest-deep text-sm font-medium tracking-tight">⇔</span>
         </div>
       </div>
 
