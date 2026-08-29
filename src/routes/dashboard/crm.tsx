@@ -18,6 +18,7 @@ import { LeadCard } from "@/components/dashboard/lead-card";
 import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
 import { LeadDetailDrawer } from "@/components/dashboard/lead-detail-drawer";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/crm")({
@@ -240,24 +241,24 @@ function CrmPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="eyebrow text-muted-foreground">Relacionamento</p>
-          <h1 className="text-3xl font-display text-primary">CRM</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {totalTestes > 0 ? (
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-              <Checkbox
-                checked={mostrarTestes}
-                onCheckedChange={(v: boolean | "indeterminate") => setMostrarTestes(v === true)}
-              />
-              Mostrar leads de teste ({totalTestes})
-            </label>
-          ) : null}
-          <LeadFormDialog />
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Relacionamento"
+        title="CRM"
+        action={
+          <>
+            {totalTestes > 0 ? (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  checked={mostrarTestes}
+                  onCheckedChange={(v: boolean | "indeterminate") => setMostrarTestes(v === true)}
+                />
+                Mostrar leads de teste ({totalTestes})
+              </label>
+            ) : null}
+            <LeadFormDialog />
+          </>
+        }
+      />
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando leads...</p>

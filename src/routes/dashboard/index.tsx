@@ -19,6 +19,7 @@ import { Users, UserPlus, Map, Headset } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { LEAD_STATUS_COLUMNS, LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -163,10 +164,11 @@ function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-display text-primary">Bem-vindo ao Moradas de Paraty</h1>
-        <p className="text-muted-foreground capitalize">{hoje}</p>
-      </div>
+      <PageHeader
+        eyebrow="Visão geral"
+        title="Bem-vindo ao Moradas de Paraty"
+        description={<span className="capitalize">{hoje}</span>}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {metricCards.map(({ label, value, icon: Icon }) => (

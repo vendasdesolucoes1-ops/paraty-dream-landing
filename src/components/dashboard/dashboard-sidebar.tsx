@@ -27,26 +27,40 @@ import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
-  // Carteira de comprador: pós-venda é responsabilidade de admin/gestor.
-  { to: "/dashboard/clientes", label: "Clientes", icon: UserCheck, hideFor: ["vendedor"] },
-  { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
-  { to: "/dashboard/lotes", label: "Lotes", icon: Map },
+// Agrupado por área de trabalho — antes era uma lista plana de 9 itens sem
+// nenhuma hierarquia visual, o que obrigava a ler item por item pra achar
+// algo. Os grupos espelham o fluxo real: vender, depois operar, depois
+// configurar o sistema em si.
+const NAV_GROUPS = [
   {
-    to: "/dashboard/documentos",
-    label: "Documentos",
-    icon: FileText,
-    hideFor: ["vendedor"],
+    label: "Vendas",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
+      // Carteira de comprador: pós-venda é responsabilidade de admin/gestor.
+      { to: "/dashboard/clientes", label: "Clientes", icon: UserCheck, hideFor: ["vendedor"] },
+      { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
+      { to: "/dashboard/lotes", label: "Lotes", icon: Map },
+    ],
   },
-  { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench, hideFor: ["vendedor"] },
-  { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone, hideFor: ["vendedor"] },
   {
-    to: "/dashboard/configuracoes",
-    label: "Configurações",
-    icon: Settings,
-    hideFor: ["gestor", "vendedor"],
+    label: "Operação",
+    items: [
+      { to: "/dashboard/documentos", label: "Documentos", icon: FileText, hideFor: ["vendedor"] },
+      { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench, hideFor: ["vendedor"] },
+      { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone, hideFor: ["vendedor"] },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      {
+        to: "/dashboard/configuracoes",
+        label: "Configurações",
+        icon: Settings,
+        hideFor: ["gestor", "vendedor"],
+      },
+    ],
   },
 ] as const;
 
@@ -61,10 +75,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     navigate({ to: "/login" });
   }
 
-  const navItems = NAV_ITEMS.filter((item) => {
-    if (!("hideFor" in item) || !profile) return true;
-    return !(item.hideFor as readonly string[]).includes(profile.role);
-  });
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      if (!("hideFor" in item) || !profile) return true;
+      return !(item.hideFor as readonly string[]).includes(profile.role);
+    }),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="flex flex-col h-full bg-forest-deep text-ivory">
@@ -80,28 +97,35 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Logo variante="compacto" className="mx-auto h-24 w-auto [&_text]:fill-ivory" />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.to === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.to);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
-                isActive
-                  ? "bg-gold text-forest-deep font-medium"
-                  : "text-ivory/80 hover:bg-ivory/10 hover:text-ivory",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        {navGroups.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="px-3 text-[0.65rem] font-medium tracking-[0.18em] uppercase text-ivory/40">
+              {group.label}
+            </p>
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                item.to === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-gold text-forest-deep font-medium"
+                      : "text-ivory/80 hover:bg-ivory/10 hover:text-ivory",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="px-3 py-6 border-t border-ivory/10 space-y-1">

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { HousePlot } from "@/lib/loteamento-3d/houses";
 import { G, mat, rng } from "@/lib/loteamento-3d/three-assets";
+import { roofTexture } from "@/lib/loteamento-3d/procedural-textures";
 import { Car, ContactShadow, HOUSE_EXTRA_M, P } from "@/components/loteamento-3d/Props3D";
 
 const WALL_COLORS = ["#f3ece1", "#e9e2d4", "#f6f1ea", "#ded6c8", "#eae4dd", "#f0e6d8"];
@@ -25,6 +26,19 @@ const M = {
   fence: mat("#e6e1d8", { roughness: 0.9 }),
   deck: mat("#a5794c", { roughness: 0.9 }),
 };
+
+// `document` só existe no cliente — os materiais acima são módulo-level e
+// evolutivamente compartilhados por todas as casas, então a textura entra
+// uma única vez aqui em vez de em cada instância. O componente inteiro só
+// chega a renderizar dentro do <ClientOnly> em Loteamento3DView, mas o
+// guard evita qualquer risco de o módulo ser avaliado durante o SSR.
+if (typeof document !== "undefined") {
+  const roofMap = roofTexture(2.2);
+  for (const roofMat of M.roof) {
+    roofMat.map = roofMap;
+    roofMat.needsUpdate = true;
+  }
+}
 
 /** casa simplificada usada à distância (2 meshes) */
 export function HouseLOD({ plot }: { plot: HousePlot }) {

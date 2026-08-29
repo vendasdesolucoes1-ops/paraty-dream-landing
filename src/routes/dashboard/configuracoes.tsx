@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WhatsappInstance } from "@/lib/types";
 import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-card";
@@ -11,6 +11,8 @@ import { TeamPanel } from "@/components/dashboard/team-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/configuracoes")({
@@ -57,9 +59,11 @@ function ConfiguracoesPage() {
           <Skeleton className="h-72 w-full rounded-xl" />
         ) : !instances || instances.length === 0 ? (
           !formOpen ? (
-            <p className="text-sm text-muted-foreground border rounded-lg p-6 text-center">
-              Nenhuma instância configurada. Clique em "Nova Instância" para conectar seu WhatsApp.
-            </p>
+            <EmptyState
+              icon={MessageSquare}
+              title="Nenhuma instância configurada"
+              description='Clique em "Nova Instância" para conectar seu WhatsApp.'
+            />
           ) : null
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
@@ -81,15 +85,12 @@ function ConfiguracoesPage() {
   );
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="eyebrow text-muted-foreground">Sistema</p>
-        <h1 className="text-3xl font-display text-primary">Configurações</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no
-          CRM.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Sistema"
+        title="Configurações"
+        description="Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no CRM."
+      />
 
       {isAdmin ? (
         <Tabs defaultValue="whatsapp">

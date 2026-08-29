@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { G, mat, rng } from "@/lib/loteamento-3d/three-assets";
 import { P } from "@/components/loteamento-3d/Props3D";
@@ -72,10 +72,100 @@ function Mountains() {
 }
 
 /* ============ mata nativa no entorno ============ */
+interface ForestTree {
+  x: number;
+  z: number;
+  s: number;
+  m: THREE.Material;
+  tall: boolean;
+}
+
+/**
+ * A mata tinha 620 × 2 = 1240 meshes individuais (um par tronco+copa por
+ * árvore) — pesado sem necessidade, já que são todas geometria/material
+ * repetidos. InstancedMesh desenha o mesmo par de malhas em 1 draw call por
+ * combinação (tronco baixo/alto × copa baixa/alta/3 cores), caindo pra 8
+ * draw calls no total em vez de 1240.
+ */
+function TreeTrunks({ trees, tall }: { trees: ForestTree[]; tall: boolean }) {
+  const list = useMemo(() => trees.filter((t) => t.tall === tall), [trees, tall]);
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const local = new THREE.Matrix4().compose(
+      new THREE.Vector3(0, tall ? 5 : 2.2, 0),
+      new THREE.Quaternion(),
+      new THREE.Vector3(0.5, tall ? 10 : 4.4, 0.5),
+    );
+    const group = new THREE.Matrix4();
+    const world = new THREE.Matrix4();
+    list.forEach((t, i) => {
+      group.compose(
+        new THREE.Vector3(t.x, 0, t.z),
+        new THREE.Quaternion(),
+        new THREE.Vector3(t.s, t.s, t.s),
+      );
+      world.multiplyMatrices(group, local);
+      mesh.setMatrixAt(i, world);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [list, tall]);
+
+  if (list.length === 0) return null;
+  return <instancedMesh ref={ref} args={[G.cyl8, S.trunk, list.length]} castShadow />;
+}
+
+function TreeCanopies({
+  trees,
+  tall,
+  material,
+}: {
+  trees: ForestTree[];
+  tall: boolean;
+  material: THREE.Material;
+}) {
+  const list = useMemo(
+    () => trees.filter((t) => t.tall === tall && t.m === material),
+    [trees, tall, material],
+  );
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const local = new THREE.Matrix4().compose(
+      new THREE.Vector3(0, tall ? 11.5 : 5.6, 0),
+      new THREE.Quaternion(),
+      tall ? new THREE.Vector3(5, 4, 5) : new THREE.Vector3(6.4, 5.2, 6.4),
+    );
+    const group = new THREE.Matrix4();
+    const world = new THREE.Matrix4();
+    list.forEach((t, i) => {
+      group.compose(
+        new THREE.Vector3(t.x, 0, t.z),
+        new THREE.Quaternion(),
+        new THREE.Vector3(t.s, t.s, t.s),
+      );
+      world.multiplyMatrices(group, local);
+      mesh.setMatrixAt(i, world);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [list, tall, material]);
+
+  if (list.length === 0) return null;
+  return (
+    <instancedMesh ref={ref} args={[G.blob, material, list.length]} castShadow receiveShadow />
+  );
+}
+
 function Forest() {
   const trees = useMemo(() => {
     const rand = rng(4242);
-    const out: { p: [number, number, number]; s: number; m: THREE.Material; tall: boolean }[] = [];
+    const out: ForestTree[] = [];
     const pad = 40;
     for (let i = 0; i < 620; i++) {
       // anel ao redor do loteamento
@@ -98,7 +188,8 @@ function Forest() {
       }
       const s = 0.9 + rand() * 1.5;
       out.push({
-        p: [x, 0, z],
+        x,
+        z,
         s,
         m: rand() < 0.4 ? S.forestDark : rand() < 0.6 ? S.forest2 : S.forest,
         tall: rand() < 0.25,
@@ -109,20 +200,12 @@ function Forest() {
 
   return (
     <group>
-      {trees.map((t, i) => (
-        <group key={i} position={t.p} scale={t.s}>
-          <mesh
-            geometry={G.cyl8}
-            material={S.trunk}
-            position={[0, t.tall ? 5 : 2.2, 0]}
-            scale={[0.5, t.tall ? 10 : 4.4, 0.5]}
-          />
-          <mesh
-            geometry={G.blob}
-            material={t.m}
-            position={[0, t.tall ? 11.5 : 5.6, 0]}
-            scale={t.tall ? [5, 4, 5] : [6.4, 5.2, 6.4]}
-          />
+      <TreeTrunks trees={trees} tall={false} />
+      <TreeTrunks trees={trees} tall={true} />
+      {[S.forestDark, S.forest2, S.forest].map((material) => (
+        <group key={material.uuid}>
+          <TreeCanopies trees={trees} tall={false} material={material} />
+          <TreeCanopies trees={trees} tall={true} material={material} />
         </group>
       ))}
     </group>

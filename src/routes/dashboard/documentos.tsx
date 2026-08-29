@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ChevronDown, Folder, Pencil, Plus, Upload } from "lucide-react";
+import { ChevronDown, FileText, Folder, Pencil, Plus, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-dialog";
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
@@ -202,23 +204,21 @@ function DocumentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow text-muted-foreground">Arquivos</p>
-          <h1 className="text-3xl font-display text-primary">Documentos</h1>
-          <p className="text-muted-foreground">
-            Documentos agrupados por processo — contratos, propostas e arquivos institucionais.
-          </p>
-        </div>
-        <DocumentoUploadDialog
-          trigger={
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Enviar Documento
-            </Button>
-          }
-        />
-      </div>
+      <PageHeader
+        eyebrow="Arquivos"
+        title="Documentos"
+        description="Documentos agrupados por processo — contratos, propostas e arquivos institucionais."
+        action={
+          <DocumentoUploadDialog
+            trigger={
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Enviar Documento
+              </Button>
+            }
+          />
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <Select
@@ -257,11 +257,11 @@ function DocumentosPage() {
       ) : isError ? (
         <p className="text-destructive">Erro ao carregar os documentos.</p>
       ) : groups.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center text-muted-foreground">
-            Nenhum documento encontrado.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={FileText}
+          title="Nenhum documento encontrado"
+          description="Envie um documento ou ajuste os filtros de busca."
+        />
       ) : (
         <div className="space-y-4">
           {groups.map((group) => (
@@ -291,7 +291,6 @@ function DocumentosPage() {
           if (!open) setEditingProcesso(null);
         }}
       />
-
 
       <DocumentoEditDialog
         documento={editingDocumento}

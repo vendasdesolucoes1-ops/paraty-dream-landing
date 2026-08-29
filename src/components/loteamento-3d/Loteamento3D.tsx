@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Billboard, Html } from "@react-three/drei";
+import { OrbitControls, Billboard, Html, Sky } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LoteStatus } from "@/lib/types";
@@ -23,6 +23,11 @@ import {
   type LayoutLot,
   type Rect,
 } from "@/lib/loteamento-3d/loteamento";
+import {
+  asphaltTexture,
+  grassTexture,
+  noiseRoughnessTexture,
+} from "@/lib/loteamento-3d/procedural-textures";
 
 /** rótulos em HTML — troika criaria um 2º contexto WebGL e derrubaria a cena */
 function Text({
@@ -115,6 +120,7 @@ function LotMesh({
       <group ref={groupRef}>
         <mesh
           position={[0, height / 2, 0]}
+          receiveShadow
           onClick={(e) => {
             e.stopPropagation();
             onSelect(lot);
@@ -156,19 +162,30 @@ function LotMesh({
   );
 }
 
-function FlatRect({ rect, color, y = 0.02 }: { rect: Rect; color: string; y?: number }) {
+function FlatRect({
+  rect,
+  color,
+  y = 0.02,
+  map,
+}: {
+  rect: Rect;
+  color: string;
+  y?: number;
+  map?: THREE.Texture;
+}) {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[rect.x + rect.width / 2, y, rect.z + rect.depth / 2]}
+      receiveShadow
     >
       <planeGeometry args={[rect.width, rect.depth]} />
-      <meshStandardMaterial color={color} roughness={1} />
+      <meshStandardMaterial color={color} roughness={1} map={map} />
     </mesh>
   );
 }
 
-function Street({ rect }: { rect: Rect }) {
+function Street({ rect, asphaltMap }: { rect: Rect; asphaltMap?: THREE.Texture }) {
   const horizontal = rect.width >= rect.depth;
   const length = horizontal ? rect.width : rect.depth;
   const dashes = useMemo(() => {
@@ -179,7 +196,7 @@ function Street({ rect }: { rect: Rect }) {
 
   return (
     <group>
-      <FlatRect rect={rect} color={COLORS.street} y={0.04} />
+      <FlatRect rect={rect} color={COLORS.street} y={0.04} map={asphaltMap} />
       {/* meio-fio dos dois lados */}
       {[-1, 1].map((sg) => (
         <mesh
@@ -314,10 +331,10 @@ function mulberry32(seed: number) {
 function Tree({ x, z, scale }: { x: number; z: number; scale: number }) {
   return (
     <group position={[x, 0, z]} scale={scale}>
-      <mesh geometry={G.cyl8} position={[0, 1.1, 0]} scale={[0.55, 2.2, 0.55]}>
+      <mesh geometry={G.cyl8} position={[0, 1.1, 0]} scale={[0.55, 2.2, 0.55]} castShadow>
         <meshStandardMaterial color={COLORS.trunk} roughness={1} />
       </mesh>
-      <mesh geometry={G.blob} position={[0, 3.1, 0]} scale={3.4}>
+      <mesh geometry={G.blob} position={[0, 3.1, 0]} scale={3.4} castShadow receiveShadow>
         <meshStandardMaterial color={COLORS.canopy} roughness={0.95} />
       </mesh>
     </group>
@@ -379,6 +396,8 @@ function Institutional() {
         geometry={G.soft}
         position={[r.x + r.width / 2, 2.2, r.z + r.depth / 2]}
         scale={[r.width * 0.45, 4.4, r.depth * 0.4]}
+        castShadow
+        receiveShadow
       >
         <meshStandardMaterial color="#e7e2d5" roughness={0.8} />
       </mesh>
@@ -386,6 +405,7 @@ function Institutional() {
         geometry={G.soft}
         position={[r.x + r.width / 2, 5.3, r.z + r.depth / 2]}
         scale={[r.width * 0.5, 1.4, r.depth * 0.45]}
+        castShadow
       >
         <meshStandardMaterial color="#b0492f" roughness={0.9} />
       </mesh>
@@ -410,11 +430,18 @@ function Entrance() {
   return (
     <group>
       {[-8, 8].map((dx) => (
-        <mesh key={dx} geometry={G.soft} position={[cx + dx, 2.4, z]} scale={[1.6, 4.8, 1.6]}>
+        <mesh
+          key={dx}
+          geometry={G.soft}
+          position={[cx + dx, 2.4, z]}
+          scale={[1.6, 4.8, 1.6]}
+          castShadow
+          receiveShadow
+        >
           <meshStandardMaterial color="#e7e2d5" roughness={0.8} />
         </mesh>
       ))}
-      <mesh geometry={G.soft} position={[cx, 5.1, z]} scale={[19, 1.2, 1.8]}>
+      <mesh geometry={G.soft} position={[cx, 5.1, z]} scale={[19, 1.2, 1.8]} castShadow>
         <meshStandardMaterial color="#e7e2d5" roughness={0.8} />
       </mesh>
       <TrafficSign position={[cx + 14, 0, z - 3]} kind="speed" />
@@ -593,6 +620,19 @@ export function Loteamento3D({
     [],
   );
 
+  // Direção do sol reaproveitada pelo céu (Sky) e pela luz direcional
+  // principal, pra o disco solar do céu bater com de onde vem a sombra.
+  const sunDir = useMemo(() => new THREE.Vector3(220, 260, 60).normalize(), []);
+  const sunPos = useMemo(() => center.clone().addScaledVector(sunDir, 420), [center, sunDir]);
+  // Alvo da luz: sem isso a directional light mira a origem do mundo
+  // (0,0,0), que fica fora do loteamento (centrado em ~[150,0,166]) — a
+  // sombra saía toda desalinhada do frustum configurado abaixo.
+  const sunTarget = useMemo(() => new THREE.Object3D(), []);
+
+  const grassMap = useMemo(() => grassTexture(), []);
+  const roughMap = useMemo(() => noiseRoughnessTexture(), []);
+  const asphaltMap = useMemo(() => asphaltTexture(), []);
+
   const quadraPlates = useMemo(() => {
     const byQuadra = new Map<number, LotView[]>();
     for (const l of lots) {
@@ -616,6 +656,7 @@ export function Loteamento3D({
 
   return (
     <Canvas
+      shadows="soft"
       dpr={[1, 2]}
       gl={{
         antialias: true,
@@ -631,15 +672,42 @@ export function Loteamento3D({
       }}
       style={{ background: "linear-gradient(to bottom, #2f7fd0 0%, #6fb3e6 45%, #cfe6f3 100%)" }}
     >
+      <Sky
+        sunPosition={[sunDir.x * 1000, sunDir.y * 1000, sunDir.z * 1000]}
+        turbidity={3}
+        rayleigh={1.1}
+        mieCoefficient={0.006}
+        mieDirectionalG={0.86}
+      />
       <fog attach="fog" args={["#bcd8ea", 700, 2600]} />
       <hemisphereLight args={["#cfe6f5", "#6d8a5a", 0.85]} />
       <ambientLight intensity={0.25} />
-      <directionalLight position={[220, 260, 60]} intensity={1.35} color="#fff3df" />
+      <primitive object={sunTarget} position={[center.x, 0, center.z]} />
+      <directionalLight
+        position={[sunPos.x, sunPos.y, sunPos.z]}
+        target={sunTarget}
+        intensity={1.35}
+        color="#fff3df"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-260}
+        shadow-camera-right={260}
+        shadow-camera-top={260}
+        shadow-camera-bottom={-260}
+        shadow-camera-near={100}
+        shadow-camera-far={900}
+        shadow-normalBias={0.5}
+      />
       <directionalLight position={[-160, 180, -120]} intensity={0.4} color="#cfe0ff" />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0, center.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0, center.z]} receiveShadow>
         <planeGeometry args={[4000, 4000]} />
-        <meshStandardMaterial color={COLORS.grass} roughness={1} />
+        <meshStandardMaterial
+          color="#ffffff"
+          map={grassMap}
+          roughnessMap={roughMap}
+          roughness={1}
+        />
       </mesh>
 
       {quadraPlates.map((r, i) => (
@@ -647,7 +715,7 @@ export function Loteamento3D({
       ))}
 
       {STREETS.map((s, i) => (
-        <Street key={i} rect={s} />
+        <Street key={i} rect={s} asphaltMap={asphaltMap} />
       ))}
 
       <StreetFurniture />

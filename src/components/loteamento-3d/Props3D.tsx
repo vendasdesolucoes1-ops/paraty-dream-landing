@@ -1,21 +1,39 @@
 import * as THREE from "three";
 import { CAR_M, G, PROP_M, mat } from "@/lib/loteamento-3d/three-assets";
 
-/** mesh utilitário com geometria/material compartilhados */
+/**
+ * Mesh utilitário com geometria/material compartilhados. Lança e recebe
+ * sombra por padrão — é o bloco de construção de quase toda a cena (casas,
+ * mobiliário urbano, praça), então ligar aqui é o jeito mais barato de dar
+ * sombra real pra cena inteira de uma vez. `shadow={false}` desliga nos
+ * poucos casos em que não vale o custo (vidros finos, detalhes minúsculos).
+ */
 export function P({
   p,
   s,
   m,
   r,
   g = G.soft,
+  shadow = true,
 }: {
   p: [number, number, number];
   s: [number, number, number];
   m: THREE.Material;
   r?: [number, number, number];
   g?: THREE.BufferGeometry;
+  shadow?: boolean;
 }) {
-  return <mesh geometry={g} material={m} position={p} scale={s} rotation={r} />;
+  return (
+    <mesh
+      geometry={g}
+      material={m}
+      position={p}
+      scale={s}
+      rotation={r}
+      castShadow={shadow}
+      receiveShadow={shadow}
+    />
+  );
 }
 
 /** sombra de contato falsa (barata) */

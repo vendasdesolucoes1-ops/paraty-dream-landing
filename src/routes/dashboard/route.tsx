@@ -3,7 +3,6 @@ import { supabase } from "@/lib/supabase";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
-import { DashboardThemeToggle } from "@/components/dashboard/dashboard-theme-toggle";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -35,9 +34,6 @@ function DashboardLayout() {
       <div className="h-screen flex overflow-hidden bg-muted/30">
         <DashboardSidebar />
         <main className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8">
-          <div className="hidden md:flex justify-end mb-4">
-            <DashboardThemeToggle />
-          </div>
           <Outlet />
         </main>
         <Toaster />
