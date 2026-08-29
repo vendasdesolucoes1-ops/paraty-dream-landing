@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Search, UserCheck } from "lucide-react";
+import { Lock, Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/use-profile";
 import type { Cliente } from "@/lib/types";
@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClienteFichaSheet } from "@/components/clientes/cliente-ficha-sheet";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export const Route = createFileRoute("/dashboard/clientes")({
   head: () => ({ meta: [{ title: "Clientes — Moradas de Paraty" }] }),
@@ -56,23 +58,21 @@ function ClientesPage() {
   // sequer ver o item no menu.
   if (profile && !podeVer) {
     return (
-      <Card>
-        <CardContent className="p-10 text-center text-muted-foreground">
-          Esta área é restrita a administradores e gestores.
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={Lock}
+        title="Acesso restrito"
+        description="Esta área é restrita a administradores e gestores."
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow text-muted-foreground">Pós-venda</p>
-        <h1 className="text-3xl font-display text-primary">Clientes</h1>
-        <p className="text-muted-foreground">
-          Compradores, seus lotes e a documentação de cada contrato.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Pós-venda"
+        title="Clientes"
+        description="Compradores, seus lotes e a documentação de cada contrato."
+      />
 
       <div className="relative w-full sm:w-80">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -93,13 +93,15 @@ function ClientesPage() {
       ) : isError ? (
         <p className="text-destructive">Erro ao carregar os clientes.</p>
       ) : (clientes ?? []).length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center text-muted-foreground">
-            {search.trim()
-              ? "Nenhum cliente encontrado para esta busca."
-              : "Nenhum cliente ainda. Converta um lead em cliente pelo CRM."}
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={UserCheck}
+          title={search.trim() ? "Nenhum cliente encontrado" : "Nenhum cliente ainda"}
+          description={
+            search.trim()
+              ? "Ajuste os termos da busca e tente novamente."
+              : "Converta um lead em cliente pelo CRM."
+          }
+        />
       ) : (
         <div className="space-y-3">
           {(clientes ?? []).map((cliente) => {

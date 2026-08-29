@@ -6,6 +6,7 @@ import { AcervoPanel } from "@/components/marketing/acervo-panel";
 import { InstagramSettingsCard } from "@/components/marketing/instagram-settings-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleGuard } from "@/components/dashboard/role-guard";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export const Route = createFileRoute("/dashboard/marketing")({
   head: () => ({
@@ -32,12 +33,11 @@ function MarketingPage() {
   return (
     <RoleGuard allow={["admin", "gestor"]}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-display text-primary">Marketing</h1>
-          <p className="text-muted-foreground">
-            Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty
-          </p>
-        </div>
+        <PageHeader
+          eyebrow="Operação"
+          title="Marketing"
+          description="Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty"
+        />
 
         <Tabs defaultValue="criar" className="space-y-6">
           <TabsList>

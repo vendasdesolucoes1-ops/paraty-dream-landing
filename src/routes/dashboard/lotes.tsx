@@ -28,6 +28,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LoteStatusEditableBadge } from "@/components/dashboard/status-badge";
 import { LoteFormDialog } from "@/components/dashboard/lote-form-dialog";
 import { LotePlantaViewer } from "@/components/dashboard/lote-planta-viewer";
+import { PageHeader } from "@/components/dashboard/page-header";
 import type { Lote, LoteStatus, LoteTipo } from "@/lib/types";
 
 // three.js + @react-three/fiber pesam ~1MB — carregado só quando o usuário de
@@ -104,7 +105,6 @@ function LotesPage() {
     data: lotes,
     isLoading,
     isError,
-    error: lotesError,
   } = useQuery({
     queryKey: ["lotes", quadraFilter, statusFilter, tipoFilter, metragemFilter, search],
     queryFn: async () => {
@@ -206,38 +206,31 @@ function LotesPage() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display text-primary">Lotes</h1>
-            <p className="text-muted-foreground">
-              Gestão do estoque de lotes — Loteamento Residencial Sophia Saíde
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ToggleGroup
-              type="single"
-              value={view}
-              onValueChange={(v) => v && setView(v as LotesView)}
-            >
-              <ToggleGroupItem value="tabela" aria-label="Visualização em tabela">
-                Tabela
-              </ToggleGroupItem>
-              <ToggleGroupItem value="planta" aria-label="Visualização em planta">
-                Planta
-              </ToggleGroupItem>
-              <ToggleGroupItem value="3d" aria-label="Visualização em 3D">
-                3D
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
-          </div>
-        </div>
-
-        {/* TEMPORARY DEBUG — remove once the "Nenhum lote encontrado" investigation is closed */}
-        <p className="text-xs text-muted-foreground">
-          debug: {lotesError instanceof Error ? `erro: ${lotesError.message}` : "sem erro"} ·{" "}
-          {lotes ? `${lotes.length} lote(s) retornados` : "carregando..."}
-        </p>
+        <PageHeader
+          eyebrow="Loteamento"
+          title="Lotes"
+          description="Gestão do estoque de lotes — Loteamento Residencial Sophia Saíde"
+          action={
+            <>
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={(v) => v && setView(v as LotesView)}
+              >
+                <ToggleGroupItem value="tabela" aria-label="Visualização em tabela">
+                  Tabela
+                </ToggleGroupItem>
+                <ToggleGroupItem value="planta" aria-label="Visualização em planta">
+                  Planta
+                </ToggleGroupItem>
+                <ToggleGroupItem value="3d" aria-label="Visualização em 3D">
+                  3D
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <LoteFormDialog trigger={<Button>+ Novo Lote</Button>} />
+            </>
+          }
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-sm">

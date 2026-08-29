@@ -5,7 +5,7 @@ import { CalendarDays, CalendarRange, List, Plus, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
 import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
+import { PageHeader } from "@/components/dashboard/page-header";
 import type { VisitaWithRelations } from "@/lib/types";
 import { useProfile } from "@/hooks/use-profile";
 
@@ -157,20 +158,21 @@ function AgendaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-display text-primary">Agenda</h1>
-          <p className="text-muted-foreground">Visitas agendadas e histórico de atendimentos.</p>
-        </div>
-        <VisitaFormDialog
-          trigger={
-            <Button className="transition-transform duration-200 hover:scale-[1.02]">
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Visita
-            </Button>
-          }
-        />
-      </div>
+      <PageHeader
+        eyebrow="Relacionamento"
+        title="Agenda"
+        description="Visitas agendadas e histórico de atendimentos."
+        action={
+          <VisitaFormDialog
+            trigger={
+              <Button className="transition-transform duration-200 hover:scale-[1.02]">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Visita
+              </Button>
+            }
+          />
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -241,11 +243,11 @@ function AgendaPage() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : groups.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center text-muted-foreground">
-            Nenhuma visita encontrada para o período selecionado.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={CalendarDays}
+          title="Nenhuma visita encontrada"
+          description="Ajuste o período ou agende uma nova visita."
+        />
       ) : (
         <div className="space-y-8">
           {groups.map((group) => (
