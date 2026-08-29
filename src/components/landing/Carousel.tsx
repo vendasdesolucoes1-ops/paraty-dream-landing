@@ -21,6 +21,14 @@ export function Carousel({
   maxCaptionWidth = "34rem",
 }: Props) {
   const [index, setIndex] = useState(0);
+  // Quem pede menos movimento não recebe avanço automático — só troca de
+  // foto por gesto explícito (setas ou bolinhas).
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [paused, setPaused] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stop = () => {
@@ -31,6 +39,7 @@ export function Carousel({
   };
   const start = () => {
     stop();
+    if (reducedMotion || paused) return;
     timer.current = setInterval(() => {
       setIndex((i) => (i + 1) % slides.length);
     }, intervalMs);
@@ -40,7 +49,7 @@ export function Carousel({
     start();
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides.length, intervalMs]);
+  }, [slides.length, intervalMs, paused]);
 
   const go = (i: number) => {
     setIndex(i);
@@ -86,17 +95,27 @@ export function Carousel({
       <button
         aria-label="Foto anterior"
         onClick={prev}
-        className="absolute top-1/2 left-4 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-[oklch(0.18_0.02_150/0.4)] hover:bg-[oklch(0.18_0.02_150/0.7)] text-ivory border border-ivory/45 hover:border-ivory/85 rounded-full backdrop-blur cursor-pointer text-lg transition-all hover:scale-110"
+        className="absolute top-1/2 left-4 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-[oklch(0.18_0.02_150/0.4)] hover:bg-[oklch(0.18_0.02_150/0.7)] text-ivory border border-ivory/45 hover:border-ivory/85 rounded-full backdrop-blur cursor-pointer text-lg transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
       >
         ‹
       </button>
       <button
         aria-label="Próxima foto"
         onClick={next}
-        className="absolute top-1/2 right-4 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-[oklch(0.18_0.02_150/0.4)] hover:bg-[oklch(0.18_0.02_150/0.7)] text-ivory border border-ivory/45 hover:border-ivory/85 rounded-full backdrop-blur cursor-pointer text-lg transition-all hover:scale-110"
+        className="absolute top-1/2 right-4 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-[oklch(0.18_0.02_150/0.4)] hover:bg-[oklch(0.18_0.02_150/0.7)] text-ivory border border-ivory/45 hover:border-ivory/85 rounded-full backdrop-blur cursor-pointer text-lg transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
       >
         ›
       </button>
+
+      {!reducedMotion && (
+        <button
+          aria-label={paused ? "Retomar apresentação automática" : "Pausar apresentação automática"}
+          onClick={() => setPaused((p) => !p)}
+          className="absolute top-3 right-3 z-[2] w-8 h-8 flex items-center justify-center bg-[oklch(0.18_0.02_150/0.4)] hover:bg-[oklch(0.18_0.02_150/0.7)] text-ivory border border-ivory/45 hover:border-ivory/85 rounded-full backdrop-blur cursor-pointer text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        >
+          {paused ? "▶" : "❚❚"}
+        </button>
+      )}
 
       <div className="absolute left-0 right-0 bottom-4 flex gap-2 justify-center z-[2]">
         {slides.map((_, i) => (
@@ -104,7 +123,7 @@ export function Carousel({
             key={i}
             aria-label={`Ir para foto ${i + 1}`}
             onClick={() => go(i)}
-            className="h-2 rounded-full border-0 p-0 cursor-pointer transition-[width,background] duration-300"
+            className="h-2 rounded-full border-0 p-0 cursor-pointer transition-[width,background] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             style={{
               width: i === index ? "24px" : "8px",
               background: i === index ? "var(--sand)" : "oklch(0.975 0.008 85 / 0.5)",

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Lead {
@@ -187,38 +188,44 @@ export function LeadForm() {
           <label className={label} htmlFor="metragem">
             Metragem ideal
           </label>
-          <select
-            id="metragem"
-            required
-            value={lead.metragem}
-            onChange={(e) => update("metragem", e.target.value as Lead["metragem"])}
-            className={`${field} appearance-none cursor-pointer`}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
-            <option value="250m²">250 m²</option>
-            <option value="250-350m²">250 a 350 m²</option>
-            <option value="450m²">450 m²</option>
-          </select>
+          <div className="relative">
+            <select
+              id="metragem"
+              required
+              value={lead.metragem}
+              onChange={(e) => update("metragem", e.target.value as Lead["metragem"])}
+              className={`${field} appearance-none cursor-pointer pr-6`}
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              <option value="250m²">250 m²</option>
+              <option value="250-350m²">250 a 350 m²</option>
+              <option value="450m²">450 m²</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
         <div>
           <label className={label} htmlFor="tipo">
             Tipo de lote
           </label>
-          <select
-            id="tipo"
-            required
-            value={lead.tipo}
-            onChange={(e) => update("tipo", e.target.value as Lead["tipo"])}
-            className={`${field} appearance-none cursor-pointer`}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
-            <option value="Residencial">Residencial</option>
-            <option value="Comercial">Comercial</option>
-          </select>
+          <div className="relative">
+            <select
+              id="tipo"
+              required
+              value={lead.tipo}
+              onChange={(e) => update("tipo", e.target.value as Lead["tipo"])}
+              className={`${field} appearance-none cursor-pointer pr-6`}
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              <option value="Residencial">Residencial</option>
+              <option value="Comercial">Comercial</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
       </div>
 
@@ -226,7 +233,7 @@ export function LeadForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="group inline-flex items-center gap-3 bg-primary text-primary-foreground px-10 py-4 eyebrow hover:bg-foreground transition-colors w-full sm:w-auto justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+          className="group inline-flex items-center gap-3 bg-primary text-primary-foreground px-10 py-4 eyebrow hover:bg-foreground transition-colors w-full sm:w-auto justify-center disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           {submitting ? "Enviando..." : "Enviar"}
           {!submitting && (

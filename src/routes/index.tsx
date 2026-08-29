@@ -27,6 +27,7 @@ import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
 import { Banknote, PawPrint, PlugZap, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -240,7 +241,7 @@ function SemComplicacao() {
               <div className="mt-10 flex flex-wrap gap-4 items-center">
                 <a
                   href="#formulario"
-                  className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
+                  className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
                   Quero mais informações
                   <span className="transition-transform group-hover:translate-x-1">→</span>
@@ -276,21 +277,59 @@ function Landing() {
 }
 
 function Nav() {
+  // Depois do hero, o header vira uma camada de material translúcido (blur +
+  // fundo claro) com o CTA sempre à mão — sem isso, quem já passou da
+  // primeira dobra só reencontra um botão de contato lá embaixo, no
+  // formulário. O threshold usa a altura da viewport porque o hero é
+  // min-h-screen: câmbio acontece exatamente quando ele sai de cena.
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.7);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="fixed top-0 inset-x-0 z-40">
-      <div className="container-x flex items-center justify-between py-5">
+    <header
+      className={`fixed top-0 inset-x-0 z-40 transition-colors duration-300 motion-reduce:transition-none ${
+        scrolled
+          ? "bg-ivory/85 backdrop-blur-md border-b border-border/60 shadow-[0_1px_0_rgba(0,0,0,0.03)]"
+          : ""
+      }`}
+    >
+      <div className="container-x flex items-center justify-between py-4">
         <a href="#top" className="flex items-center leading-none">
           {/* Sem placa: o logo fica direto sobre a foto do hero. O wordmark
               navy do arquivo desapareceria contra a imagem escura, então vira
               ivory por CSS — mesma solução da sidebar, com drop-shadow para
-              segurar a leitura sobre trechos claros da foto. */}
-          <Logo variante="completo" className="h-16 w-auto [&_text]:fill-ivory drop-shadow-md" />
+              segurar a leitura sobre trechos claros da foto. Depois que o
+              header ganha fundo claro, o logo volta à cor original (navy). */}
+          <Logo
+            variante="completo"
+            className={`h-14 w-auto transition-all duration-300 motion-reduce:transition-none ${
+              scrolled ? "" : "[&_text]:fill-ivory drop-shadow-md"
+            }`}
+          />
         </a>
         {/* "Entrar no sistema" ocultado a pedido: é o acesso do CRM interno, e
             não tem função para quem visita a landing atrás de informação sobre
             o loteamento — só distraía e convidava clique de curioso. O Link
             continua importado porque outras partes do arquivo podem usá-lo;
             se não usarem mais, o lint acusa e aí sim removemos o import. */}
+        <a
+          href="#formulario"
+          aria-hidden={!scrolled}
+          tabIndex={scrolled ? 0 : -1}
+          className={`eyebrow inline-flex items-center gap-2 px-5 py-2.5 rounded-[3px] bg-primary text-primary-foreground hover:bg-forest transition-all duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+            scrolled
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 -translate-y-1 pointer-events-none"
+          }`}
+        >
+          Quero mais informações
+        </a>
       </div>
     </header>
   );
@@ -302,7 +341,11 @@ function Hero() {
       <div className="absolute inset-0">
         <img
           src={heroImg}
-          alt="Vista aérea do loteamento Moradas de Paraty entre a Serra do Mar e a Mata Atlântica"
+          // Imagem aspiracional (o estilo de vida que o lote permite construir),
+          // não uma foto real do empreendimento — por isso o alt descreve uma
+          // "ilustração", não afirma ser foto do loteamento. A vista aérea real
+          // da obra aparece na faixa seguinte, com o BeforeAfterSlider.
+          alt="Ilustração de uma casa contemporânea cercada de natureza, o estilo de vida possível no Moradas de Paraty"
           className="w-full h-full object-cover"
           width={1920}
           height={1280}
@@ -337,7 +380,7 @@ function Hero() {
           <div className="mt-10 flex flex-wrap gap-4 items-center">
             <a
               href="#formulario"
-              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
+              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
             >
               Quero mais informações
               <span className="transition-transform group-hover:translate-x-1">→</span>

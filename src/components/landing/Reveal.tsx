@@ -13,6 +13,9 @@ export function Reveal({ children, delay = 0, className = "" }: RevealProps) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // rootMargin estende a área de detecção 15% para baixo: a revelação
+    // dispara um pouco antes do elemento entrar na tela, então mesmo num
+    // scroll rápido o fade-up já terminou quando o usuário de fato o vê.
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -20,7 +23,7 @@ export function Reveal({ children, delay = 0, className = "" }: RevealProps) {
           io.disconnect();
         }
       },
-      { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
+      { threshold: 0, rootMargin: "0px 0px 15% 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
