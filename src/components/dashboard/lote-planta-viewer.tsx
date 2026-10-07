@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, MousePointerClick, Plus, RotateCcw } from "lucide-react";
 import plantaSvg from "@/assets/loteamento-planta.svg?raw";
 import { Pill } from "@/components/ds/pill";
-import { LOTE_STATUS_DOT, LOTE_STATUS_LABELS, LOTE_STATUS_TONE } from "@/components/dashboard/status-badge";
+import {
+  LOTE_STATUS_DOT,
+  LOTE_STATUS_LABELS,
+  LOTE_STATUS_TONE,
+} from "@/components/dashboard/lote-status";
 import { cn } from "@/lib/utils";
 import type { Lote, LoteStatus } from "@/lib/types";
 
@@ -139,7 +143,7 @@ export function LotePlantaViewer({
       `@keyframes planta-lote-in{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}`,
       `@keyframes planta-lote-pulso{0%,100%{opacity:.5}50%{opacity:1}}`,
       `@keyframes planta-lote-sel{0%,100%{stroke-opacity:1}50%{stroke-opacity:.45}}`,
-      `${POLIGONO}{transform-box:fill-box;transform-origin:center;transition:stroke-width .15s,stroke .15s}`,
+      `${POLIGONO}{transform-box:fill-box;transform-origin:center;transition:stroke-width .15s,stroke .15s,filter .15s}`,
     ];
 
     if (carregando) {
@@ -392,15 +396,13 @@ export function LotePlantaViewer({
           {tooltip ? (
             <div
               role="tooltip"
-              className="pointer-events-none absolute z-10 animate-pop rounded-xl border border-border bg-popover p-3.5 text-[0.8125rem] shadow-[var(--shadow-pop)] data-[state=open]:animate-pop"
+              className="pointer-events-none absolute z-10 animate-pop rounded-xl border border-border bg-popover p-3.5 text-[0.8125rem] shadow-[var(--shadow-pop)]"
               data-state="open"
               style={{ left: tooltip.x, top: tooltip.y, width: TOOLTIP_LARGURA }}
             >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-sans text-[0.9375rem] font-semibold leading-tight text-foreground">
-                  Quadra {tooltip.lote.quadra ?? "—"} · Lote {tooltip.lote.numero_lote}
-                </p>
-              </div>
+              <p className="font-sans text-[0.9375rem] font-semibold leading-tight text-foreground">
+                Quadra {tooltip.lote.quadra ?? "—"} · Lote {tooltip.lote.numero_lote}
+              </p>
               <div className="mt-1.5">
                 <Pill tone={LOTE_STATUS_TONE[tooltip.lote.status]} dot>
                   {LOTE_STATUS_LABELS[tooltip.lote.status]}
@@ -435,7 +437,10 @@ export function LotePlantaViewer({
                 <span
                   aria-hidden
                   className="h-3.5 w-3.5 rounded-[0.3125rem] border"
-                  style={{ backgroundColor: STATUS_FILL[status], borderColor: STATUS_STROKE[status] }}
+                  style={{
+                    backgroundColor: STATUS_FILL[status],
+                    borderColor: STATUS_STROKE[status],
+                  }}
                 />
                 {LOTE_STATUS_LABELS[status]}
                 <span className="tabular-nums font-semibold text-foreground">

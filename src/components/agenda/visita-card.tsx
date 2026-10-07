@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { STATUS_BARRA, STATUS_LABELS, STATUS_TONE } from "@/components/agenda/visita-status";
-import { formatDiaCurto, formatDiaSemana, formatHora } from "@/lib/format";
+import { formatDiaCurto, formatDiaSemana, formatHora, formatTelefone } from "@/lib/format";
 
 // leads.status_crm has no dedicated value for "no-show", so that transition
 // leaves the lead as "agendado" (awaiting a new visit) rather than losing it.
@@ -132,7 +132,9 @@ export function VisitaCard({
           ) : null}
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-muted-foreground">
-          {visita.lead?.telefone ? <span className="tabular-nums">{visita.lead.telefone}</span> : null}
+          {visita.lead?.telefone ? (
+            <span className="tabular-nums">{formatTelefone(visita.lead.telefone)}</span>
+          ) : null}
           {visita.vendedor?.nome ? (
             <span className="inline-flex items-center gap-1.5">
               <Avatar nome={visita.vendedor.nome} size="sm" className="h-5 w-5 text-[0.55rem]" />

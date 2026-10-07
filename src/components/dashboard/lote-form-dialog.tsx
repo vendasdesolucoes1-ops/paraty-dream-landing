@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { LOTE_STATUS_DOT } from "@/components/dashboard/status-badge";
+import { LOTE_STATUS_DOT } from "@/components/dashboard/lote-status";
 import { Campo, FormGaveta, Secao } from "@/components/visoes/form-gaveta";
 import {
   LOTE_TIPO_OPTIONS,

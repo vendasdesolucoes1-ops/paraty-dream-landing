@@ -78,7 +78,7 @@ export function DocumentoCard({
               {documento.titulo}
             </button>
             <p className="mt-1 truncate text-[0.75rem] tabular-nums text-muted-foreground">
-              <span className="uppercase">{documento.tipo_arquivo}</span>
+              <span className="uppercase">{documento.tipo_arquivo.split("/").pop()}</span>
               {" · "}
               {formatBytes(documento.tamanho_bytes)}
               {documento.created_at ? ` · ${formatDiaCurto(documento.created_at)}` : null}

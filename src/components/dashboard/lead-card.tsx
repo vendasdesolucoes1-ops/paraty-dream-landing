@@ -5,7 +5,7 @@ import { Avatar } from "@/components/ds/avatar";
 import { Pill } from "@/components/ds/pill";
 import { atraso } from "@/components/ds/reveal";
 import { cn } from "@/lib/utils";
-import { tempoRelativo } from "@/lib/format";
+import { formatTelefone, tempoRelativo } from "@/lib/format";
 import { LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
 
 const ORIGEM_LABELS = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
@@ -48,7 +48,7 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
           </p>
           {lead.telefone ? (
             <p className="mt-0.5 truncate text-[0.78rem] tabular-nums text-muted-foreground">
-              {lead.telefone}
+              {formatTelefone(lead.telefone)}
             </p>
           ) : null}
         </div>

@@ -217,7 +217,7 @@ export function AgendaCalendar({
             ))}
           </div>
           <div className="grid grid-cols-7 gap-px bg-border">
-            {buildMonthGrid(refDate).map((date, i) => {
+            {buildMonthGrid(refDate).map((date) => {
               const inMonth = date.getMonth() === refDate.getMonth();
               const isToday = isSameDay(date, today);
               const dayVisitas = visitasByDay.get(dayKey(date)) ?? [];
@@ -231,9 +231,8 @@ export function AgendaCalendar({
                   key={date.toISOString()}
                   onClick={() => abrirDia(date)}
                   {...dragProps(date)}
-                  style={atraso(Math.floor(i / 7), 40)}
                   className={cn(
-                    "group/dia animate-swap relative flex min-h-[4.75rem] cursor-pointer flex-col gap-1 p-1 transition-colors duration-150 sm:min-h-[7.25rem] sm:p-1.5",
+                    "group/dia relative flex min-h-[4.75rem] cursor-pointer flex-col gap-1 p-1 transition-colors duration-150 sm:min-h-[7.25rem] sm:p-1.5",
                     inMonth ? "bg-card hover:bg-muted/50" : "bg-muted/40 hover:bg-muted/70",
                     isToday && "bg-accent/10 hover:bg-accent/15",
                     arrastando && "bg-accent/20 ring-2 ring-inset ring-accent/70",
@@ -267,7 +266,10 @@ export function AgendaCalendar({
                   {dayVisitas.length > 0 ? (
                     <div className="flex flex-wrap gap-0.5 px-0.5 sm:hidden" aria-hidden>
                       {dayVisitas.slice(0, 6).map((v) => (
-                        <span key={v.id} className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[v.status])} />
+                        <span
+                          key={v.id}
+                          className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[v.status])}
+                        />
                       ))}
                     </div>
                   ) : null}
@@ -301,11 +303,12 @@ export function AgendaCalendar({
                 ? dayVisitas.findIndex((v) => new Date(v.data_hora).getTime() > agora)
                 : -1;
               // Hoje: a marca fica antes da primeira visita futura (ou no fim, se todas já passaram).
-              const posAgora = !isToday || dayVisitas.length === 0
-                ? -1
-                : proximo === -1
-                  ? dayVisitas.length
-                  : proximo;
+              const posAgora =
+                !isToday || dayVisitas.length === 0
+                  ? -1
+                  : proximo === -1
+                    ? dayVisitas.length
+                    : proximo;
               return (
                 <div
                   key={date.toISOString()}

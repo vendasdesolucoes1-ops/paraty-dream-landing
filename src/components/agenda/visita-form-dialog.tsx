@@ -233,9 +233,7 @@ export function VisitaFormDialog({
                         value={lead.id}
                         onSelect={() => {
                           setLeadId(lead.id);
-                          setLeadLabel(
-                            `${lead.nome}${lead.telefone ? ` — ${lead.telefone}` : ""}`,
-                          );
+                          setLeadLabel(`${lead.nome}${lead.telefone ? ` — ${lead.telefone}` : ""}`);
                           setLeadPickerOpen(false);
                         }}
                       >
