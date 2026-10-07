@@ -926,6 +926,9 @@ export function LeadDetailDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+        {/* Aberta por link (?lead=) antes de a lista carregar: ainda não há lead,
+            mas o painel precisa de um título para leitores de tela. */}
+        {lead ? null : <SheetTitle className="sr-only">Carregando lead…</SheetTitle>}
         {lead ? (
           <>
             <SheetHeader>

@@ -1,125 +1,100 @@
 /**
- * Componente de navegação lateral do dashboard.
- * Exibe o menu de seções do sistema em uma sidebar fixa no desktop e em um drawer no mobile.
+ * Navegação lateral do painel: fixa no desktop, gaveta no celular.
+ * A lista de itens e as regras de acesso vêm de ./nav (a busca ⌘K lê de lá).
  */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Logo } from "@/components/logo";
-import {
-  LayoutDashboard,
-  LayoutGrid,
-  Calendar,
-  Map,
-  FileText,
-  Wrench,
-  Megaphone,
-  Settings,
-  UserCheck,
-  LogOut,
-  Menu,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { LogOut, Menu, Moon, Search, Sun } from "lucide-react";
 import { useState } from "react";
+import { Avatar } from "@/components/ds/avatar";
+import { useCommandPalette } from "@/components/ds/command-palette";
+import { Kbd } from "@/components/ds/kbd";
+import { Logo } from "@/components/logo";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { PAPEL_LABEL, itemAtivo, navDoPerfil } from "@/components/dashboard/nav";
+import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
+import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/hooks/use-profile";
-import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 
-// Agrupado por área de trabalho — antes era uma lista plana de 9 itens sem
-// nenhuma hierarquia visual, o que obrigava a ler item por item pra achar
-// algo. Os grupos espelham o fluxo real: vender, depois operar, depois
-// configurar o sistema em si.
-const NAV_GROUPS = [
-  {
-    label: "Vendas",
-    items: [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid },
-      // Carteira de comprador: pós-venda é responsabilidade de admin/gestor.
-      { to: "/dashboard/clientes", label: "Clientes", icon: UserCheck, hideFor: ["vendedor"] },
-      { to: "/dashboard/agenda", label: "Agenda", icon: Calendar },
-      { to: "/dashboard/lotes", label: "Lotes", icon: Map },
-    ],
-  },
-  {
-    label: "Operação",
-    items: [
-      { to: "/dashboard/documentos", label: "Documentos", icon: FileText, hideFor: ["vendedor"] },
-      { to: "/dashboard/ferramentas", label: "Ferramentas", icon: Wrench, hideFor: ["vendedor"] },
-      { to: "/dashboard/marketing", label: "Marketing", icon: Megaphone, hideFor: ["vendedor"] },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      {
-        to: "/dashboard/configuracoes",
-        label: "Configurações",
-        icon: Settings,
-        hideFor: ["gestor", "vendedor"],
-      },
-    ],
-  },
-] as const;
+/** ⌘ no Mac, Ctrl nos outros: só afeta o que está desenhado no botão. */
+const ATALHO =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+
+const ACAO_RODAPE =
+  "flex h-9 w-9 items-center justify-center rounded-md text-ivory/70 transition-colors hover:bg-ivory/10 hover:text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useProfile();
-  const { theme, toggle: toggleTheme } = useDashboardTheme();
+  const { theme, toggle: alternarTema } = useDashboardTheme();
+  const { abrir: abrirBusca } = useCommandPalette();
 
-  async function handleLogout() {
+  async function sair() {
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
 
-  const navGroups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => {
-      if (!("hideFor" in item) || !profile) return true;
-      return !(item.hideFor as readonly string[]).includes(profile.role);
-    }),
-  })).filter((group) => group.items.length > 0);
+  const grupos = navDoPerfil(profile?.role);
 
   return (
-    <div className="flex flex-col h-full bg-forest-deep text-ivory">
-      {/* O logo fica solto sobre o fundo escuro, sem placa. O wordmark do
-          arquivo é #0F2A4A, quase idêntico ao bg-forest-deep daqui — sem o
-          override de fill ele simplesmente sumiria. Recolorir por CSS mantém o
-          SVG original intocado: só a renderização se adapta ao fundo escuro. */}
-      {/* Altura fixa e shrink-0: com w-full o logo ocupava ~180px e, somado ao
-          menu, estourava a viewport — a sidebar passava a rolar e o rodapé
-          ("Modo escuro" / "Sair") ficava fora de vista. Limitar a altura aqui
-          é o que devolve o menu inteiro à tela sem depender de scroll. */}
-      <div className="shrink-0 px-6 py-5 border-b border-ivory/10">
-        <Logo variante="compacto" className="mx-auto h-24 w-auto [&_text]:fill-ivory" />
+    <div className="flex h-full flex-col bg-forest-deep text-ivory">
+      <div className="flex shrink-0 items-center gap-3 px-5 pb-4 pt-5">
+        <Logo variante="emblema" className="h-10 w-10 shrink-0" />
+        <div className="min-w-0 leading-tight">
+          <p className="font-display text-xl tracking-wide text-ivory">Moradas</p>
+          <p className="text-[0.62rem] uppercase tracking-[0.28em] text-gold">de Paraty</p>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {navGroups.map((group) => (
-          <div key={group.label} className="space-y-1">
-            <p className="px-3 text-[0.65rem] font-medium tracking-[0.18em] uppercase text-ivory/40">
-              {group.label}
+      <div className="shrink-0 px-3 pb-3">
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            abrirBusca();
+          }}
+          className="flex w-full items-center gap-2.5 rounded-md border border-ivory/15 bg-ivory/5 px-3 py-2 text-left text-sm text-ivory/65 transition-colors hover:border-ivory/30 hover:bg-ivory/10 hover:text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        >
+          <Search className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="flex-1">Buscar…</span>
+          <span className="hidden items-center gap-0.5 md:flex">
+            <Kbd className="border-ivory/20 bg-transparent text-ivory/60">{ATALHO}</Kbd>
+            <Kbd className="border-ivory/20 bg-transparent text-ivory/60">K</Kbd>
+          </span>
+        </button>
+      </div>
+
+      <nav aria-label="Principal" className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
+        {grupos.map((grupo) => (
+          <div key={grupo.label} className="space-y-0.5">
+            <p className="px-3 pb-1 text-[0.65rem] font-medium uppercase tracking-[0.18em] text-ivory/40">
+              {grupo.label}
             </p>
-            {group.items.map((item) => {
+            {grupo.items.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                item.to === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.to);
+              const ativo = itemAtivo(item.to, pathname);
               return (
                 <Link
                   key={item.to}
                   to={item.to}
                   onClick={onNavigate}
+                  aria-current={ativo ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-gold text-forest-deep font-medium"
-                      : "text-ivory/80 hover:bg-ivory/10 hover:text-ivory",
+                    "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+                    ativo
+                      ? "bg-ivory/10 font-medium text-ivory"
+                      : "text-ivory/70 hover:bg-ivory/5 hover:text-ivory",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  {ativo ? (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-gold"
+                    />
+                  ) : null}
+                  <Icon className={cn("h-4 w-4", ativo && "text-gold")} aria-hidden />
                   {item.label}
                 </Link>
               );
@@ -128,80 +103,80 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="px-3 py-6 border-t border-ivory/10 space-y-1">
+      <div className="flex shrink-0 items-center gap-2 border-t border-ivory/10 px-3 py-3">
+        <Avatar nome={profile?.nome ?? profile?.email} className="bg-ivory/10 text-ivory" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-sm text-ivory">{profile?.nome ?? profile?.email ?? "…"}</p>
+          <p className="truncate text-[0.72rem] text-ivory/55">
+            {profile ? PAPEL_LABEL[profile.role] : ""}
+          </p>
+        </div>
         <button
-          onClick={toggleTheme}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-ivory/80 hover:bg-ivory/10 hover:text-ivory transition-colors"
+          type="button"
+          onClick={alternarTema}
+          className={ACAO_RODAPE}
+          aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+          title={theme === "dark" ? "Tema claro" : "Tema escuro"}
         >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {theme === "dark" ? "Modo claro" : "Modo escuro"}
+          {theme === "dark" ? (
+            <Sun className="h-4 w-4" aria-hidden />
+          ) : (
+            <Moon className="h-4 w-4" aria-hidden />
+          )}
         </button>
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-ivory/80 hover:bg-ivory/10 hover:text-ivory transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
+        <button type="button" onClick={sair} className={ACAO_RODAPE} aria-label="Sair" title="Sair">
+          <LogOut className="h-4 w-4" aria-hidden />
         </button>
       </div>
     </div>
   );
 }
 
-function MobileThemeToggle() {
-  const { theme, toggle } = useDashboardTheme();
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggle}
-      className="text-ivory hover:bg-ivory/10 hover:text-ivory"
-      aria-label={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
-    >
-      {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-    </Button>
-  );
-}
-
 export function DashboardSidebar() {
-  const [open, setOpen] = useState(false);
+  const [aberta, setAberta] = useState(false);
+  const { abrir: abrirBusca } = useCommandPalette();
 
   return (
     <>
-      {/* h-full (não min-h-screen): o pai já está travado em h-screen, então
-          h-full faz a sidebar ocupar exatamente a viewport e nunca crescer
-          com o conteúdo. overflow-y-auto dá scroll próprio se o menu um dia
-          ficar mais alto que a tela — sem arrastar o conteúdo principal. */}
-      <aside className="hidden md:block w-64 shrink-0 h-full overflow-y-auto">
+      {/* h-full (não min-h-screen): o pai já está travado em h-screen, então a
+          sidebar ocupa exatamente a viewport e nunca cresce com o conteúdo. */}
+      <aside className="hidden h-full w-60 shrink-0 md:block">
         <SidebarContent />
       </aside>
 
-      <div className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between bg-forest-deep text-ivory px-4 py-3">
+      <div className="flex h-14 shrink-0 items-center justify-between bg-forest-deep px-3 text-ivory md:hidden">
+        <Sheet open={aberta} onOpenChange={setAberta}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-ivory hover:bg-ivory/10 hover:text-ivory"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" aria-hidden />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 border-0 p-0">
+            <SheetTitle className="sr-only">Menu</SheetTitle>
+            <SidebarContent onNavigate={() => setAberta(false)} />
+          </SheetContent>
+        </Sheet>
+
         <span className="flex items-center gap-2">
-          {/* Só o emblema: a barra mobile tem ~44px de altura e o anel dourado
-              se destaca sozinho no fundo escuro, sem precisar de placa. */}
-          <Logo variante="emblema" className="h-8 w-8" />
+          <Logo variante="emblema" className="h-7 w-7" />
           <span className="font-display text-lg">Moradas de Paraty</span>
         </span>
-        <div className="flex items-center gap-1">
-          <MobileThemeToggle />
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-ivory hover:bg-ivory/10 hover:text-ivory"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64 border-0">
-              <SidebarContent onNavigate={() => setOpen(false)} />
-            </SheetContent>
-          </Sheet>
-        </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={abrirBusca}
+          className="text-ivory hover:bg-ivory/10 hover:text-ivory"
+          aria-label="Buscar"
+        >
+          <Search className="h-5 w-5" aria-hidden />
+        </Button>
       </div>
-      <div className="md:hidden h-14" />
     </>
   );
 }
