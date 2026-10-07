@@ -1,31 +1,28 @@
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Logo } from "@/components/logo";
-import heroImg from "@/assets/hero-aerial-paraty.jpg";
-import locationImg from "@/assets/location-paraty.jpg";
-import igrejaImg from "@/assets/centro-igreja-santa-rita.png";
-import canhoesImg from "@/assets/centro-canhoes-orla.jpg";
-import vistaAereaImg from "@/assets/centro-vista-aerea.png";
-import ruaNoiteImg from "@/assets/centro-rua-noite.png";
-import cheiaCanoasImg from "@/assets/centro-cheia-canoas.png";
-import telhadosImg from "@/assets/centro-telhados-aerea.jpg";
-import waterfallImg from "@/assets/lifestyle-waterfall.jpg";
-import pedraBrancaImg from "@/assets/cachoeira-pedra-branca.jpg";
-import seteQuedas2Img from "@/assets/cachoeira-sete-quedas-2.jpg";
-import seteQuedas3Img from "@/assets/cachoeira-sete-quedas-3.jpg";
-import toboga1Img from "@/assets/cachoeira-toboga-1.jpg";
-import toboga2Img from "@/assets/cachoeira-toboga-2.jpg";
-import empreendimentoAntesImg from "@/assets/empreendimento-antes.jpg";
-import empreendimentoDepoisImg from "@/assets/empreendimento-depois.jpg";
-import obraVistaAereaImg from "@/assets/obra-vista-aerea-serra.jpg";
-import obraRuasImg from "@/assets/obra-ruas-pavimentadas.jpg";
-import obraQuadrasImg from "@/assets/obra-quadras-vista-alta.jpg";
-import obraPlaygroundImg from "@/assets/obra-playground-academia.jpg";
-import obraEntradaImg from "@/assets/obra-entrada-stand.jpg";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
 import { Banknote, PawPrint, PlugZap, Users } from "lucide-react";
+import { foto } from "@/lib/landing-images";
+import ogImg from "@/assets/landing/og-moradas.jpg";
+import "@/components/landing/landing.css";
+
+/** Atraso da animação de abertura do hero (ver landing.css). */
+const atraso = (ms: number) => ({ "--lp-delay": `${ms}ms` }) as CSSProperties;
+
+/** src + srcSet de uma foto da landing (ver lib/landing-images). */
+function img(nome: string) {
+  const { src, srcSet } = foto(nome);
+  return { src, srcSet };
+}
+
+const HERO = foto("hero-aerial-paraty");
+// O hero ocupa a tela inteira; no celular, a altura manda (a foto é paisagem e
+// é cortada nas laterais), então a largura útil é ~1,8x a da tela.
+const HERO_SIZES = "(max-aspect-ratio: 1/1) 180vw, 100vw";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,8 +35,20 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:title", content: "Moradas de Paraty" },
       { property: "og:description", content: "Viva e invista em Paraty com tranquilidade." },
-      { property: "og:image", content: heroImg },
-      { name: "twitter:image", content: heroImg },
+      { property: "og:image", content: ogImg },
+      { name: "twitter:image", content: ogImg },
+    ],
+    // A foto do hero é o maior elemento da primeira tela: o pedido sai junto
+    // com o HTML, com prioridade alta, já na largura certa para a tela.
+    links: [
+      {
+        rel: "preload",
+        as: "image",
+        href: HERO.src,
+        imageSrcSet: HERO.srcSet,
+        imageSizes: HERO_SIZES,
+        fetchPriority: "high",
+      },
     ],
   }),
   component: Landing,
@@ -47,43 +56,43 @@ export const Route = createFileRoute("/")({
 
 const centroSlides: CarouselSlide[] = [
   {
-    src: igrejaImg,
+    ...img("centro-igreja-santa-rita"),
     alt: "Igreja de Santa Rita de Cássia no Centro Histórico de Paraty",
     titulo: "Igreja de Santa Rita",
     descricao: "Construída em 1722, a mais antiga da cidade — hoje Museu de Arte Sacra.",
   },
   {
-    src: locationImg,
+    ...img("location-paraty"),
     alt: "Centro Histórico de Paraty",
     titulo: "Centro Histórico",
     descricao: "Ruas de pedra e casario colonial, a nove minutos do empreendimento.",
   },
   {
-    src: canhoesImg,
+    ...img("centro-canhoes-orla"),
     alt: "Canhões coloniais na orla histórica de Paraty",
     titulo: "Orla Histórica",
     descricao: "Canhões coloniais à beira do cais, marca da herança marítima da cidade.",
   },
   {
-    src: vistaAereaImg,
+    ...img("centro-vista-aerea"),
     alt: "Vista aérea do Centro Histórico de Paraty",
     titulo: "Vista do Centro Histórico",
     descricao: "O casario colonial entre o mar e a Serra do Mar, visto do alto.",
   },
   {
-    src: ruaNoiteImg,
+    ...img("centro-rua-noite"),
     alt: "Rua de pedra do Centro Histórico ao entardecer",
     titulo: "Vida ao Entardecer",
     descricao: "Ruas de pedra, restaurantes e flores ao cair da noite no centro.",
   },
   {
-    src: cheiaCanoasImg,
+    ...img("centro-cheia-canoas"),
     alt: "Ruas alagadas do Centro Histórico de Paraty com canoas",
     titulo: "Maré das Ruas",
     descricao: "Na maré cheia, as ruas viram canais — cena típica e única de Paraty.",
   },
   {
-    src: telhadosImg,
+    ...img("centro-telhados-aerea"),
     alt: "Telhados coloniais do Centro Histórico vistos do alto",
     titulo: "Telhados Coloniais",
     descricao: "O conjunto de telhas e quintais preservados, patrimônio tombado.",
@@ -92,37 +101,37 @@ const centroSlides: CarouselSlide[] = [
 
 const lifeSlides: CarouselSlide[] = [
   {
-    src: pedraBrancaImg,
+    ...img("cachoeira-pedra-branca"),
     alt: "Cachoeira da Pedra Branca em Paraty",
     titulo: "Cachoeira da Pedra Branca",
     descricao: "Poços de água cristalina e tobogã natural, a poucos minutos do loteamento.",
   },
   {
-    src: seteQuedas2Img,
+    ...img("cachoeira-sete-quedas-2"),
     alt: "Poço da Cachoeira das Sete Quedas",
     titulo: "Cachoeira das Sete Quedas",
     descricao: "Poço de águas calmas ao pé da queda, perfeito para banho em meio à mata.",
   },
   {
-    src: seteQuedas3Img,
+    ...img("cachoeira-sete-quedas-3"),
     alt: "Queda d'água entre rochas da Cachoeira das Sete Quedas",
     titulo: "Cachoeira das Sete Quedas",
     descricao: "Cortina de água entre rochas musgo, um espetáculo natural.",
   },
   {
-    src: toboga1Img,
+    ...img("cachoeira-toboga-1"),
     alt: "Cachoeira do Tobogã com tobogã natural de rocha",
     titulo: "Cachoeira do Tobogã",
     descricao: "Tobogã natural de rocha polida — diversão e adrenalina em meio à mata.",
   },
   {
-    src: toboga2Img,
+    ...img("cachoeira-toboga-2"),
     alt: "Poço e tobogã da Cachoeira do Tobogã em Paraty",
     titulo: "Cachoeira do Tobogã",
     descricao: "Poço cristalino ao pé do tobogã, perfeito para banho e lazer em família.",
   },
   {
-    src: waterfallImg,
+    ...img("lifestyle-waterfall"),
     alt: "Cachoeira em meio à Mata Atlântica de Paraty",
     titulo: "Mata Atlântica",
     descricao: "Trilhas, quedas d'água e floresta preservada cercando o empreendimento.",
@@ -137,31 +146,31 @@ const lifeSlides: CarouselSlide[] = [
 // Convertidas para JPEG a 1600px: 1,1 MB no total, sem perda visível na tela.
 const obraSlides: CarouselSlide[] = [
   {
-    src: obraVistaAereaImg,
+    ...img("obra-vista-aerea-serra"),
     alt: "Vista aérea do loteamento Moradas de Paraty com a Serra do Mar ao fundo",
     titulo: "Entre a serra e o centro",
     descricao: "O loteamento pronto, cercado de mata, a nove minutos do Centro Histórico.",
   },
   {
-    src: obraRuasImg,
+    ...img("obra-ruas-pavimentadas"),
     alt: "Ruas pavimentadas e demarcadas do loteamento",
     titulo: "Infraestrutura entregue",
     descricao: "Ruas asfaltadas, sinalizadas e com iluminação — nada no papel.",
   },
   {
-    src: obraQuadrasImg,
+    ...img("obra-quadras-vista-alta"),
     alt: "Quadras do loteamento vistas do alto, com o bairro vizinho ao lado",
     titulo: "Quadras demarcadas",
     descricao: "Lotes prontos para construir, junto a um bairro já consolidado.",
   },
   {
-    src: obraPlaygroundImg,
+    ...img("obra-playground-academia"),
     alt: "Playground e academia ao ar livre do loteamento",
     titulo: "Lazer para a família",
     descricao: "Playground e academia ao ar livre, à beira da Mata Atlântica.",
   },
   {
-    src: obraEntradaImg,
+    ...img("obra-entrada-stand"),
     alt: "Entrada do loteamento com palmeiras e o stand de vendas",
     titulo: "Entrada do loteamento",
     descricao: "Acesso arborizado e stand de vendas aberto para visita.",
@@ -232,9 +241,9 @@ function SemComplicacao() {
               <div className="mt-10 flex flex-wrap gap-4 items-center">
                 <a
                   href="#formulario"
-                  className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
+                  className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-[background-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
-                  Quero mais informações
+                  Agendar uma visita
                   <span className="transition-transform group-hover:translate-x-1">→</span>
                 </a>
               </div>
@@ -243,7 +252,12 @@ function SemComplicacao() {
 
           {obraSlides.length > 0 && (
             <Reveal delay={300}>
-              <Carousel slides={obraSlides} aspect="aspect-[4/3]" maxCaptionWidth="26rem" />
+              <Carousel
+                slides={obraSlides}
+                aspect="aspect-[4/3]"
+                maxCaptionWidth="26rem"
+                sizes="(min-width: 1280px) 600px, (min-width: 1024px) 48vw, 100vw"
+              />
             </Reveal>
           )}
         </div>
@@ -254,7 +268,13 @@ function SemComplicacao() {
 
 function Landing() {
   return (
-    <div className="bg-background text-foreground">
+    <div className="lp-ease bg-background text-foreground">
+      <a
+        href="#formulario"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:bg-sand focus:text-primary focus:px-4 focus:py-3 focus:rounded-[3px] eyebrow"
+      >
+        Pular para o formulário
+      </a>
       <Nav />
       <Hero />
       <SemComplicacao />
@@ -268,82 +288,146 @@ function Landing() {
 }
 
 function Nav() {
+  // Sobre o hero o header é transparente, com o logo claro. Quando o hero sai
+  // de cena ele vira uma faixa marfim translúcida, com o logo na cor original e
+  // o botão de visita sempre à mão. Sem isso, o logo ficava solto por cima das
+  // seções seguintes e o único caminho até o formulário era rolar até o fim.
+  const [solid, setSolid] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setSolid(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <header className="fixed top-0 inset-x-0 z-40">
-      <div className="container-x flex items-center justify-between py-5">
-        <a href="#top" className="flex items-center leading-none">
-          {/* Sem placa: o logo fica direto sobre a foto do hero. O wordmark
-              navy do arquivo desapareceria contra a imagem escura, então vira
-              ivory por CSS — mesma solução da sidebar, com drop-shadow para
-              segurar a leitura sobre trechos claros da foto. */}
-          <Logo variante="completo" className="h-16 w-auto [&_text]:fill-ivory drop-shadow-md" />
-        </a>
-        {/* "Entrar no sistema" ocultado a pedido: é o acesso do CRM interno, e
-            não tem função para quem visita a landing atrás de informação sobre
-            o loteamento — só distraía e convidava clique de curioso. O Link
-            continua importado porque outras partes do arquivo podem usá-lo;
-            se não usarem mais, o lint acusa e aí sim removemos o import. */}
-      </div>
-    </header>
+    <>
+      {/* Marcador invisível no fim do hero: quando sai da tela, o header fica sólido. */}
+      <div
+        ref={sentinel}
+        aria-hidden="true"
+        className="absolute top-[calc(100svh-96px)] left-0 h-px w-px"
+      />
+      <header
+        className={`fixed top-0 inset-x-0 z-40 transition-[background-color,box-shadow,border-color] duration-300 motion-reduce:transition-none border-b ${
+          solid
+            ? "bg-ivory/90 backdrop-blur-md border-border/60 shadow-[0_8px_30px_-24px_rgba(0,0,0,0.35)]"
+            : "border-transparent"
+        }`}
+      >
+        <div
+          className={`container-x flex items-center justify-between transition-[padding] duration-300 motion-reduce:transition-none ${
+            solid ? "py-2.5" : "py-5"
+          }`}
+        >
+          <a
+            href="#top"
+            className="flex items-center leading-none"
+            aria-label="Moradas de Paraty — início"
+          >
+            {/* Sobre a foto, o wordmark navy do arquivo vira ivory por CSS, com
+                drop-shadow para segurar a leitura nos trechos claros. Com o
+                header sólido, volta à cor original. */}
+            <Logo
+              variante="completo"
+              className={`w-auto transition-[height] duration-300 motion-reduce:transition-none ${
+                solid ? "h-11" : "h-16 [&_text]:fill-ivory drop-shadow-md"
+              }`}
+            />
+          </a>
+          {/* "Entrar no sistema" segue fora do header a pedido: é o acesso do
+              CRM interno e só distraía quem chega atrás do loteamento. O link
+              continua no rodapé. */}
+          <a
+            href="#formulario"
+            aria-hidden={!solid}
+            tabIndex={solid ? 0 : -1}
+            className={`eyebrow inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-[3px] bg-primary text-primary-foreground hover:bg-forest transition-[opacity,transform,background-color] duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              solid
+                ? "opacity-100 translate-y-0 pointer-events-auto"
+                : "opacity-0 -translate-y-1 pointer-events-none"
+            }`}
+          >
+            Agendar visita
+          </a>
+        </div>
+      </header>
+    </>
   );
 }
 
 function Hero() {
+  // Sem <Reveal> aqui: o hero aparece já no HTML do servidor e anima só com
+  // CSS (landing.css). Antes cada bloco esperava o JavaScript carregar com
+  // opacity 0 — num celular lento, o título levava 5 segundos para surgir.
   return (
-    <section id="top" className="relative min-h-screen w-full overflow-hidden">
-      <div className="absolute inset-0">
-        <img
-          src={heroImg}
-          alt="Vista aérea do loteamento Moradas de Paraty entre a Serra do Mar e a Mata Atlântica"
-          className="w-full h-full object-cover"
-          width={1920}
-          height={1280}
-        />
+    <section id="top" className="relative min-h-[100svh] w-full overflow-hidden">
+      <div className="absolute inset-0 bg-primary">
+        <div className="lp-hero-media absolute inset-0">
+          <img
+            src={HERO.src}
+            srcSet={HERO.srcSet}
+            sizes={HERO_SIZES}
+            // Imagem aspiracional (o estilo de vida que o lote permite
+            // construir), não foto do empreendimento: por isso o alt fala em
+            // ilustração. A obra real aparece na faixa seguinte.
+            alt="Ilustração de uma rua do bairro com casa contemporânea, família e muito verde"
+            className="w-full h-full object-cover"
+            width={HERO.width}
+            height={Math.round((HERO.width * 768) / 1376)}
+            fetchPriority="high"
+            decoding="async"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/15 to-transparent" />
       </div>
 
-      <div className="relative container-x min-h-screen flex flex-col justify-end pb-20 pt-32">
-        <Reveal>
-          {/* Nome comercial, não a razão social. "Sophia Saíde" continua no
-              rodapé, junto com matrícula e incorporadora — que é onde a
-              informação legal pertence. */}
-          <p className="eyebrow text-ivory/85 mb-6">
-            Loteamento Residencial Moradas de Paraty · RJ
-          </p>
-        </Reveal>
-        <Reveal delay={150}>
-          <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
-            Invista em Paraty
-            <br />
-            <em className="not-italic text-sand">com tranquilidade.</em>
-          </h1>
-        </Reveal>
-        <Reveal delay={300}>
-          <p className="mt-8 text-ivory/85 text-lg sm:text-xl max-w-xl font-light">
-            Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico. Um lugar para viver,
-            construir e valorizar.
-          </p>
-        </Reveal>
-        <Reveal delay={450}>
-          <div className="mt-10 flex flex-wrap gap-4 items-center">
-            <a
-              href="#formulario"
-              className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-all"
-            >
-              Quero mais informações
-              <span className="transition-transform group-hover:translate-x-1">→</span>
-            </a>
-          </div>
-        </Reveal>
+      <div className="relative container-x min-h-[100svh] flex flex-col justify-end pb-14 sm:pb-20 pt-32">
+        {/* Nome comercial, não a razão social. "Sophia Saíde" continua no
+            rodapé, junto com matrícula e incorporadora — que é onde a
+            informação legal pertence. */}
+        <p className="lp-nudge eyebrow text-ivory/85 mb-6 tracking-[0.2em] sm:tracking-[0.28em]">
+          Loteamento Residencial Moradas de Paraty · RJ
+        </p>
+        <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
+          <span className="lp-line" style={atraso(80)}>
+            <span>Invista em Paraty</span>
+          </span>
+          <span className="lp-line" style={atraso(180)}>
+            <span>
+              <em className="not-italic text-sand">com tranquilidade.</em>
+            </span>
+          </span>
+        </h1>
+        <p
+          className="lp-nudge mt-8 text-ivory/85 text-lg sm:text-xl max-w-xl font-light"
+          style={atraso(260)}
+        >
+          Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico. Um lugar para viver,
+          construir e valorizar.
+        </p>
+        <div className="lp-nudge mt-10 flex flex-wrap gap-4 items-center" style={atraso(340)}>
+          <a
+            href="#formulario"
+            className="group inline-flex items-center gap-3 bg-ivory text-primary hover:bg-sand px-8 py-4 rounded-[3px] eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-[background-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+          >
+            Agendar uma visita
+            <span className="transition-transform group-hover:translate-x-1">→</span>
+          </a>
+        </div>
 
-        <Reveal delay={700}>
-          <div className="mt-16 sm:mt-20 grid grid-cols-3 gap-6 max-w-2xl border-t border-ivory/20 pt-8">
-            <Stat n="9 min" l="do Centro Histórico" />
-            <Stat n="250 – 450" l="m² · lotes residenciais e comerciais" />
-            <Stat n="100%" l="cercado de natureza" />
-          </div>
-        </Reveal>
+        <div
+          className="lp-fade mt-14 sm:mt-20 grid grid-cols-3 gap-4 sm:gap-6 max-w-2xl border-t border-ivory/20 pt-7 sm:pt-8"
+          style={atraso(600)}
+        >
+          <Stat n="9 min" l="do Centro Histórico" />
+          <Stat n="250 – 450" l="m² · residenciais e comerciais" />
+          <Stat n="100%" l="cercado de natureza" />
+        </div>
       </div>
     </section>
   );
@@ -359,7 +443,9 @@ function Stat({ n, l }: { n: string; l: string }) {
       <div className="font-display text-ivory text-2xl sm:text-4xl [font-variant-numeric:lining-nums]">
         {n}
       </div>
-      <div className="eyebrow text-ivory/70 mt-2 text-[0.65rem]">{l}</div>
+      <div className="eyebrow text-ivory/70 mt-2 text-[0.6rem] sm:text-[0.65rem] tracking-[0.12em] sm:tracking-[0.28em] leading-snug">
+        {l}
+      </div>
     </div>
   );
 }
@@ -410,7 +496,10 @@ function Localizacao() {
 
         <div className="lg:col-span-7">
           <Reveal delay={150}>
-            <Carousel slides={centroSlides} />
+            <Carousel
+              slides={centroSlides}
+              sizes="(min-width: 1280px) 720px, (min-width: 1024px) 56vw, 100vw"
+            />
             <div className="mt-10">
               <p className="eyebrow text-accent mb-4">A cidade histórica</p>
               <h3 className="font-display text-2xl sm:text-[2rem] text-primary leading-[1.15]">
@@ -440,7 +529,12 @@ function EstiloDeVida() {
       <div className="container-x grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
         <div className="lg:col-span-6 order-2 lg:order-1">
           <Reveal>
-            <Carousel slides={lifeSlides} aspect="aspect-[3/4]" maxCaptionWidth="30rem" />
+            <Carousel
+              slides={lifeSlides}
+              aspect="aspect-[3/4]"
+              maxCaptionWidth="30rem"
+              sizes="(min-width: 1280px) 600px, (min-width: 1024px) 48vw, 100vw"
+            />
           </Reveal>
         </div>
 
@@ -494,8 +588,11 @@ function Maquete() {
 
       <Reveal delay={200}>
         <BeforeAfterSlider
-          beforeSrc={empreendimentoAntesImg}
-          afterSrc={empreendimentoDepoisImg}
+          beforeSrc={img("empreendimento-antes").src}
+          beforeSrcSet={img("empreendimento-antes").srcSet}
+          afterSrc={img("empreendimento-depois").src}
+          afterSrcSet={img("empreendimento-depois").srcSet}
+          sizes="(min-width: 1280px) 1232px, 100vw"
           alt="Loteamento Moradas de Paraty"
           className="mt-14 aspect-video bg-primary rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
         />

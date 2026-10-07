@@ -1,40 +1,29 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 interface RevealProps {
   children: ReactNode;
+  /** Atraso em ms, para escalonar elementos que entram juntos na tela. */
   delay?: number;
   className?: string;
 }
 
+/**
+ * Sobe e aparece conforme entra na tela, guiado pela própria rolagem
+ * (animation-timeline: view(), ver landing.css).
+ *
+ * Antes era um IntersectionObserver com estado do React: o conteúdo nascia
+ * com opacity 0 e só aparecia depois que o JavaScript carregasse. Num celular
+ * lento isso deixava o hero em branco por segundos. Agora é só CSS: o conteúdo
+ * vem visível no HTML, o navegador anima no compositor, e onde não há suporte
+ * a animação por rolagem ele simplesmente aparece, sem esperar nada.
+ *
+ * O atraso vira deslocamento na rolagem (px), não em tempo: dois blocos lado a
+ * lado começam a subir em pontos ligeiramente diferentes da rolagem.
+ */
 export function Reveal({ children, delay = 0, className = "" }: RevealProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // rootMargin estende a área de detecção 15% para baixo: a revelação
-    // dispara um pouco antes do elemento entrar na tela, então mesmo num
-    // scroll rápido o fade-up já terminou quando o usuário de fato o vê.
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShown(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0, rootMargin: "0px 0px 15% 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
+  const style = { "--reveal-offset": `${Math.round(delay * 0.2)}px` } as CSSProperties;
   return (
-    <div
-      ref={ref}
-      style={{ animationDelay: `${delay}ms` }}
-      className={`${shown ? "reveal-in" : "reveal"} ${className}`}
-    >
+    <div className={`reveal ${className}`} style={style}>
       {children}
     </div>
   );
