@@ -1,44 +1,39 @@
 import { useState } from "react";
-import { FileImage, FileText, File as FileIcon, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  DOCUMENTO_CATEGORIA_LABELS,
-  DOCUMENTOS_BUCKET,
-  formatBytes,
-  isImageTipo,
-  isPdfTipo,
-} from "@/lib/documento-utils";
+import { DOCUMENTOS_BUCKET, formatBytes } from "@/lib/documento-utils";
+import { atraso } from "@/components/ds/reveal";
+import { Pill } from "@/components/ds/pill";
+import { formatDiaCurto } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 import { compraLabel, type DocumentoWithLead } from "@/lib/types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CategoriaTag, IconeArquivo } from "@/components/documentos/pecas";
 
-function DocumentoIcon({ tipoArquivo }: { tipoArquivo: string }) {
-  if (isPdfTipo(tipoArquivo)) return <FileText className="h-8 w-8 text-primary" />;
-  if (isImageTipo(tipoArquivo)) return <FileImage className="h-8 w-8 text-primary" />;
-  return <FileIcon className="h-8 w-8 text-primary" />;
-}
+const ACAO =
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-[color,background-color,transform] duration-150 hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function DocumentoCard({
   documento,
   onClick,
   onEdit,
+  indice = 0,
 }: {
   documento: DocumentoWithLead;
   onClick: () => void;
   onEdit?: () => void;
+  /** Posição na lista, para a entrada em cascata. */
+  indice?: number;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -56,6 +51,7 @@ export function DocumentoCard({
     },
     onSuccess: () => {
       toast.success("Documento excluído");
+      setConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
     },
     onError: (error) => {
@@ -66,102 +62,118 @@ export function DocumentoCard({
 
   return (
     <>
-      <Card
-        className="shadow-sm cursor-pointer transition-colors hover:border-primary/40"
-        onClick={onClick}
-      >
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 rounded-md bg-secondary/60 p-2">
-              <DocumentoIcon tipoArquivo={documento.tipo_arquivo} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm leading-tight truncate">{documento.titulo}</p>
-              <p className="text-xs text-muted-foreground uppercase mt-0.5">
-                {documento.tipo_arquivo} · {formatBytes(documento.tamanho_bytes)}
-              </p>
-            </div>
-            {onEdit ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-8 w-8"
-                title="Editar documento"
-                aria-label="Editar documento"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirmOpen(true);
-              }}
-              aria-label="Excluir documento"
+      {/* A entrada (animate-swap) e o hover (card-hover) usam `transform`: em
+          elementos separados, senão a animação prende o hover. */}
+      <div className="animate-swap h-full" style={atraso(indice, 45, 360)}>
+        <div className="card-hover group/doc relative flex h-full items-start gap-3.5 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] focus-within:border-foreground/30">
+          <IconeArquivo tipo={documento.tipo_arquivo} />
+
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={onClick}
+              aria-label={`Abrir ${documento.titulo}`}
+              className="block max-w-full truncate rounded-sm text-left text-[0.9375rem] font-semibold leading-tight text-foreground after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+              {documento.titulo}
+            </button>
+            <p className="mt-1 truncate text-[0.75rem] tabular-nums text-muted-foreground">
+              <span className="uppercase">{documento.tipo_arquivo}</span>
+              {" · "}
+              {formatBytes(documento.tamanho_bytes)}
+              {documento.created_at ? ` · ${formatDiaCurto(documento.created_at)}` : null}
+            </p>
 
-          <div className="flex flex-wrap gap-1">
-            <Badge variant="secondary" className="text-xs font-normal">
-              {DOCUMENTO_CATEGORIA_LABELS[documento.categoria]}
-            </Badge>
-            {documento.lead ? (
-              <Badge variant="outline" className="text-xs font-normal">
-                {documento.lead.nome}
-              </Badge>
-            ) : null}
-            {documento.compra ? (
-              <Badge variant="outline" className="text-xs font-normal border-gold text-primary">
-                {compraLabel(documento.compra)}
-              </Badge>
-            ) : null}
-          </div>
-
-          {documento.tags && documento.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {documento.tags.map((tag) => (
-                <span key={tag} className="text-xs text-muted-foreground">
-                  #{tag}
-                </span>
-              ))}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <CategoriaTag categoria={documento.categoria} />
+              {documento.lead ? (
+                <Pill className="max-w-full">
+                  <span className="truncate">{documento.lead.nome}</span>
+                </Pill>
+              ) : null}
+              {documento.compra ? (
+                <Pill tone="info" className="max-w-full">
+                  <span className="truncate">{compraLabel(documento.compra)}</span>
+                </Pill>
+              ) : null}
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O arquivo "{documento.titulo}" será removido
-              permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
+            {documento.tags && documento.tags.length > 0 ? (
+              <p className="mt-2 flex flex-wrap gap-x-2 gap-y-0.5 text-[0.75rem] text-muted-foreground">
+                {documento.tags.map((tag) => (
+                  <span key={tag}>#{tag}</span>
+                ))}
+              </p>
+            ) : null}
+          </div>
+
+          <div
+            className={cn(
+              "relative z-10 -mr-1.5 -mt-1.5 flex shrink-0 items-center gap-0.5 transition-opacity duration-150",
+              "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/doc:opacity-100 [@media(hover:hover)]:group-focus-within/doc:opacity-100",
+            )}
+          >
+            {onEdit ? (
+              <button
+                type="button"
+                className={ACAO}
+                title="Editar documento"
+                aria-label={`Editar ${documento.titulo}`}
+                onClick={onEdit}
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={cn(ACAO, "hover:bg-danger-soft hover:text-danger")}
+              title="Excluir documento"
+              aria-label={`Excluir ${documento.titulo}`}
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="items-center gap-3 text-center sm:items-start sm:text-left">
+            <span
+              aria-hidden
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-danger-soft text-danger"
+            >
+              <Trash2 className="h-5 w-5" />
+            </span>
+            <DialogTitle className="font-sans text-[1.0625rem] font-semibold leading-snug tracking-[-0.014em]">
+              Excluir documento?
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              Esta ação não pode ser desfeita. O arquivo &ldquo;{documento.titulo}&rdquo; será
+              removido permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              type="button"
+              variant="ghost"
               disabled={deleteMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                deleteMutation.mutate();
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
             >
               {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

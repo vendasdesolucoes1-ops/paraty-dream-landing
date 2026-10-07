@@ -43,7 +43,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ds/pill";
+import { PontoVivo } from "@/components/ajustes/ponto-vivo";
+import { Campo, Secao } from "@/components/ajustes/campos";
 
 type ContactSource = "crm" | "selecao" | "csv" | "manual";
 type DispatchState = "idle" | "running" | "paused" | "done";
@@ -411,6 +413,18 @@ export function MassDispatcherCard() {
       icon={Send}
       title="Disparador em massa"
       subtitle="Envie mensagens de WhatsApp para leads, um CSV ou uma lista manual"
+      status={
+        isRunning ? (
+          <Pill tone={dispatchState === "paused" ? "warning" : "success"}>
+            <PontoVivo
+              tom={dispatchState === "paused" ? "warning" : "success"}
+              vivo={dispatchState === "running"}
+              className="h-1.5 w-1.5"
+            />
+            {dispatchState === "paused" ? "Pausado" : "Disparando"}
+          </Pill>
+        ) : null
+      }
     >
       {/* O histórico virou aba deste card em vez de card próprio mais abaixo na
           página: quem acaba de disparar quer conferir o resultado ali mesmo, e
@@ -423,293 +437,292 @@ export function MassDispatcherCard() {
           <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="disparar" className="space-y-4 pt-2">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Instância</Label>
-              <Select value={instanceId} onValueChange={setInstanceId} disabled={isRunning}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a instância" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(instances ?? []).map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.instance_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="disparar" className="mt-6 space-y-8">
+          <Secao titulo="Origem">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Campo label="Instância">
+                <Select value={instanceId} onValueChange={setInstanceId} disabled={isRunning}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a instância" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(instances ?? []).map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.instance_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
 
-            <div className="space-y-2">
-              <Label>Fonte dos contatos</Label>
-              <Select
-                value={source}
-                onValueChange={(v: ContactSource) => setSource(v)}
-                disabled={isRunning}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="crm">Leads do CRM (por status)</SelectItem>
-                  <SelectItem value="selecao">Escolher leads</SelectItem>
-                  <SelectItem value="csv">Upload CSV</SelectItem>
-                  <SelectItem value="manual">Lista manual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mass-message">Mensagem</Label>
-            <Textarea
-              id="mass-message"
-              placeholder="Olá {{nome}}, temos novidades sobre o Moradas de Paraty..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              disabled={isRunning}
-              rows={4}
-            />
-            <p className="text-xs text-muted-foreground">
-              Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
-            </p>
-          </div>
-
-          {/* Anexo: um arquivo por campanha, o mesmo para todos os contatos.
-              Com texto preenchido saem duas mensagens (texto e depois a mídia),
-              porque legenda em documento o WhatsApp ignora e em imagem trunca. */}
-          <div className="space-y-2">
-            <Label htmlFor="midia-upload">Anexo (opcional)</Label>
-            {midia ? (
-              <div className="flex items-center gap-3 rounded-lg border p-2.5">
-                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm truncate">{midia.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {tipoDeMidia(midia) === "audio"
-                      ? "Áudio — enviado como mensagem de voz"
-                      : tipoDeMidia(midia)}{" "}
-                    · {tamanhoLegivel(midia.size)}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMidia(null)}
+              <Campo label="Fonte dos contatos">
+                <Select
+                  value={source}
+                  onValueChange={(v: ContactSource) => setSource(v)}
                   disabled={isRunning}
-                  aria-label="Remover anexo"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <Input
-                id="midia-upload"
-                type="file"
-                accept="image/*,video/*,audio/*,.pdf"
-                onChange={(e) => setMidia(e.target.files?.[0] ?? null)}
-                disabled={isRunning}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              Imagem, vídeo, áudio ou PDF. Áudio vai como mensagem de voz, não como arquivo anexado.
-            </p>
-          </div>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="crm">Leads do CRM (por status)</SelectItem>
+                    <SelectItem value="selecao">Escolher leads</SelectItem>
+                    <SelectItem value="csv">Upload CSV</SelectItem>
+                    <SelectItem value="manual">Lista manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Campo>
+            </div>
+          </Secao>
 
-          {source === "crm" ? (
-            <div className="space-y-2 max-w-xs">
-              <Label>Filtrar por status do lead</Label>
-              <Select
-                value={crmStatusFilter}
-                onValueChange={(v: LeadStatus | "todos") => setCrmStatusFilter(v)}
-                disabled={isRunning}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
-                  {LEAD_STATUS_COLUMNS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : source === "selecao" ? (
-            <LeadSelectionList
-              selectedIds={selectedLeadIds}
-              onChange={setSelectedLeadIds}
-              disabled={isRunning}
-            />
-          ) : source === "csv" ? (
-            <div className="space-y-2">
-              <Label htmlFor="csv-upload">Arquivo CSV (colunas: nome, telefone)</Label>
-              <Input
-                id="csv-upload"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleCsvUpload}
-                disabled={isRunning}
-              />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="manual-contacts">Números (separados por vírgula ou linha)</Label>
+          <Secao titulo="Mensagem">
+            <Campo
+              id="mass-message"
+              label="Mensagem"
+              dica={
+                <>
+                  Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
+                </>
+              }
+            >
               <Textarea
-                id="manual-contacts"
-                placeholder={"5511999999999\n5521988888888"}
-                value={manualText}
-                onChange={(e) => setManualText(e.target.value)}
+                id="mass-message"
+                placeholder="Olá {{nome}}, temos novidades sobre o Moradas de Paraty..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
                 disabled={isRunning}
                 rows={4}
               />
-            </div>
-          )}
+            </Campo>
 
-          <div className="flex items-center justify-between">
-            <p className="text-sm">
-              <span className="font-medium">{contacts.length}</span> contatos serão impactados
+            {/* Anexo: um arquivo por campanha, o mesmo para todos os contatos.
+              Com texto preenchido saem duas mensagens (texto e depois a mídia),
+              porque legenda em documento o WhatsApp ignora e em imagem trunca. */}
+            <Campo
+              id="midia-upload"
+              label="Anexo (opcional)"
+              dica="Imagem, vídeo, áudio ou PDF. Áudio vai como mensagem de voz, não como arquivo anexado."
+            >
+              {midia ? (
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-card)]">
+                  <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate">{midia.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tipoDeMidia(midia) === "audio"
+                        ? "Áudio — enviado como mensagem de voz"
+                        : tipoDeMidia(midia)}{" "}
+                      · {tamanhoLegivel(midia.size)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMidia(null)}
+                    disabled={isRunning}
+                    aria-label="Remover anexo"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  id="midia-upload"
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf"
+                  onChange={(e) => setMidia(e.target.files?.[0] ?? null)}
+                  disabled={isRunning}
+                />
+              )}
+            </Campo>
+          </Secao>
+
+          <Secao titulo="Contatos">
+            {source === "crm" ? (
+              <Campo label="Filtrar por status do lead" className="max-w-xs">
+                <Select
+                  value={crmStatusFilter}
+                  onValueChange={(v: LeadStatus | "todos") => setCrmStatusFilter(v)}
+                  disabled={isRunning}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    {LEAD_STATUS_COLUMNS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+            ) : source === "selecao" ? (
+              <LeadSelectionList
+                selectedIds={selectedLeadIds}
+                onChange={setSelectedLeadIds}
+                disabled={isRunning}
+              />
+            ) : source === "csv" ? (
+              <Campo id="csv-upload" label="Arquivo CSV (colunas: nome, telefone)">
+                <Input
+                  id="csv-upload"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvUpload}
+                  disabled={isRunning}
+                />
+              </Campo>
+            ) : (
+              <Campo id="manual-contacts" label="Números (separados por vírgula ou linha)">
+                <Textarea
+                  id="manual-contacts"
+                  placeholder={"5511999999999\n5521988888888"}
+                  value={manualText}
+                  onChange={(e) => setManualText(e.target.value)}
+                  disabled={isRunning}
+                  rows={4}
+                />
+              </Campo>
+            )}
+
+            <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
+              <span className="num text-base font-semibold tabular-nums">{contacts.length}</span>
+              contatos serão impactados
             </p>
-          </div>
+          </Secao>
 
           {/* max-w-xl, não max-w-sm: com o toggle na mesma linha do rótulo, os
               384px antigos não cabiam os dois e o switch quebrava para baixo. */}
-          <div className="space-y-2 max-w-xl">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Label>
-                {randomInterval
-                  ? `Intervalo entre mensagens: ${intervalRange[0]}s a ${intervalRange[1]}s`
-                  : `Intervalo entre mensagens: ${interval}s`}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="intervalo-aleatorio"
-                  checked={randomInterval}
-                  onCheckedChange={setRandomInterval}
+          <Secao titulo="Ritmo de envio">
+            <div className="max-w-xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Label>
+                  {randomInterval
+                    ? `Intervalo entre mensagens: ${intervalRange[0]}s a ${intervalRange[1]}s`
+                    : `Intervalo entre mensagens: ${interval}s`}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="intervalo-aleatorio"
+                    checked={randomInterval}
+                    onCheckedChange={setRandomInterval}
+                    disabled={isRunning}
+                  />
+                  <Label htmlFor="intervalo-aleatorio" className="text-sm font-normal">
+                    Intervalo aleatório
+                  </Label>
+                </div>
+              </div>
+
+              {randomInterval ? (
+                <Slider
+                  min={5}
+                  max={120}
+                  step={1}
+                  minStepsBetweenThumbs={1}
+                  value={intervalRange}
+                  onValueChange={([min, max]) => setIntervalRange([min, max])}
                   disabled={isRunning}
                 />
-                <Label htmlFor="intervalo-aleatorio" className="text-sm font-normal">
-                  Intervalo aleatório
-                </Label>
-              </div>
-            </div>
+              ) : (
+                <Slider
+                  min={5}
+                  max={60}
+                  step={1}
+                  value={[interval]}
+                  onValueChange={([v]) => setIntervalValue(v)}
+                  disabled={isRunning}
+                />
+              )}
 
-            {randomInterval ? (
-              <Slider
-                min={5}
-                max={120}
-                step={1}
-                minStepsBetweenThumbs={1}
-                value={intervalRange}
-                onValueChange={([min, max]) => setIntervalRange([min, max])}
-                disabled={isRunning}
-              />
-            ) : (
-              <Slider
-                min={5}
-                max={60}
-                step={1}
-                value={[interval]}
-                onValueChange={([v]) => setIntervalValue(v)}
-                disabled={isRunning}
-              />
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              {randomInterval
-                ? "Cada envio sorteia um valor dentro da faixa — o ritmo deixa de ter padrão fixo, que é o que a detecção de automação procura."
-                : "Todos os envios usam o mesmo intervalo. Em listas grandes, o padrão repetido é detectável."}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {!isRunning ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    disabled={contacts.length === 0 || !message.trim() || !instanceId}
-                  >
-                    Iniciar Disparo
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmar disparo em massa</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Você está prestes a enviar {contacts.length} mensagens. Confirmar?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => runDispatch()}>Confirmar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : (
-              <>
-                <Button variant="outline" onClick={handlePauseResume}>
-                  {dispatchState === "paused" ? "Retomar" : "Pausar"}
-                </Button>
-                <Button variant="destructive" onClick={handleStop}>
-                  Parar
-                </Button>
-              </>
-            )}
-          </div>
-
-          {dispatchState !== "idle" ? (
-            <div className="space-y-2">
-              <Progress value={contacts.length ? (sentCount / contacts.length) * 100 : 0} />
-              <p className="text-sm text-muted-foreground">
-                {sentCount} de {contacts.length} enviadas
-                {dispatchState === "paused" ? " — pausado" : ""}
+              <p className="text-xs text-muted-foreground">
+                {randomInterval
+                  ? "Cada envio sorteia um valor dentro da faixa — o ritmo deixa de ter padrão fixo, que é o que a detecção de automação procura."
+                  : "Todos os envios usam o mesmo intervalo. Em listas grandes, o padrão repetido é detectável."}
               </p>
             </div>
-          ) : null}
+          </Secao>
 
-          {log.length > 0 ? (
-            <div className="rounded-lg border overflow-x-auto max-h-64 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Horário</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {log
-                    .slice()
-                    .reverse()
-                    .map((entry, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{entry.telefone}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={
-                              entry.status === "Enviado"
-                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal"
-                                : "bg-red-100 text-red-800 hover:bg-red-100 font-normal"
-                            }
-                          >
-                            {entry.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{entry.horario}</TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
+          <div className="space-y-5 border-t border-border pt-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {!isRunning ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button disabled={contacts.length === 0 || !message.trim() || !instanceId}>
+                      Iniciar Disparo
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar disparo em massa</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Você está prestes a enviar {contacts.length} mensagens. Confirmar?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => runDispatch()}>Confirmar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={handlePauseResume}>
+                    {dispatchState === "paused" ? "Retomar" : "Pausar"}
+                  </Button>
+                  <Button variant="destructive" onClick={handleStop}>
+                    Parar
+                  </Button>
+                </>
+              )}
             </div>
-          ) : null}
+
+            {dispatchState !== "idle" ? (
+              <div className="animate-swap space-y-2">
+                <Progress value={contacts.length ? (sentCount / contacts.length) * 100 : 0} />
+                <p className="text-sm tabular-nums text-muted-foreground">
+                  {sentCount} de {contacts.length} enviadas
+                  {dispatchState === "paused" ? " — pausado" : ""}
+                </p>
+              </div>
+            ) : null}
+
+            {log.length > 0 ? (
+              <div className="animate-swap max-h-64 overflow-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Horário</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {log
+                      .slice()
+                      .reverse()
+                      .map((entry, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{entry.telefone}</TableCell>
+                          <TableCell>
+                            <Pill tone={entry.status === "Enviado" ? "success" : "danger"}>
+                              {entry.status}
+                            </Pill>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{entry.horario}</TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
+          </div>
         </TabsContent>
 
-        <TabsContent value="historico" className="pt-2">
+        <TabsContent value="historico" className="mt-6">
           <DispatchHistoryPanel />
         </TabsContent>
       </Tabs>

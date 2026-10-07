@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -17,14 +18,9 @@ import {
 } from "@/lib/processo-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Kbd } from "@/components/ds/kbd";
+import { Campo, GavetaCabecalho, GavetaRodape, Secao } from "@/components/documentos/pecas";
 import {
   Select,
   SelectContent,
@@ -93,67 +89,102 @@ export function DocumentoEditDialog({
     onError: (error: Error) => toast.error(error.message || "Erro ao atualizar o documento."),
   });
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!mutation.isPending) mutation.mutate();
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex flex-col gap-0 p-0 sm:max-w-[31rem]">
+        <GavetaCabecalho
+          icon={Pencil}
+          titulo="Editar documento"
+          descricao={
+            documento ? (
+              <span className="line-clamp-1">{documento.titulo}</span>
+            ) : (
+              "Altere título, categoria e vínculos."
+            )
+          }
+        />
+
         {documento ? (
           <>
-            <DialogHeader>
-              <DialogTitle>Editar documento</DialogTitle>
-            </DialogHeader>
+            <form
+              id="form-documento-edicao"
+              onSubmit={handleSubmit}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.requestSubmit();
+                }
+              }}
+              className="flex-1 space-y-8 overflow-y-auto px-7 py-6"
+            >
+              <Secao titulo="Detalhes">
+                <Campo id="edit-doc-titulo" label="Título" obrigatorio>
+                  <Input
+                    id="edit-doc-titulo"
+                    autoComplete="off"
+                    value={titulo}
+                    onChange={(e) => setTitulo(e.target.value)}
+                  />
+                </Campo>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-doc-titulo">Título</Label>
-                <Input
-                  id="edit-doc-titulo"
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
+                <Campo id="edit-doc-categoria" label="Categoria">
+                  <Select
+                    value={categoria}
+                    onValueChange={(v: DocumentoCategoria) => setCategoria(v)}
+                  >
+                    <SelectTrigger id="edit-doc-categoria">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOCUMENTO_CATEGORIA_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Campo>
+              </Secao>
+
+              <Secao titulo="Vínculos">
+                <ProcessoField value={processo} onChange={setProcesso} />
+
+                <CompraField
+                  value={compraId}
+                  label={compraRotulo}
+                  onChange={(id, rotulo) => {
+                    setCompraId(id);
+                    setCompraRotulo(rotulo);
+                  }}
                 />
-              </div>
+              </Secao>
+            </form>
 
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={categoria}
-                  onValueChange={(v: DocumentoCategoria) => setCategoria(v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOCUMENTO_CATEGORIA_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <ProcessoField value={processo} onChange={setProcesso} />
-
-              <CompraField
-                value={compraId}
-                label={compraRotulo}
-                onChange={(id, rotulo) => {
-                  setCompraId(id);
-                  setCompraRotulo(rotulo);
-                }}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <GavetaRodape
+              ocupado={mutation.isPending}
+              dica={
+                <>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>↵</Kbd> salvar
+                </>
+              }
+            >
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+              <Button type="submit" form="form-documento-edicao" disabled={mutation.isPending}>
                 {mutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
-            </DialogFooter>
+            </GavetaRodape>
           </>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

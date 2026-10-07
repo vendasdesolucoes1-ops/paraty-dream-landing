@@ -3,24 +3,23 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CalendarRange, List, Plus, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Chip } from "@/components/ds/chip";
+import { Reveal, atraso } from "@/components/ds/reveal";
+import { QueryState, SkeletonRows } from "@/components/ds/query-state";
+import { Segmentado } from "@/components/visoes/segmentado";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
 import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
+import { NavegadorPeriodo } from "@/components/agenda/navegador-periodo";
+import { ResumoVisitas } from "@/components/agenda/resumo-visitas";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { formatDataLonga, inicioDoDia } from "@/lib/format";
 import type { VisitaWithRelations } from "@/lib/types";
 import { useProfile } from "@/hooks/use-profile";
+import { startOfDay, startOfWeek } from "@/components/agenda/periodo";
+import { MarcaAgora } from "@/components/agenda/marca-agora";
 
 const VIEW_STORAGE_KEY = "agenda-view";
 type AgendaView = "lista" | "semana" | "mes";
@@ -31,31 +30,10 @@ export const Route = createFileRoute("/dashboard/agenda")({
   component: AgendaPage,
 });
 
-function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function endOfDay(date: Date) {
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
   return d;
-}
-
-function startOfWeek(date: Date) {
-  const d = startOfDay(date);
-  d.setDate(d.getDate() - d.getDay());
-  return d;
-}
-
-function formatDayHeader(date: Date) {
-  const label = date.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 // Date range fetched for the active view. null bound = unbounded (period "todas").
@@ -115,7 +93,7 @@ function AgendaPage() {
 
   const range = useMemo(() => computeRange(view, periodo, refDate), [view, periodo, refDate]);
 
-  const { data: visitas, isLoading } = useQuery({
+  const visitasQuery = useQuery({
     queryKey: [
       "visitas",
       view,
@@ -142,6 +120,7 @@ function AgendaPage() {
       return data as unknown as VisitaWithRelations[];
     },
   });
+  const { data: visitas, isLoading } = visitasQuery;
 
   const groups = useMemo(() => {
     const map = new Map<string, VisitaWithRelations[]>();
@@ -157,114 +136,175 @@ function AgendaPage() {
   }, [visitas]);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Relacionamento"
-        title="Agenda"
-        description="Visitas agendadas e histórico de atendimentos."
-        action={
-          <VisitaFormDialog
-            trigger={
-              <Button className="transition-transform duration-200 hover:scale-[1.02]">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Visita
-              </Button>
-            }
-          />
-        }
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {view === "lista" ? (
-            <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hoje">Hoje</SelectItem>
-                <SelectItem value="semana">Esta Semana</SelectItem>
-                <SelectItem value="todas">Todas</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : null}
-
-          {isVendedor ? (
-            <Button
-              variant={teamView ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTeamView((v) => !v)}
-              className="transition-colors"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              {teamView ? "Vendo toda a equipe" : "Ver toda a equipe"}
-            </Button>
-          ) : null}
-        </div>
-
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={(v) => v && setView(v as AgendaView)}
-        >
-          <ToggleGroupItem value="lista" aria-label="Lista">
-            <List className="h-4 w-4 mr-2" />
-            Lista
-          </ToggleGroupItem>
-          <ToggleGroupItem value="semana" aria-label="Semana">
-            <CalendarRange className="h-4 w-4 mr-2" />
-            Semana
-          </ToggleGroupItem>
-          <ToggleGroupItem value="mes" aria-label="Mês">
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Mês
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
-      {readOnly ? (
-        <p className="text-xs text-muted-foreground -mt-2">
-          Visualizando a agenda de toda a equipe (somente leitura).
-        </p>
-      ) : null}
-
-      {view !== "lista" ? (
-        <AgendaCalendar
-          mode={view === "mes" ? "mes" : "semana"}
-          visitas={visitas ?? []}
-          refDate={refDate}
-          onRefDateChange={setRefDate}
-          readOnly={readOnly}
+    <div className="mx-auto w-full max-w-[1200px] space-y-8">
+      <Reveal ordem={0}>
+        <PageHeader
+          eyebrow="Relacionamento"
+          title="Agenda"
+          description="Visitas agendadas e histórico de atendimentos."
+          action={
+            <VisitaFormDialog
+              trigger={
+                <Button>
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Nova Visita
+                </Button>
+              }
+            />
+          }
         />
-      ) : isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      ) : groups.length === 0 ? (
-        <EmptyState
-          icon={CalendarDays}
-          title="Nenhuma visita encontrada"
-          description="Ajuste o período ou agende uma nova visita."
-        />
-      ) : (
-        <div className="space-y-8">
-          {groups.map((group) => (
-            <div
-              key={group.date.toISOString()}
-              className={cn("space-y-3 animate-in fade-in duration-300")}
-            >
-              <h2 className="font-display text-lg text-primary">{formatDayHeader(group.date)}</h2>
-              <div className="space-y-2">
-                {group.items.map((visita) => (
-                  <VisitaCard key={visita.id} visita={visita} readOnly={readOnly} />
-                ))}
+      </Reveal>
+
+      <Reveal ordem={1} className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            {view === "lista" ? (
+              <div role="group" aria-label="Período" className="flex flex-wrap items-center gap-2">
+                <Chip ativo={periodo === "hoje"} onClick={() => setPeriodo("hoje")}>
+                  Hoje
+                </Chip>
+                <Chip ativo={periodo === "semana"} onClick={() => setPeriodo("semana")}>
+                  Esta semana
+                </Chip>
+                <Chip ativo={periodo === "todas"} onClick={() => setPeriodo("todas")}>
+                  Todas
+                </Chip>
               </div>
-            </div>
-          ))}
+            ) : (
+              <NavegadorPeriodo
+                modo={view === "mes" ? "mes" : "semana"}
+                refDate={refDate}
+                onChange={setRefDate}
+              />
+            )}
+
+            {isVendedor ? (
+              <Chip ativo={teamView} onClick={() => setTeamView((v) => !v)}>
+                <Users className="h-3.5 w-3.5" aria-hidden />
+                {teamView ? "Vendo toda a equipe" : "Ver toda a equipe"}
+              </Chip>
+            ) : null}
+          </div>
+
+          <Segmentado
+            rotulo="Visualização da agenda"
+            valor={view}
+            onChange={setView}
+            opcoes={[
+              { valor: "lista", rotulo: "Lista", icone: <List aria-hidden /> },
+              { valor: "semana", rotulo: "Semana", icone: <CalendarRange aria-hidden /> },
+              { valor: "mes", rotulo: "Mês", icone: <CalendarDays aria-hidden /> },
+            ]}
+          />
         </div>
-      )}
+
+        {readOnly ? (
+          <p className="flex animate-swap items-center gap-2 rounded-lg bg-muted px-3 py-2.5 text-[0.8125rem] text-muted-foreground">
+            <Users className="h-4 w-4 shrink-0" aria-hidden />
+            Visualizando a agenda de toda a equipe (somente leitura).
+          </p>
+        ) : null}
+
+        <ResumoVisitas visitas={visitas ?? []} />
+      </Reveal>
+
+      <Reveal ordem={2}>
+        {view !== "lista" ? (
+          <AgendaCalendar
+            mode={view === "mes" ? "mes" : "semana"}
+            visitas={visitas ?? []}
+            refDate={refDate}
+            readOnly={readOnly}
+            carregando={isLoading}
+          />
+        ) : (
+          <QueryState
+            query={{
+              data: visitas ?? [],
+              isPending: isLoading,
+              isError: visitasQuery.isError,
+              isRefetching: visitasQuery.isRefetching,
+              refetch: visitasQuery.refetch,
+            }}
+            skeleton={<SkeletonRows rows={4} className="h-[4.5rem]" />}
+            isEmpty={() => groups.length === 0}
+            empty={
+              <EmptyState
+                icon={CalendarDays}
+                title="Nenhuma visita encontrada"
+                description="Ajuste o período ou agende uma nova visita."
+                action={
+                  periodo !== "todas" ? (
+                    <Button variant="outline" onClick={() => setPeriodo("todas")}>
+                      Ver todas as visitas
+                    </Button>
+                  ) : undefined
+                }
+              />
+            }
+          >
+            {() => {
+              const agora = new Date();
+              const hoje = inicioDoDia(agora).getTime();
+              return (
+                <div key={periodo} className="animate-swap space-y-9">
+                  {groups.map((group) => {
+                    const ehHoje = group.date.getTime() === hoje;
+                    const ehAmanha = group.date.getTime() === hoje + 86_400_000;
+                    const proxima = ehHoje
+                      ? group.items.findIndex((v) => new Date(v.data_hora) > agora)
+                      : -1;
+                    const posAgora = ehHoje ? (proxima === -1 ? group.items.length : proxima) : -1;
+                    const titulo = group.date.toISOString();
+                    return (
+                      <section key={titulo} aria-labelledby={`dia-${titulo}`}>
+                        <header className="mb-3 flex items-center justify-between gap-3">
+                          <h2
+                            id={`dia-${titulo}`}
+                            className="flex items-center gap-2.5 font-sans text-[1.0625rem] font-semibold tracking-[-0.014em] text-foreground"
+                          >
+                            {formatDataLonga(group.date)}
+                            {ehHoje ? (
+                              <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-foreground">
+                                Hoje
+                              </span>
+                            ) : ehAmanha ? (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                Amanhã
+                              </span>
+                            ) : null}
+                          </h2>
+                          <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
+                            {group.items.length} {group.items.length === 1 ? "visita" : "visitas"}
+                          </span>
+                        </header>
+                        <div className="space-y-2">
+                          {group.items.map((visita, i) => (
+                            <div
+                              key={visita.id}
+                              className="animate-swap space-y-2"
+                              style={atraso(i, 55)}
+                            >
+                              {i === posAgora ? <MarcaAgora /> : null}
+                              <VisitaCard
+                                visita={visita}
+                                readOnly={readOnly}
+                                mostrarData={false}
+                                passou={new Date(visita.data_hora) <= agora}
+                              />
+                            </div>
+                          ))}
+                          {posAgora === group.items.length ? <MarcaAgora /> : null}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              );
+            }}
+          </QueryState>
+        )}
+      </Reveal>
     </div>
   );
 }

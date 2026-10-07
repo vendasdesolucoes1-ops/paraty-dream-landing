@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Wifi, WifiOff, Pencil, QrCode, Trash2, RefreshCcw } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Pencil, QrCode, Trash2, RefreshCcw, Smartphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { WhatsappInstance } from "@/lib/types";
@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Pill } from "@/components/ds/pill";
+import { PontoVivo } from "@/components/ajustes/ponto-vivo";
+import { Campo, SeloIcone } from "@/components/ajustes/campos";
 import {
   Dialog,
   DialogContent,
@@ -35,26 +37,12 @@ function StatusBadge({
   // Sem tentativa em curso o card está ocioso, mesmo que o banco tenha ficado
   // com "connecting" de uma sessão anterior.
   const connecting = attempting && !connected;
+  const tom = connected ? "success" : connecting ? "warning" : "danger";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium",
-        connected && "bg-emerald-100 text-emerald-800",
-        connecting && "bg-amber-100 text-amber-800 animate-pulse",
-        !connected && !connecting && "bg-red-100 text-red-800",
-      )}
-    >
-      {connected ? <Wifi className="h-3.5 w-3.5" /> : null}
-      <span
-        className={cn(
-          "h-2 w-2 rounded-full",
-          connected && "bg-emerald-500 animate-pulse",
-          connecting && "bg-amber-500",
-          !connected && !connecting && "bg-red-500",
-        )}
-      />
+    <Pill tone={tom} className="gap-2 px-3 py-1 text-xs">
+      <PontoVivo tom={tom} vivo={connected || connecting} className="h-2 w-2" />
       {connected ? "Conectado" : connecting ? "Conectando" : "Desconectado"}
-    </span>
+    </Pill>
   );
 }
 
@@ -194,53 +182,64 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
   });
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <div>
-          <p className="font-medium text-lg">{instance.instance_name}</p>
-          <p className="text-xs text-muted-foreground break-all">{instance.api_url}</p>
+    <Card className="card-hover overflow-hidden">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <SeloIcone icone={Smartphone} />
+          <div className="min-w-0">
+            <p className="truncate font-sans text-[0.9375rem] font-semibold leading-snug">
+              {instance.instance_name}
+            </p>
+            <p className="break-all text-xs text-muted-foreground">{instance.api_url}</p>
+          </div>
         </div>
         <StatusBadge status={status} attempting={pollingEnabled} />
       </CardHeader>
 
-      <CardContent className="flex flex-col items-center justify-center py-6 min-h-[280px]">
+      <CardContent className="flex min-h-[280px] flex-col items-center justify-center border-t border-border bg-background/60 px-5 py-8">
         {connected ? (
-          <div className="flex flex-col items-center gap-3 text-emerald-600">
-            <div className="h-24 w-24 rounded-full bg-emerald-50 flex items-center justify-center">
-              <Wifi className="h-12 w-12" />
+          <div key="conectado" className="flex animate-swap flex-col items-center gap-3 text-center">
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-success-soft text-success">
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full ring-8 ring-success/10 motion-safe:animate-pulse"
+              />
+              <Wifi className="relative h-11 w-11" aria-hidden />
             </div>
-            <p className="font-medium text-lg">Conectado</p>
+            <p className="font-sans text-lg font-semibold text-foreground">Conectado</p>
             <p className="text-sm text-muted-foreground">Pronto para enviar e receber mensagens.</p>
           </div>
         ) : qr && !qrExpired ? (
-          <div className="flex flex-col items-center gap-3">
+          <div key="qr" className="flex animate-swap flex-col items-center gap-4">
             <img
               src={qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`}
               alt="QR Code do WhatsApp"
-              className="w-56 h-56 min-w-[220px] min-h-[220px] border-2 border-gold rounded-xl p-2 bg-white"
+              className="h-56 min-h-[220px] w-56 min-w-[220px] rounded-2xl border border-border bg-white p-3 shadow-[var(--shadow-card)]"
             />
-            <div className="w-56 space-y-1">
+            <div className="w-56 space-y-1.5">
               <Progress value={(secondsLeft / QR_TTL_SECONDS) * 100} />
-              <p className="text-xs text-muted-foreground text-center">Expira em {secondsLeft}s</p>
+              <p className="text-center text-xs tabular-nums text-muted-foreground">
+                Expira em {secondsLeft}s
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={startQrFlow} disabled={qrFetching}>
-              <RefreshCcw className={cn("h-4 w-4 mr-2", qrFetching && "animate-spin")} />
+              <RefreshCcw className={cn("h-4 w-4", qrFetching && "animate-spin")} aria-hidden />
               Atualizar QR
             </Button>
-            <p className="text-xs text-muted-foreground text-center max-w-xs">
+            <p className="max-w-xs text-center text-xs leading-relaxed text-muted-foreground">
               Abra o WhatsApp &gt; Dispositivos conectados &gt; Conectar dispositivo &gt; Aponte
               para o QR code
             </p>
           </div>
         ) : qrFetching ? (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" />
+          <div key="gerando" className="flex animate-swap flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
             <p className="text-sm">Gerando QR code...</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center">
-              <QrCode className="h-10 w-10 text-muted-foreground" />
+          <div key="ocioso" className="flex animate-swap flex-col items-center gap-3 text-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted">
+              <QrCode className="h-10 w-10 text-muted-foreground" aria-hidden />
             </div>
             <p className="text-sm text-muted-foreground max-w-xs">
               {qrExpired
@@ -248,21 +247,21 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
                 : "Gere um QR code para conectar este número ao WhatsApp."}
             </p>
             <Button onClick={startQrFlow}>
-              <QrCode className="h-4 w-4 mr-2" />
+              <QrCode className="h-4 w-4" aria-hidden />
               {qrExpired ? "Gerar novo QR Code" : "Gerar QR Code"}
             </Button>
           </div>
         )}
       </CardContent>
 
-      <CardFooter className="flex justify-end gap-2 border-t pt-4">
+      <CardFooter className="flex justify-end gap-2 border-t border-border p-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => disconnectMutation.mutate()}
           disabled={disconnectMutation.isPending || !connected}
         >
-          <WifiOff className="h-4 w-4 mr-2" />
+          <WifiOff className="h-4 w-4" aria-hidden />
           Desconectar
         </Button>
         <Button
@@ -270,18 +269,20 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
           size="icon"
           className="h-9 w-9"
           title="Editar instância"
+          aria-label="Editar instância"
           onClick={() => {
             setEditForm({ api_url: instance.api_url, api_key: "" });
             setEditOpen(true);
           }}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-4 w-4" aria-hidden />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="h-9 w-9 text-destructive hover:text-destructive"
+          className="h-9 w-9 text-danger hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
           title="Excluir instância"
+          aria-label="Excluir instância"
           onClick={() => {
             if (window.confirm("Excluir a instância? Esta ação não pode ser desfeita.")) {
               deleteMutation.mutate();
@@ -289,7 +290,7 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
           }}
           disabled={deleteMutation.isPending}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4" aria-hidden />
         </Button>
       </CardFooter>
 
@@ -299,24 +300,22 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
             <DialogTitle>Editar instância — {instance.instance_name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={(e) => editMutation.mutate(e)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit_api_url">URL da Evolution API</Label>
+            <Campo id="edit_api_url" label="URL da Evolution API">
               <Input
                 id="edit_api_url"
                 required
                 value={editForm.api_url}
                 onChange={(e) => setEditForm((f) => ({ ...f, api_url: e.target.value }))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_api_key">API Key (deixe em branco para manter)</Label>
+            </Campo>
+            <Campo id="edit_api_key" label="API Key (deixe em branco para manter)">
               <Input
                 id="edit_api_key"
                 type="password"
                 value={editForm.api_key}
                 onChange={(e) => setEditForm((f) => ({ ...f, api_key: e.target.value }))}
               />
-            </div>
+            </Campo>
             <DialogFooter>
               <Button type="submit" disabled={editMutation.isPending}>
                 {editMutation.isPending ? "Salvando..." : "Salvar"}

@@ -6,11 +6,13 @@
 // outro card.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Send } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { DisparoCampanha, DisparoItem } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
+import { Pill, type Tone } from "@/components/ds/pill";
+import { atraso } from "@/components/ds/reveal";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -28,10 +30,10 @@ const STATUS_LABEL: Record<string, string> = {
   interrompido: "Interrompido",
 };
 
-const STATUS_CLASS: Record<string, string> = {
-  em_andamento: "bg-amber-100 text-amber-800 hover:bg-amber-100",
-  concluido: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  interrompido: "bg-muted text-muted-foreground hover:bg-muted",
+const STATUS_TOM: Record<string, Tone> = {
+  em_andamento: "warning",
+  concluido: "success",
+  interrompido: "neutral",
 };
 
 const FONTE_LABEL: Record<string, string> = {
@@ -44,7 +46,7 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-function CampanhaRow({ campanha }: { campanha: DisparoCampanha }) {
+function CampanhaRow({ campanha, indice }: { campanha: DisparoCampanha; indice: number }) {
   const [open, setOpen] = useState(false);
 
   const { data: itens, isLoading } = useQuery({
@@ -67,45 +69,51 @@ function CampanhaRow({ campanha }: { campanha: DisparoCampanha }) {
       : campanha.mensagem_template;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-lg border">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="animate-swap"
+      style={atraso(indice, 40, 320)}
+    >
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full flex-wrap items-center gap-3 p-3 text-left hover:bg-muted/40 transition-colors"
+            className="flex w-full flex-wrap items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{mensagemResumida}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate text-[0.9375rem] font-medium">{mensagemResumida}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {formatDateTime(campanha.iniciado_em)} · {campanha.instancia_nome} ·{" "}
                 {FONTE_LABEL[campanha.fonte_contatos] ?? campanha.fonte_contatos}
                 {campanha.filtro_status ? ` (${campanha.filtro_status})` : ""}
               </p>
             </div>
-            <Badge className={cn("font-normal shrink-0", STATUS_CLASS[campanha.status])}>
+            <Pill tone={STATUS_TOM[campanha.status] ?? "neutral"} dot>
               {STATUS_LABEL[campanha.status] ?? campanha.status}
-            </Badge>
-            <p className="text-xs text-muted-foreground shrink-0">
+            </Pill>
+            <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {campanha.total_enviado} enviado{campanha.total_enviado === 1 ? "" : "s"} ·{" "}
               {campanha.total_falhou} falhou{campanha.total_falhou === 1 ? "" : "s"} de{" "}
               {campanha.total_contatos}
             </p>
             <ChevronDown
+              aria-hidden
               className={cn(
-                "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--ease-out)]",
                 open && "rotate-180",
               )}
             />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t p-3">
+          <div className="animate-swap border-t border-border bg-background p-3">
             {isLoading ? (
-              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-xl" />
             ) : (itens ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum contato registrado.</p>
             ) : (
-              <div className="rounded-lg border overflow-x-auto max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-auto rounded-xl border border-border bg-card">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -121,22 +129,21 @@ function CampanhaRow({ campanha }: { campanha: DisparoCampanha }) {
                         <TableCell>{item.nome || "—"}</TableCell>
                         <TableCell>{item.telefone}</TableCell>
                         <TableCell>
-                          <Badge
-                            className={cn(
-                              "font-normal",
+                          <Pill
+                            tone={
                               item.status === "enviado"
-                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                ? "success"
                                 : item.status === "falhou"
-                                  ? "bg-red-100 text-red-800 hover:bg-red-100"
-                                  : "bg-muted text-muted-foreground hover:bg-muted",
-                            )}
+                                  ? "danger"
+                                  : "neutral"
+                            }
                           >
                             {item.status === "enviado"
                               ? "Enviado"
                               : item.status === "falhou"
                                 ? "Falhou"
                                 : "Pendente"}
-                          </Badge>
+                          </Pill>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {item.erro || "—"}
@@ -172,20 +179,26 @@ export function DispatchHistoryPanel() {
     return (
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+          <Skeleton key={i} className="h-16 w-full rounded-xl" />
         ))}
       </div>
     );
   }
 
   if ((campanhas ?? []).length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhuma campanha disparada ainda.</p>;
+    return (
+      <EmptyState
+        icon={Send}
+        title="Nenhuma campanha disparada ainda"
+        description="Quando você disparar a primeira, o resultado aparece aqui."
+      />
+    );
   }
 
   return (
     <div className="space-y-2">
-      {(campanhas ?? []).map((campanha) => (
-        <CampanhaRow key={campanha.id} campanha={campanha} />
+      {(campanhas ?? []).map((campanha, i) => (
+        <CampanhaRow key={campanha.id} campanha={campanha} indice={i} />
       ))}
     </div>
   );

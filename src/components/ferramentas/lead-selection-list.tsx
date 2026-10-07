@@ -17,11 +17,11 @@ import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { chaveTelefone, cn } from "@/lib/utils";
 import type { DisparoCampanha, Lead } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ds/pill";
+import { Campo } from "@/components/ajustes/campos";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -167,25 +167,26 @@ export function LeadSelectionList({
   const carregando = carregandoLeads || carregandoEnvios;
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="busca-lead">Buscar lead</Label>
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Campo id="busca-lead" label="Buscar lead">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            />
             <Input
               id="busca-lead"
-              className="pl-8"
+              className="pl-9"
               placeholder="Nome ou telefone"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               disabled={disabled}
             />
           </div>
-        </div>
+        </Campo>
 
-        <div className="space-y-2">
-          <Label>Comparar com</Label>
+        <Campo label="Comparar com">
           <Select value={campanhaRef} onValueChange={setCampanhaRef} disabled={disabled}>
             <SelectTrigger>
               <SelectValue />
@@ -200,7 +201,7 @@ export function LeadSelectionList({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Campo>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -236,13 +237,13 @@ export function LeadSelectionList({
       {carregando ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            <Skeleton key={i} className="h-12 w-full rounded-xl" />
           ))}
         </div>
       ) : filtrados.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum lead encontrado.</p>
       ) : (
-        <div className="rounded-lg border max-h-80 overflow-y-auto divide-y">
+        <div className="max-h-80 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
           {filtrados.map((lead) => {
             const enviadoEm = ultimoEnvio(lead);
             const contatado = enviadoEm !== undefined;
@@ -251,8 +252,8 @@ export function LeadSelectionList({
               <label
                 key={lead.id}
                 className={cn(
-                  "flex items-center gap-3 p-2.5 cursor-pointer transition-colors",
-                  marcado ? "bg-primary/5" : "hover:bg-muted/40",
+                  "flex cursor-pointer items-center gap-3 px-3.5 py-3 transition-colors",
+                  marcado ? "bg-accent/10" : "hover:bg-muted/50",
                   disabled && "cursor-not-allowed opacity-60",
                 )}
               >
@@ -265,23 +266,14 @@ export function LeadSelectionList({
                   <p className="text-sm font-medium truncate">{lead.nome || "Sem nome"}</p>
                   <p className="text-xs text-muted-foreground">{lead.telefone}</p>
                 </div>
-                <Badge variant="outline" className="font-normal shrink-0 hidden sm:inline-flex">
-                  {lead.status_crm}
-                </Badge>
-                <Badge
-                  className={cn(
-                    "font-normal shrink-0",
-                    contatado
-                      ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
-                      : "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-                  )}
-                >
+                <Pill className="hidden sm:inline-flex">{lead.status_crm}</Pill>
+                <Pill tone={contatado ? "warning" : "success"}>
                   {contatado
                     ? enviadoEm
                       ? `já recebeu · ${formatarData(enviadoEm)}`
                       : "já recebeu"
                     : "pendente"}
-                </Badge>
+                </Pill>
               </label>
             );
           })}

@@ -7,7 +7,10 @@ import { toast } from "sonner";
 import { ImagePlus, Images, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ds/pill";
+import { Campo, SeloIcone } from "@/components/ajustes/campos";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { atraso } from "@/components/ds/reveal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -160,23 +163,22 @@ export function AcervoPanel() {
   const manuais = (itens ?? []).filter((i) => i.origem === "upload_manual").length;
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-display text-primary flex items-center gap-2">
-          <Images className="h-5 w-5 text-gold" />
-          Acervo de fundos
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Fotos reais do empreendimento são a fonte principal das artes. O gerador só cria imagem
-          nova quando não há foto compatível no acervo.
-        </p>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex-row items-start gap-3 space-y-0 p-6">
+        <SeloIcone icone={Images} />
+        <div className="min-w-0">
+          <CardTitle className="text-[1.0625rem] leading-snug">Acervo de fundos</CardTitle>
+          <p className="mt-1 max-w-2xl text-[0.8125rem] leading-relaxed text-muted-foreground">
+            Fotos reais do empreendimento são a fonte principal das artes. O gerador só cria imagem
+            nova quando não há foto compatível no acervo.
+          </p>
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo da foto</Label>
+      <CardContent className="space-y-6 border-t border-border pt-6">
+        <div className="grid gap-5 rounded-2xl border border-dashed border-border bg-background p-5 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Campo label="Tipo da foto">
               <Select value={tag} onValueChange={setTag}>
                 <SelectTrigger>
                   <SelectValue />
@@ -189,9 +191,9 @@ export function AcervoPanel() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Campo>
 
-            <div className="flex items-start gap-2 pt-1 sm:pt-7">
+            <div className="flex items-start gap-2.5 pt-1 sm:pt-7">
               <Checkbox
                 id="contem-pessoas"
                 checked={contemPessoas}
@@ -222,21 +224,21 @@ export function AcervoPanel() {
               className="w-full sm:w-auto"
             >
               {uploading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : (
-                <ImagePlus className="h-4 w-4 mr-2" />
+                <ImagePlus className="h-4 w-4" aria-hidden />
               )}
               {uploading ? "Enviando..." : "Adicionar fotos"}
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm tabular-nums text-muted-foreground">
             {total} foto(s) no acervo · {manuais} real(is) do empreendimento
           </p>
           <Select value={filtro} onValueChange={setFiltro}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-56" aria-label="Filtrar por tipo de foto">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -251,82 +253,85 @@ export function AcervoPanel() {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+          <div aria-hidden className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-square w-full rounded-lg" />
+              <Skeleton key={i} className="aspect-square w-full rounded-xl" />
             ))}
           </div>
         ) : total === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Nenhuma foto ainda. Suba as aéreas do loteamento para o gerador parar de inventar
-            imagem.
-          </p>
+          <EmptyState
+            icon={Images}
+            title="Nenhuma foto ainda."
+            description="Suba as aéreas do loteamento para o gerador parar de inventar imagem."
+          />
         ) : (
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
-            {(itens ?? []).map((item) => (
-              <div key={item.id} className="group relative overflow-hidden rounded-lg border">
-                <img
-                  src={item.file_url}
-                  alt={item.titulo ?? item.tag_tipo}
-                  className="aspect-square w-full object-cover"
-                />
+          <ul key={filtro} className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+            {(itens ?? []).map((item, i) => (
+              <li key={item.id} className="animate-swap" style={atraso(i, 35, 350)}>
+                <div className="card-hover group relative overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
+                  <img
+                    src={item.file_url}
+                    alt={item.titulo ?? item.tag_tipo}
+                    loading="lazy"
+                    className="aspect-square w-full object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.05] motion-reduce:transform-none"
+                  />
 
-                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-1.5">
-                  <Badge
-                    className={cn(
-                      "font-normal text-[10px]",
-                      item.origem === "upload_manual"
-                        ? "bg-forest-deep text-ivory hover:bg-forest-deep"
-                        : "bg-sand-light text-forest-deep hover:bg-sand-light",
-                    )}
-                  >
-                    {TAG_LABEL[item.tag_tipo] ?? item.tag_tipo}
-                  </Badge>
+                  <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
+                    <Pill
+                      className={cn(
+                        "text-[0.65rem] shadow-sm",
+                        item.origem === "upload_manual"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-foreground",
+                      )}
+                    >
+                      {TAG_LABEL[item.tag_tipo] ?? item.tag_tipo}
+                    </Pill>
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                        title="Remover do acervo"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="font-display">
-                          Remover do acervo?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          A foto deixa de ser usada em novos posts. As artes já geradas com ela
-                          continuam intactas.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => removeMutation.mutate(item)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                          title="Remover do acervo"
+                          aria-label="Remover do acervo"
                         >
-                          Remover
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+                          <Trash2 className="h-3.5 w-3.5 text-danger" aria-hidden />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remover do acervo?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            A foto deixa de ser usada em novos posts. As artes já geradas com ela
+                            continuam intactas.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => removeMutation.mutate(item)}
+                            className="bg-danger text-primary-foreground hover:bg-danger/90"
+                          >
+                            Remover
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
 
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-forest-deep/80 to-transparent p-1.5 pt-6">
-                  <p className="text-[10px] text-ivory">
-                    {item.origem === "upload_manual" ? "Foto real" : "Gerada · aprovada"} ·{" "}
-                    {item.uso_count} uso(s)
-                    {item.contem_pessoas ? " · com pessoas" : ""}
-                  </p>
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-forest-deep/80 to-transparent p-2 pt-8">
+                    <p className="text-[0.68rem] leading-snug text-ivory">
+                      {item.origem === "upload_manual" ? "Foto real" : "Gerada · aprovada"} ·{" "}
+                      {item.uso_count} uso(s)
+                      {item.contem_pessoas ? " · com pessoas" : ""}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </CardContent>
     </Card>
