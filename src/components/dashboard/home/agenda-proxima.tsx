@@ -44,7 +44,7 @@ export function AgendaProxima({ query }: { query: UseQueryResult<VisitaProxima[]
           const hoje = inicioDoDia().getTime();
           const temHoje = grupos.has(hoje);
           return (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {!temHoje ? (
                 <p className="rounded-lg bg-muted/60 px-3 py-2 text-[0.82rem] text-muted-foreground">
                   Hoje livre — nenhuma visita marcada.
@@ -64,7 +64,7 @@ export function AgendaProxima({ query }: { query: UseQueryResult<VisitaProxima[]
                     {lista.map((v) => (
                       <li
                         key={v.id}
-                        className="group/linha relative -ml-1 flex items-center gap-2 rounded-md py-1.5 pl-1 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
+                        className="group/linha relative -ml-1 flex items-center gap-2 rounded-md py-1.5 pl-1 transition-colors hover:bg-muted/60 focus-within:bg-muted/60"
                       >
                         <span
                           aria-hidden
@@ -76,9 +76,19 @@ export function AgendaProxima({ query }: { query: UseQueryResult<VisitaProxima[]
                         <span className="w-11 shrink-0 text-sm font-semibold tabular-nums text-foreground">
                           {formatHora(v.data_hora)}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                          {v.lead?.nome ?? "Lead removido"}
-                        </span>
+                        {v.lead ? (
+                          <Link
+                            to="/dashboard/crm"
+                            search={{ lead: v.lead.id }}
+                            className="min-w-0 flex-1 truncate text-sm text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                          >
+                            {v.lead.nome}
+                          </Link>
+                        ) : (
+                          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                            Lead removido
+                          </span>
+                        )}
                         {v.aConfirmar ? (
                           <Pill tone="warning">Confirmar</Pill>
                         ) : v.status === "confirmada" ? (

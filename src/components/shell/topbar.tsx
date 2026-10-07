@@ -15,7 +15,7 @@ const ATALHO =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
 
 const BOTAO_ICONE =
-  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-[color,background-color,transform] duration-150 active:scale-95 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Barra superior: menu, onde estou, busca, tema e conta. Fixa no topo; o conteúdo rola por baixo. */
 export function Topbar() {
@@ -30,7 +30,7 @@ export function Topbar() {
   );
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur sm:px-5">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/70 bg-canvas/80 px-3 backdrop-blur-md sm:px-6">
       {/* Celular: abre o menu em gaveta. */}
       <button
         type="button"
@@ -87,7 +87,7 @@ export function Topbar() {
         <button
           type="button"
           onClick={abrirBusca}
-          className="hidden h-9 w-64 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
+          className="hidden h-9 w-72 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground shadow-sm transition-[color,border-color,box-shadow] duration-150 hover:border-foreground/25 hover:text-foreground hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
         >
           <Search className="h-4 w-4" aria-hidden />
           <span className="flex-1 text-left">Buscar lead ou tela…</span>

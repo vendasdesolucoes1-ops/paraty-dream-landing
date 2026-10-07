@@ -52,10 +52,13 @@ export function Pipeline({ query }: { query: UseQueryResult<ResumoLeads> }) {
                   <li key={status}>
                     <Link
                       to="/dashboard/crm"
-                      className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[6.5rem_1fr_auto]"
+                      className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[6.5rem_1fr_auto]"
                     >
                       <span className="text-sm text-foreground">{STATUS_LABEL[status]}</span>
-                      <span className="h-2 overflow-hidden rounded-full bg-chart-track" aria-hidden>
+                      <span
+                        className="h-2.5 overflow-hidden rounded-full bg-chart-track"
+                        aria-hidden
+                      >
                         <span
                           className={cn(
                             "block h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none",

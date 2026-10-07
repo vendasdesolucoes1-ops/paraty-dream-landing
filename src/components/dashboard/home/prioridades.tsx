@@ -62,11 +62,7 @@ export function Prioridades({
     <Panel
       flush
       title="Prioridades"
-      description={
-        visao === "agir"
-          ? "O que depende de alguém da equipe, dos mais urgentes aos mais antigos"
-          : "Os leads que acabaram de chegar"
-      }
+      description={visao === "agir" ? "O que depende de alguém da equipe" : "Quem acabou de chegar"}
       action={
         <Segmented<Visao>
           label="Visão da lista"
@@ -86,7 +82,7 @@ export function Prioridades({
 
 function Esqueleto({ linhas }: { linhas: number }) {
   return (
-    <div className="px-5">
+    <div className="px-6">
       <SkeletonRows rows={linhas} className="h-11" />
     </div>
   );
@@ -97,10 +93,10 @@ function ParaAgir({ query }: { query: UseQueryResult<ItemAcao[]> }) {
     <QueryState
       query={query}
       skeleton={<Esqueleto linhas={5} />}
-      erroClassName="mx-5"
+      erroClassName="mx-6"
       isEmpty={(d) => d.length === 0}
       empty={
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
           <CheckCircle2 className="h-8 w-8 text-success" aria-hidden />
           <p className="text-sm font-medium text-foreground">Tudo em dia</p>
           <p className="max-w-xs text-[0.82rem] text-muted-foreground">
@@ -120,7 +116,7 @@ function ParaAgir({ query }: { query: UseQueryResult<ItemAcao[]> }) {
               motivo === "humano" ? (doGrupo[0].quantidade ?? doGrupo.length) : doGrupo.length;
             return (
               <div key={motivo}>
-                <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-5 py-1.5 first:border-t-0">
+                <div className="flex items-center gap-2 border-t border-border bg-muted/50 px-6 py-2 first:border-t-0">
                   <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", PONTO[tom])} />
                   <h3 className="font-sans text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                     {titulo}
@@ -135,7 +131,7 @@ function ParaAgir({ query }: { query: UseQueryResult<ItemAcao[]> }) {
                 {doGrupo.length > MAX_POR_GRUPO ? (
                   <Link
                     to="/dashboard/crm"
-                    className="block px-5 py-2 text-[0.78rem] text-muted-foreground hover:text-foreground hover:underline"
+                    className="block px-6 py-2 text-[0.78rem] text-muted-foreground hover:text-foreground hover:underline"
                   >
                     + {doGrupo.length - MAX_POR_GRUPO} no CRM
                   </Link>
@@ -149,6 +145,22 @@ function ParaAgir({ query }: { query: UseQueryResult<ItemAcao[]> }) {
   );
 }
 
+/**
+ * Nome do lead como link "esticado": o clique em qualquer ponto da linha abre a
+ * ficha no CRM, e os botões de ação (z-10) continuam clicáveis por cima.
+ */
+function NomeDoLead({ id, nome }: { id: string; nome: string }) {
+  return (
+    <Link
+      to="/dashboard/crm"
+      search={{ lead: id }}
+      className="block truncate text-sm font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+    >
+      {nome}
+    </Link>
+  );
+}
+
 function LinhaAcao({ item }: { item: ItemAcao }) {
   if (item.motivo === "humano") {
     const n = item.quantidade ?? 0;
@@ -156,7 +168,7 @@ function LinhaAcao({ item }: { item: ItemAcao }) {
       <li>
         <Link
           to="/dashboard/crm"
-          className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="flex items-center gap-3 px-6 py-3 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <span className="min-w-0 flex-1 text-sm text-foreground">
             <strong className="font-semibold tabular-nums">{n}</strong>{" "}
@@ -170,12 +182,14 @@ function LinhaAcao({ item }: { item: ItemAcao }) {
   }
   const lead = item.lead;
   return (
-    <li className="group/linha flex items-center gap-3 px-5 py-2 transition-colors hover:bg-muted/50 focus-within:bg-muted/50">
+    <li className="group/linha relative flex items-center gap-3 px-6 py-2.5 transition-colors duration-150 hover:bg-muted/60 focus-within:bg-muted/60">
       <Avatar nome={lead?.nome} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">
-          {lead?.nome ?? "Lead sem nome"}
-        </p>
+        {lead ? (
+          <NomeDoLead id={lead.id} nome={lead.nome} />
+        ) : (
+          <p className="text-sm">Lead sem nome</p>
+        )}
       </div>
       <span className={cn("shrink-0 text-[0.8rem] tabular-nums", corIdade(item.desde))}>
         {detalhe(item)}
@@ -190,10 +204,10 @@ function Recentes({ query }: { query: UseQueryResult<LeadRecente[]> }) {
     <QueryState
       query={query}
       skeleton={<Esqueleto linhas={5} />}
-      erroClassName="mx-5"
+      erroClassName="mx-6"
       isEmpty={(d) => d.length === 0}
       empty={
-        <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
           Nenhum lead recebido ainda.
         </p>
       }
@@ -203,11 +217,11 @@ function Recentes({ query }: { query: UseQueryResult<LeadRecente[]> }) {
           {leads.map((l) => (
             <li
               key={l.id}
-              className="group/linha flex items-center gap-3 px-5 py-2 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
+              className="group/linha relative flex items-center gap-3 px-6 py-2.5 transition-colors duration-150 hover:bg-muted/60 focus-within:bg-muted/60"
             >
               <Avatar nome={l.nome} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{l.nome}</p>
+                <NomeDoLead id={l.id} nome={l.nome} />
                 <p className="truncate text-[0.78rem] text-muted-foreground">
                   {[l.origem ? ORIGEM_LABEL[l.origem] : null, tempoRelativo(l.created_at)]
                     .filter(Boolean)

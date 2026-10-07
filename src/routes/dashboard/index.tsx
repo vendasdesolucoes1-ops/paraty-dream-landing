@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays } from "lucide-react";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   useAgendaProxima,
@@ -12,7 +12,8 @@ import {
   useResumoLeads,
   useUltimosLeads,
 } from "@/lib/dashboard-queries";
-import { formatDataLonga, inicioDoDia, saudacao, somarDias } from "@/lib/format";
+import { formatDataLonga, inicioDoDia, saudacao, somarDias, tempoRelativo } from "@/lib/format";
+import { Reveal } from "@/components/ds/reveal";
 import { KpiCell, KpiStrip } from "@/components/ds/kpi-strip";
 import { PageHeader } from "@/components/ds/page-header";
 import { Sparkbars } from "@/components/ds/sparkbars";
@@ -53,6 +54,42 @@ function useAtualizacaoAoVivo() {
   }, [queryClient]);
 }
 
+/**
+ * "Atualizado há 2 min" + botão para atualizar agora. A tela já se atualiza
+ * sozinha (a cada 60 s e ao vivo), então isto serve de confiança: a pessoa vê
+ * que o número é recente e, se desconfiar, força a atualização.
+ */
+function Atualizado({ desde }: { desde: number }) {
+  const queryClient = useQueryClient();
+  const buscando = useIsFetching({ queryKey: ["dash"] }) > 0;
+  const [, forcar] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => forcar((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <button
+      type="button"
+      onClick={() => queryClient.invalidateQueries({ queryKey: ["dash"] })}
+      disabled={buscando}
+      title="Atualizar agora"
+      className="group/atual inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[0.8rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait"
+    >
+      <RefreshCw
+        className={`h-3.5 w-3.5 transition-transform duration-500 group-hover/atual:rotate-90 ${buscando ? "animate-spin" : ""}`}
+        aria-hidden
+      />
+      <span className="tabular-nums" aria-live="polite">
+        {buscando
+          ? "Atualizando…"
+          : desde
+            ? `Atualizado ${tempoRelativo(new Date(desde))}`
+            : "Atualizar"}
+      </span>
+    </button>
+  );
+}
+
 function DashboardHome() {
   const { pronto, escopo, papel, nome } = useEscopo();
   useAtualizacaoAoVivo();
@@ -89,89 +126,100 @@ function DashboardHome() {
     .join(" · ");
 
   return (
-    <div className="mx-auto w-full max-w-[1360px] space-y-5">
-      <PageHeader
-        title={`${saudacao()}${primeiroNome ? `, ${primeiroNome}` : ""}`}
-        description={
-          <>
-            {formatDataLonga(new Date())}
-            {resumoDoDia ? <span className="text-foreground"> · {resumoDoDia}</span> : null}
-          </>
-        }
-        actions={
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/dashboard/agenda">
-                <CalendarDays className="h-4 w-4" aria-hidden />
-                Agenda
-              </Link>
-            </Button>
-            <LeadFormDialog />
-          </>
-        }
-      />
-
-      <KpiStrip>
-        <KpiCell
-          label="Novos hoje"
-          to="/dashboard/crm"
-          loading={resumo.isPending}
-          value={resumo.data?.novosHoje}
-          delta={
-            resumo.data
-              ? { valor: resumo.data.novosHoje - resumo.data.novosOntem, rotulo: "vs. ontem" }
-              : null
+    <div className="mx-auto w-full max-w-[1360px] space-y-6 lg:space-y-8">
+      <Reveal ordem={0}>
+        <PageHeader
+          title={`${saudacao()}${primeiroNome ? `, ${primeiroNome}` : ""}`}
+          description={
+            <>
+              {formatDataLonga(new Date())}
+              {resumoDoDia ? <span className="text-foreground"> · {resumoDoDia}</span> : null}
+            </>
           }
-          destaque={(resumo.data?.novosHoje ?? 0) > 0}
-        >
-          {chegadas.data ? (
-            <Sparkbars
-              valores={chegadas.data.slice(-7).map((d) => d.total)}
-              label="Leads por dia nos últimos 7 dias"
-            />
-          ) : null}
-        </KpiCell>
-        <KpiCell
-          label="Em andamento"
-          to="/dashboard/crm"
-          loading={resumo.isPending}
-          value={resumo.data?.emAndamento}
-          context={resumo.data ? `de ${resumo.data.total} no total` : undefined}
+          actions={
+            <>
+              <Atualizado
+                desde={Math.max(resumo.dataUpdatedAt, fila.dataUpdatedAt, agenda.dataUpdatedAt)}
+              />
+              <Button asChild variant="outline" size="sm">
+                <Link to="/dashboard/agenda">
+                  <CalendarDays className="h-4 w-4" aria-hidden />
+                  Agenda
+                </Link>
+              </Button>
+              <LeadFormDialog />
+            </>
+          }
         />
-        <KpiCell
-          label="Visitas hoje"
-          to="/dashboard/agenda"
-          loading={agenda.isPending}
-          value={visitasHoje}
-          context="na agenda de hoje"
-          destaque={(visitasHoje ?? 0) > 0}
-        />
-        <KpiCell
-          label="Lotes disponíveis"
-          to="/dashboard/lotes"
-          loading={lotes.isPending}
-          value={lotes.data}
-          context="prontos para vender"
-        />
-      </KpiStrip>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-8 [&>section]:h-full">
-          <Prioridades fila={fila} recentes={ultimos} />
-        </div>
-        <div className="min-w-0 lg:col-span-4 [&>section]:h-full">
-          <AgendaProxima query={agenda} />
-        </div>
-      </div>
+      <Reveal ordem={1}>
+        <KpiStrip>
+          <KpiCell
+            label="Novos hoje"
+            to="/dashboard/crm"
+            loading={resumo.isPending}
+            value={resumo.data?.novosHoje}
+            delta={
+              resumo.data
+                ? { valor: resumo.data.novosHoje - resumo.data.novosOntem, rotulo: "vs. ontem" }
+                : null
+            }
+            destaque={(resumo.data?.novosHoje ?? 0) > 0}
+          >
+            {chegadas.data ? (
+              <Sparkbars
+                valores={chegadas.data.slice(-7).map((d) => d.total)}
+                label="Leads por dia nos últimos 7 dias"
+              />
+            ) : null}
+          </KpiCell>
+          <KpiCell
+            label="Em andamento"
+            to="/dashboard/crm"
+            loading={resumo.isPending}
+            value={resumo.data?.emAndamento}
+            context={resumo.data ? `de ${resumo.data.total} no total` : undefined}
+          />
+          <KpiCell
+            label="Visitas hoje"
+            to="/dashboard/agenda"
+            loading={agenda.isPending}
+            value={visitasHoje}
+            context="na agenda de hoje"
+            destaque={(visitasHoje ?? 0) > 0}
+          />
+          <KpiCell
+            label="Lotes disponíveis"
+            to="/dashboard/lotes"
+            loading={lotes.isPending}
+            value={lotes.data}
+            context="prontos para vender"
+          />
+        </KpiStrip>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-7 [&>section]:h-full">
-          <Pipeline query={resumo} />
+      <Reveal ordem={2}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-8 [&>section]:h-full">
+            <Prioridades fila={fila} recentes={ultimos} />
+          </div>
+          <div className="min-w-0 lg:col-span-4 [&>section]:h-full">
+            <AgendaProxima query={agenda} />
+          </div>
         </div>
-        <div className="min-w-0 lg:col-span-5 [&>section]:h-full">
-          <EntradaDeLeads chegadas={chegadas} resumo={resumo} />
+      </Reveal>
+
+      <Reveal ordem={3}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-7 [&>section]:h-full">
+            <Pipeline query={resumo} />
+          </div>
+          <div className="min-w-0 lg:col-span-5 [&>section]:h-full">
+            <EntradaDeLeads chegadas={chegadas} resumo={resumo} />
+          </div>
         </div>
-      </div>
+      </Reveal>
     </div>
   );
 }

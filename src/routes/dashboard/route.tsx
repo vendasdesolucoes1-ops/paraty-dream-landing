@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/shell/sidebar-context";
 import { Topbar } from "@/components/shell/topbar";
 import { CommandPaletteProvider } from "@/components/ds/command-palette";
 import { Toaster } from "@/components/ui/sonner";
+import { Atalhos } from "@/components/shell/atalhos";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
 
@@ -36,11 +37,12 @@ function DashboardLayout() {
           <TooltipProvider delayDuration={150}>
             {/* Altura travada na viewport (dvh acompanha a barra do navegador no
                 celular): a sidebar fica parada e só o conteúdo rola. */}
-            <div className="flex h-[100dvh] overflow-hidden bg-background">
+            <div className="flex h-[100dvh] overflow-hidden bg-canvas">
+              <Atalhos />
               <AppSidebar />
               <div className="flex min-w-0 flex-1 flex-col">
                 <Topbar />
-                <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+                <main className="surface-canvas flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-6 sm:px-8 sm:pt-8 lg:px-10 lg:pt-10">
                   <Outlet />
                 </main>
               </div>

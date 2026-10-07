@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { itemAtivo, navDoPerfil, type NavItem } from "@/components/dashboard/nav";
 import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
+import { ATALHOS_DE_TELA } from "./atalhos";
 import { useSidebar } from "./sidebar-context";
 
 /** Lista de navegação. `recolhida` mostra só ícones, com o nome numa dica. */
@@ -29,7 +30,7 @@ function ItemNav({
       aria-label={recolhida ? item.label : undefined}
       aria-current={ativo ? "page" : undefined}
       className={cn(
-        "group/nav relative flex h-10 items-center gap-3 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+        "group/nav relative flex h-10 items-center gap-3 rounded-lg text-sm transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
         recolhida ? "justify-center px-0" : "px-3",
         ativo
           ? "bg-sidebar-active font-medium text-sidebar-foreground"
@@ -37,9 +38,18 @@ function ItemNav({
       )}
     >
       {ativo ? (
-        <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-gold" />
+        <span
+          aria-hidden
+          className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-gold animate-in fade-in-0 slide-in-from-left-1 duration-300"
+        />
       ) : null}
-      <Icon className={cn("h-[18px] w-[18px] shrink-0", ativo && "text-gold")} aria-hidden />
+      <Icon
+        className={cn(
+          "h-[18px] w-[18px] shrink-0 transition-transform duration-200 ease-[var(--ease-out)] group-hover/nav:scale-110",
+          ativo && "text-gold",
+        )}
+        aria-hidden
+      />
       {recolhida ? null : <span className="truncate">{item.label}</span>}
     </Link>
   );
@@ -48,7 +58,14 @@ function ItemNav({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
+      <TooltipContent side="right">
+        {item.label}
+        {ATALHOS_DE_TELA[item.to] ? (
+          <Kbd className="ml-2 border-white/20 bg-white/10 text-primary-foreground">
+            G {ATALHOS_DE_TELA[item.to].toUpperCase()}
+          </Kbd>
+        ) : null}
+      </TooltipContent>
     </Tooltip>
   );
 }

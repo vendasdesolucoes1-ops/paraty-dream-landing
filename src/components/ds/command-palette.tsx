@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { navDoPerfil } from "@/components/dashboard/nav";
+import { ATALHOS_DE_TELA } from "@/components/shell/atalhos";
 import { useSidebar } from "@/components/shell/sidebar-context";
 import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
 import { useProfile } from "@/hooks/use-profile";
@@ -189,7 +190,13 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
                         className="gap-3"
                       >
                         <Icon className="!h-4 !w-4 text-muted-foreground" aria-hidden />
-                        {p.label}
+                        <span className="flex-1">{p.label}</span>
+                        {ATALHOS_DE_TELA[p.to] ? (
+                          <span className="flex items-center gap-1">
+                            <Kbd>G</Kbd>
+                            <Kbd>{ATALHOS_DE_TELA[p.to].toUpperCase()}</Kbd>
+                          </span>
+                        ) : null}
                       </CommandItem>
                     );
                   })}

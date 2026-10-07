@@ -39,7 +39,7 @@ export function EntradaDeLeads({
 }) {
   return (
     <Panel title="Entrada de leads" description="Chegadas por dia e por origem">
-      <div className="flex flex-1 flex-col gap-6">
+      <div className="flex flex-1 flex-col gap-7">
         <QueryState
           query={chegadas}
           skeleton={<div className="h-32 animate-pulse rounded-md bg-muted" aria-hidden />}
@@ -57,7 +57,7 @@ export function EntradaDeLeads({
                   {total === 1 ? "lead" : "leads"} nos últimos {DIAS_CHEGADAS} dias
                 </p>
                 <ul
-                  className="mt-3 flex h-24 items-end gap-1"
+                  className="mt-4 flex h-28 items-end gap-1.5"
                   aria-label={`Leads por dia nos últimos ${DIAS_CHEGADAS} dias`}
                 >
                   {dias.map(({ dia, total: n }, i) => {
@@ -72,8 +72,14 @@ export function EntradaDeLeads({
                         <span className="sr-only">{rotulo}</span>
                         <span
                           aria-hidden
+                          className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-[0.7rem] font-medium text-primary-foreground opacity-0 shadow-md transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+                        >
+                          {formatDiaSemana(dia)} {formatDiaCurto(dia)} · {n}
+                        </span>
+                        <span
+                          aria-hidden
                           className={cn(
-                            "w-full rounded-t-[3px] transition-[height] duration-500 ease-out motion-reduce:transition-none",
+                            "w-full rounded-t-[4px] transition-[height,filter] duration-500 ease-out group-hover:brightness-110 motion-reduce:transition-none",
                             ehHoje ? "bg-accent" : "bg-chart-1/70",
                             n === 0 && "opacity-30",
                           )}

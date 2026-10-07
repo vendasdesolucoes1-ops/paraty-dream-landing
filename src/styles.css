@@ -88,6 +88,7 @@
   --color-sidebar-hover: var(--sidebar-hover);
   --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-line: var(--sidebar-line);
+  --color-canvas: var(--canvas);
   --color-chart-muted: var(--chart-muted);
   --color-chart-track: var(--chart-track);
 }
@@ -159,7 +160,18 @@
   --sidebar-line: oklch(1 0 0 / 0.09);
 
   /* Elevação do card: borda faz o contorno, a sombra só sugere profundidade. */
-  --shadow-card: 0 1px 2px oklch(0.2 0.03 250 / 0.04), 0 12px 32px -20px oklch(0.2 0.03 250 / 0.22);
+  --shadow-card: 0 1px 2px oklch(0.2 0.03 250 / 0.05), 0 8px 24px -16px oklch(0.2 0.03 250 / 0.16);
+  --shadow-pop:
+    0 0 0 1px oklch(0.2 0.03 250 / 0.06), 0 4px 8px -2px oklch(0.2 0.03 250 / 0.08),
+    0 24px 48px -12px oklch(0.2 0.03 250 / 0.26);
+
+  /* Fundo do painel: um creme um pouco mais fundo que o da landing, para o
+     card branco se destacar sem precisar de sombra pesada. */
+  --canvas: oklch(0.962 0.01 84);
+  --canvas-wash: oklch(0.72 0.11 75 / 0.09);
+
+  /* Movimento: saída rápida e suave (ease-out exponencial) em tudo. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Lotes planta (mapa) — status fills reuse the same palette as the table view */
   --lote-disponivel: var(--sand-light);
@@ -224,6 +236,9 @@
   --chart-track: oklch(0.33 0 0);
 
   --shadow-card: none;
+  --shadow-pop: 0 0 0 1px oklch(1 0 0 / 0.08), 0 24px 48px -12px oklch(0 0 0 / 0.6);
+  --canvas: oklch(0.15 0 0);
+  --canvas-wash: oklch(0.72 0.11 75 / 0.05);
 
   --sidebar: oklch(0.2 0 0);
   --sidebar-foreground: oklch(0.96 0 0);
@@ -254,10 +269,15 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01", "cv11", "calt";
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: var(--font-display);
     font-weight: 400;
     letter-spacing: -0.01em;
@@ -275,6 +295,94 @@
   letter-spacing: -0.02em;
 }
 
+/* Fundo do painel: canvas liso com um brilho dourado bem discreto no canto
+   superior esquerdo, que dá profundidade sem competir com o conteúdo. */
+@utility surface-canvas {
+  background-color: var(--canvas);
+  background-image: radial-gradient(56rem 26rem at 8% -6rem, var(--canvas-wash), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* Entrada de modais e gavetas: sobe 6 px e cresce de 97% a 100%. Compõe com o
+   `translate` que centraliza o diálogo (transform e translate são
+   propriedades separadas), por isso não mexe na posição. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes veil-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility animate-pop {
+  &[data-state="open"] {
+    animation: pop-in 220ms var(--ease-out) both;
+  }
+  &[data-state="closed"] {
+    animation: pop-out 140ms ease-in both;
+  }
+}
+@utility animate-veil {
+  &[data-state="open"] {
+    animation: veil-in 200ms ease-out both;
+  }
+  &[data-state="closed"] {
+    animation: veil-out 150ms ease-in both;
+  }
+}
+@utility animate-rise {
+  animation: rise-in 520ms var(--ease-out) both;
+  animation-delay: var(--atraso, 0ms);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop,
+  .animate-veil {
+    animation-duration: 1ms !important;
+  }
+}
+
 @utility eyebrow {
   font-family: var(--font-sans);
   font-size: 0.72rem;
@@ -288,4 +396,3 @@
   padding-inline: 1.5rem;
   max-width: 80rem;
 }
-
