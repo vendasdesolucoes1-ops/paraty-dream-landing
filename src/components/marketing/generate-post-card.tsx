@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { useInstagramConfig } from "@/components/marketing/instagram-settings-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Pill } from "@/components/ds/pill";
 import { Campo, Secao, SeloIcone } from "@/components/ajustes/campos";
 import { Textarea } from "@/components/ui/textarea";

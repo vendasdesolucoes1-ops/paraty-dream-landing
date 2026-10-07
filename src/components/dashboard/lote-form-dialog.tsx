@@ -200,7 +200,7 @@ export function LoteFormDialog({ lote, trigger, open, onOpenChange }: LoteFormDi
         />
       </Secao>
 
-      <Secao titulo="Observações">
+      <Secao titulo="Detalhes">
         <Campo id="observacoes" label="Observações" dica="Visível só para a equipe.">
           <Textarea
             id="observacoes"
