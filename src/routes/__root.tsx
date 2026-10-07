@@ -92,11 +92,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // Só o emblema circular: em 16px o texto da marca vira borrão.
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Fontes locais (ver @font-face em styles.css). O preload faz o download
+      // começar junto com o HTML, em vez de esperar o CSS ser lido.
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap",
+        rel: "preload",
+        href: "/fonts/cormorant-garamond-latin-var.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/inter-latin-var.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
     ],
   }),
