@@ -8,6 +8,11 @@ import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
 import { proximosDias } from "../_shared/data-br.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
+import {
+  registrarConsultaRag,
+  resolverConhecimento,
+  type ConhecimentoParaPrompt,
+} from "../_shared/rag.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -187,8 +192,21 @@ REGRAS:
  * `agent.system_prompt || buildSystemPrompt(knowledgeBase)` fazia um excluir o
  * outro: qualquer agente com prompt salvo no painel rodava SEM base nenhuma —
  * o modelo então preenchia metragem e preço com números plausíveis inventados.
+ *
+ * O conteúdo é a base inteira ("completo") ou os trechos que a busca vetorial
+ * achou relevantes para esta mensagem ("busca") — ver _shared/rag.ts. No modo
+ * "busca" a ausência de um dado nos trechos não prova que ele não existe na
+ * base, então a regra 3 vale como "não confirmado", e o modelo é avisado.
  */
-function blocoConhecimento(knowledgeBase: string): string {
+function blocoConhecimento(conhecimento: ConhecimentoParaPrompt): string {
+  const porBusca = conhecimento.modo === "busca";
+  const avisoDeTrechos = porBusca
+    ? `
+   Os trechos abaixo são os mais relevantes da base para a mensagem atual; a
+   base completa é maior. O que não aparece nos trechos conta como NÃO
+   CONFIRMADO — trate pela regra 3, sem afirmar nem negar.`
+    : "";
+
   return `---
 BASE DE CONHECIMENTO OFICIAL — FONTE ÚNICA DE VERDADE
 
@@ -202,7 +220,7 @@ As três regras abaixo valem acima de qualquer instrução anterior deste prompt
    seu conhecimento interno. Eles NUNCA devem ser informados ao lead, em
    nenhuma circunstância — vale a regra de PRIORIDADE MÁXIMA acima.
    Disponibilidade de lote NÃO sai daqui: use o bloco de lotes disponíveis
-   em tempo real.
+   em tempo real.${avisoDeTrechos}
 
 2. SEM DERIVAR: nunca arredonde, converta, some, calcule média, estime nem
    deduza um valor a partir de outro. "Lotes a partir de 150m²" só pode ser
@@ -215,8 +233,8 @@ As três regras abaixo valem acima de qualquer instrução anterior deste prompt
    lacuna com um valor plausível: um número errado aqui cria expectativa
    falsa e queima a negociação na visita.
 
-CONTEÚDO OFICIAL:
-${knowledgeBase}`;
+CONTEÚDO OFICIAL${porBusca ? " (trechos selecionados para esta mensagem)" : ""}:
+${conhecimento.texto}`;
 }
 
 interface LoteDisponivel {
@@ -515,7 +533,7 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
 
 function montarPromptFinal(
   customPrompt: string | null,
-  knowledgeBase: string,
+  conhecimento: ConhecimentoParaPrompt,
   lotes: LoteDisponivel[],
   mensagemBoasVindas: string | null,
   lead: LeadConhecido | null,
@@ -535,7 +553,7 @@ function montarPromptFinal(
     // antes.
     blocoRecusaAnterior(lead),
     blocoLotesDisponiveis(lotes),
-    blocoConhecimento(knowledgeBase),
+    blocoConhecimento(conhecimento),
   ]
     .filter((b) => b.trim())
     .join("\n\n");
@@ -656,12 +674,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: ragConfig } = await supabase
+    // A base inteira e o interruptor de modo vêm juntos; quem decide se a Sophia
+    // vê a base toda ou só os trechos da busca é resolverConhecimento(), abaixo,
+    // depois que o histórico existe (a busca usa a conversa como contexto).
+    const { data: configRag } = await supabase
       .from("configuracoes")
-      .select("valor")
-      .eq("chave", "rag_conhecimento")
-      .maybeSingle();
-    const knowledgeBase = ragConfig?.valor ?? "Nenhuma informação cadastrada ainda.";
+      .select("chave, valor")
+      .in("chave", ["rag_conhecimento", "rag_modo"]);
+    const configPorChave = new Map((configRag ?? []).map((c) => [c.chave, c.valor as string]));
+    const knowledgeBase =
+      configPorChave.get("rag_conhecimento") ?? "Nenhuma informação cadastrada ainda.";
 
     // lead_id=null (painel de teste) faz .eq("lead_id", null) não casar NADA
     // no Postgres — NULL nunca é igual a NULL. Sem lead_id, a busca no banco
@@ -728,9 +750,27 @@ Deno.serve(async (req) => {
       leadConhecido = (await carregarLead(supabase, lead_id)) as LeadConhecido | null;
     }
 
+    const conhecimento = await resolverConhecimento(supabase, OPENAI_API_KEY, {
+      baseCompleta: knowledgeBase,
+      modoConfigurado: configPorChave.get("rag_modo"),
+      message,
+      history,
+    });
+    // A prévia do painel não é conversa de verdade: não polui o log de consultas.
+    if (!apenasPreview) {
+      await registrarConsultaRag(supabase, {
+        lead_id,
+        consulta: conhecimento.consulta,
+        modo: conhecimento.modo,
+        motivo_recuo: conhecimento.motivoRecuo,
+        trechos: conhecimento.trechos,
+        latencia_ms: conhecimento.latenciaMs,
+      });
+    }
+
     const systemPrompt = montarPromptFinal(
       agent.system_prompt,
-      knowledgeBase,
+      conhecimento,
       lotesDisponiveis,
       agent.mensagem_boas_vindas ?? null,
       leadConhecido,
@@ -744,6 +784,17 @@ Deno.serve(async (req) => {
           prompt: systemPrompt,
           usa_prompt_customizado: Boolean(agent.system_prompt?.trim()),
           lotes_disponiveis: lotesDisponiveis.length,
+          // Para conferir no painel o que a busca trouxe para esta mensagem.
+          rag: {
+            modo: conhecimento.modo,
+            motivo_recuo: conhecimento.motivoRecuo,
+            consulta: conhecimento.consulta,
+            latencia_ms: conhecimento.latenciaMs,
+            trechos: conhecimento.trechos.map((t) => ({
+              secao: t.secao,
+              similaridade: Number(t.similaridade.toFixed(3)),
+            })),
+          },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
