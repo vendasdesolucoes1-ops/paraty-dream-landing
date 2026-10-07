@@ -238,9 +238,21 @@ Já em produção (aplicado via MCP durante esta sessão): extensão `vector`, t
 **Pendente — acontece no merge desta branch:** a nova `ai-agent-chat` (as edge functions do repositório são publicadas
 pela integração com a Lovable). Até lá a Sophia segue com a base inteira. Depois do merge:
 
-1. Painel → Agente → **Ver prompt** com uma pergunta ("como funciona o esgoto?") e conferir `rag`
-   na resposta (`modo: busca`, trechos e similaridades).
-2. Conversar 3–4 mensagens no **Testar Agente** e olhar `rag_consultas`.
-3. Se algo estranho aparecer: `rag_modo = 'completo'` (acima).
+1. **Antes do merge**, já dá para testar a busca em si: rode `buscar` (seção Operação) com uma
+   pergunta de lead e veja os trechos e as similaridades.
+2. **Depois do merge**, no **Testar Agente**, mande perguntas de lead ("como funciona o esgoto?",
+   "tem área verde?") e confira em `rag_consultas` (query abaixo) que `modo = 'busca'` e que os
+   trechos são os certos. Mande também um "oi" — deve recuar para `completo`.
+3. O botão **Ver prompt** do painel **não** serve para isso: ele não envia mensagem, então não há o
+   que buscar e ele sempre mostra a base inteira. Mostrar a busca ali é a
+   [VHA-77](https://linear.app/vhandc-tech/issue/VHA-77).
+
+```sql
+select criado_em, left(consulta, 60) as consulta, modo, motivo_recuo,
+       round(melhor_similaridade::numeric, 2) as sim, latencia_ms
+from rag_consultas order by criado_em desc limit 10;
+```
+
+4. Se algo estranho aparecer: `rag_modo = 'completo'` (acima).
 
 Testes das partes puras: `npm run test:edge` (chunker, critério de relevância, recuos, embeddings).
