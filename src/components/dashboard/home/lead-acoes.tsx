@@ -28,7 +28,7 @@ export function LeadAcoes({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-0.5 transition-opacity",
+        "relative z-10 flex shrink-0 items-center gap-0.5 transition-opacity duration-150",
         "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/linha:opacity-100 [@media(hover:hover)]:group-focus-within/linha:opacity-100",
         sobrepor &&
           "[@media(hover:hover)]:absolute [@media(hover:hover)]:right-1 [@media(hover:hover)]:rounded-md [@media(hover:hover)]:bg-muted",
