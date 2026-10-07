@@ -1,0 +1,98 @@
+/* Movimento da landing (rota /).
+ *
+ * Tudo aqui é CSS de propósito: o conteúdo chega visível no HTML do servidor
+ * e as animações rodam no compositor do navegador, sem esperar o JavaScript
+ * carregar e sem trabalho a cada quadro de rolagem. Quem pede menos movimento
+ * no sistema recebe a página parada, já no lugar.
+ */
+
+.lp-ease {
+  --lp-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ── Abertura do hero ────────────────────────────────────────────── */
+
+  /* A foto assenta devagar, de levemente ampliada para o tamanho final. */
+  .lp-hero-media {
+    animation: lp-settle 2.2s var(--lp-ease-out) both;
+  }
+
+  /* Cada linha do título sobe de dentro de uma máscara. */
+  .lp-line {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.1em;
+    margin-bottom: -0.1em;
+  }
+
+  .lp-line > span {
+    display: block;
+    animation: lp-line-in 1.1s var(--lp-ease-out) both;
+    animation-delay: var(--lp-delay, 0ms);
+  }
+
+  /* Rótulo, texto e botão deslizam já visíveis: o texto do hero é o que o
+     Google mede como "conteúdo principal pronto" (LCP), e esperar um fade
+     para pintá-lo atrasaria essa medida. */
+  .lp-nudge {
+    animation: lp-nudge 1.1s var(--lp-ease-out) both;
+    animation-delay: var(--lp-delay, 0ms);
+  }
+
+  /* Números do hero: entram por último, com fade. */
+  .lp-fade {
+    animation: lp-fade-up 1s var(--lp-ease-out) both;
+    animation-delay: var(--lp-delay, 0ms);
+  }
+
+  /* ── Revelação por rolagem ───────────────────────────────────────── */
+
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: lp-fade-up linear both;
+      animation-timing-function: var(--lp-ease-out);
+      animation-timeline: view();
+      animation-range-start: entry var(--reveal-offset, 0px);
+      animation-range-end: entry calc(var(--reveal-offset, 0px) + 280px);
+    }
+  }
+}
+
+@keyframes lp-settle {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes lp-line-in {
+  from {
+    transform: translate3d(0, 105%, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes lp-nudge {
+  from {
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes lp-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
