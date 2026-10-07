@@ -12,12 +12,15 @@ export function QueryState<T>({
   skeleton,
   isEmpty,
   empty,
+  erroClassName,
   children,
 }: {
   query: Pick<UseQueryResult<T>, "data" | "isPending" | "isError" | "refetch" | "isRefetching">;
   skeleton: ReactNode;
   isEmpty?: (data: T) => boolean;
   empty?: ReactNode;
+  /** Margem extra do bloco de erro (ex.: `mx-5` dentro de um Panel `flush`). */
+  erroClassName?: string;
   children: (data: T) => ReactNode;
 }) {
   if (query.isPending) return <>{skeleton}</>;
@@ -26,7 +29,7 @@ export function QueryState<T>({
     return (
       <div
         role="alert"
-        className="flex flex-col items-start gap-3 rounded-md border border-dashed border-border px-4 py-5 text-sm"
+        className={`flex flex-col items-start gap-3 rounded-md border border-dashed border-border px-4 py-5 text-sm ${erroClassName ?? ""}`}
       >
         <span className="flex items-center gap-2 text-foreground">
           <AlertCircle className="h-4 w-4 text-danger" aria-hidden />

@@ -12,7 +12,7 @@ painel é montada com estas peças; a tela Início é o exemplo vivo de cada uma
    contar ou agrupar. Números = `select("id", { count: "exact", head: true })`;
    listas pedem só as colunas e as linhas que aparecem na tela.
 3. **Do número ao lead em um clique.** Todo indicador leva para onde se age
-   (`KpiCard to=…`), e toda linha de lead tem WhatsApp + abrir no CRM
+   (`KpiCell to=…`), e toda linha de lead tem WhatsApp + abrir no CRM
    (`LeadAcoes`). Busca global em `Ctrl/⌘ + K`.
 4. **Gráfico simples é HTML.** Barras de proporção e colunas em CSS: nítidas em
    qualquer tela, sem biblioteca, acessíveis (texto para leitor de tela).
@@ -20,13 +20,14 @@ painel é montada com estas peças; a tela Início é o exemplo vivo de cada uma
 
 ## Tokens (`src/styles.css`)
 
-| Uso | Classes |
-| --- | --- |
-| Estado | `text-success` `bg-success-soft` · `warning` · `info` · `danger` (todos com par no modo escuro) |
-| Gráficos | `bg-chart-1…6` (categorias, nesta ordem) · `bg-chart-muted` · `bg-chart-track` (trilho) |
-| Superfície | `bg-background` (fundo) · `bg-card` + `border-border` + `shadow-[var(--shadow-card)]` |
-| Texto | `text-foreground` · `text-muted-foreground` |
-| Marca | `font-display` só em título de página e saudação; o resto é `font-sans` |
+| Uso        | Classes                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| Estado     | `text-success` `bg-success-soft` · `warning` · `info` · `danger` (todos com par no modo escuro) |
+| Gráficos   | `bg-chart-1…6` (categorias, nesta ordem) · `bg-chart-muted` · `bg-chart-track` (trilho)         |
+| Superfície | `bg-background` (fundo) · `bg-card` + `border-border` + `shadow-[var(--shadow-card)]`           |
+| Texto      | `text-foreground` · `text-muted-foreground`                                                     |
+| Marca      | `font-display` só em título de página e saudação; títulos de painel levam `font-sans`           |
+| Número     | `num-display`: serifa da marca com algarismos alinhados, para indicadores grandes               |
 
 Estado de lead: `STATUS_TONE` / `STATUS_LABEL` em `src/lib/lead-status.ts`.
 Origens: `ORIGENS` (inclui as importadas por extratores, que não entram em
@@ -34,19 +35,32 @@ Origens: `ORIGENS` (inclui as importadas por extratores, que não entram em
 
 ## Componentes
 
-| Componente | Para quê |
-| --- | --- |
-| `PageHeader` | Título da página + contexto de uma linha + ações |
-| `KpiCard` | Um número, o que é, uma linha de contexto; o card inteiro é o link |
-| `Panel` | Envelope de toda seção: título, descrição, ação, corpo |
-| `QueryState` · `SkeletonRows` · `PanelEmpty` | Carregando / erro / vazio padronizados |
-| `Pill` | Etiqueta de estado (`tone`) |
-| `Avatar` · `Kbd` | Iniciais e tecla de atalho |
-| `CommandPaletteProvider` · `useCommandPalette` | Busca global (páginas + leads) |
+| Componente                                     | Para quê                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| `PageHeader`                                   | Título da página + contexto de uma linha + ações                 |
+| `KpiStrip` · `KpiCell`                         | Faixa de indicadores numa só superfície; célula inteira é o link |
+| `Sparkbars`                                    | Mini-gráfico de colunas dentro de um indicador                   |
+| `Panel` (`flush` para listas de linha inteira) | Envelope de toda seção: título, descrição, ação, corpo           |
+| `Segmented`                                    | Troca de visões no mesmo painel ("Para agir \| Recentes")        |
+| `QueryState` · `SkeletonRows` · `PanelEmpty`   | Carregando / erro / vazio padronizados                           |
+| `Pill`                                         | Etiqueta de estado (`tone`)                                      |
+| `Avatar` · `Kbd`                               | Iniciais e tecla de atalho                                       |
+| `CommandPaletteProvider` · `useCommandPalette` | Busca global (páginas + leads)                                   |
 
 Formatação (número, data relativa, telefone, WhatsApp): `src/lib/format.ts`.
 Navegação e regras de acesso por perfil: `src/components/dashboard/nav.ts`
 (sidebar e busca leem do mesmo lugar).
+
+## Shell (`src/components/shell`)
+
+Menu lateral recolhível (248 px ↔ 68 px; no celular vira gaveta), barra
+superior com breadcrumb, busca e tema, e menu da conta. O estado do menu fica
+salvo no navegador (`moradas-sidebar`); atalho `[`, botão na barra e ação na
+busca (`Ctrl/⌘ + K` → "Recolher o menu"). Itens e permissões vêm de
+`components/dashboard/nav.ts`.
+
+Ações por linha (`LeadAcoes`) aparecem ao passar o mouse ou focar a linha e
+ficam sempre visíveis em toque; a linha-pai precisa de `group/linha`.
 
 ## Tema
 

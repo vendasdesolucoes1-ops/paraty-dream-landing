@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Moon, Sun, User } from "lucide-react";
+import { Moon, PanelLeft, Sun, User } from "lucide-react";
 import { Avatar } from "@/components/ds/avatar";
 import { Kbd } from "@/components/ds/kbd";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { navDoPerfil } from "@/components/dashboard/nav";
+import { useSidebar } from "@/components/shell/sidebar-context";
 import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
 import { useProfile } from "@/hooks/use-profile";
 import { formatTelefone } from "@/lib/format";
@@ -60,6 +61,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { theme, toggle } = useDashboardTheme();
+  const { aberta: menuAberto, alternar: alternarMenu } = useSidebar();
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
@@ -113,8 +115,9 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     setBusca("");
   }
 
-  const mostrarTema =
-    !busca.trim() || normalizar("tema escuro claro modo").includes(normalizar(busca.trim()));
+  const q = normalizar(busca.trim());
+  const mostrarTema = !q || normalizar("tema escuro claro modo").includes(q);
+  const mostrarMenu = !q || normalizar("menu lateral barra recolher expandir").includes(q);
 
   return (
     <PaletaContext.Provider value={{ abrir: () => setAberta(true) }}>
@@ -193,23 +196,38 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
                 </CommandGroup>
               ) : null}
 
-              {mostrarTema ? (
+              {mostrarTema || mostrarMenu ? (
                 <CommandGroup heading="Ações">
-                  <CommandItem
-                    value="acao-tema"
-                    onSelect={() => {
-                      toggle();
-                      fechar();
-                    }}
-                    className="gap-3"
-                  >
-                    {theme === "dark" ? (
-                      <Sun className="!h-4 !w-4 text-muted-foreground" aria-hidden />
-                    ) : (
-                      <Moon className="!h-4 !w-4 text-muted-foreground" aria-hidden />
-                    )}
-                    {theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
-                  </CommandItem>
+                  {mostrarMenu ? (
+                    <CommandItem
+                      value="acao-menu"
+                      onSelect={() => {
+                        alternarMenu();
+                        fechar();
+                      }}
+                      className="gap-3"
+                    >
+                      <PanelLeft className="!h-4 !w-4 text-muted-foreground" aria-hidden />
+                      {menuAberto ? "Recolher o menu" : "Expandir o menu"}
+                    </CommandItem>
+                  ) : null}
+                  {mostrarTema ? (
+                    <CommandItem
+                      value="acao-tema"
+                      onSelect={() => {
+                        toggle();
+                        fechar();
+                      }}
+                      className="gap-3"
+                    >
+                      {theme === "dark" ? (
+                        <Sun className="!h-4 !w-4 text-muted-foreground" aria-hidden />
+                      ) : (
+                        <Moon className="!h-4 !w-4 text-muted-foreground" aria-hidden />
+                      )}
+                      {theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+                    </CommandItem>
+                  ) : null}
                 </CommandGroup>
               ) : null}
             </CommandList>
