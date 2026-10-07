@@ -82,12 +82,18 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-line: var(--sidebar-line);
   --color-chart-muted: var(--chart-muted);
   --color-chart-track: var(--chart-track);
 }
 
 :root {
-  --radius: 0.25rem;
+  --radius: 0.625rem;
 
   /* Premium palette — deep navy, sand, ivory, soft gold.
      forest-deep/forest mantêm o nome histórico (evita renomear toda a base
@@ -118,7 +124,7 @@
   --accent-foreground: var(--forest-deep);
   --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.88 0.015 80);
+  --border: oklch(0.915 0.012 80);
   --input: oklch(0.9 0.012 80);
   --ring: var(--forest);
 
@@ -142,6 +148,15 @@
   --chart-6: oklch(0.55 0.1 300);
   --chart-muted: oklch(0.82 0.015 80);
   --chart-track: oklch(0.94 0.012 80);
+
+  /* Barra lateral: um azul mais fundo que o da marca, para o conteúdo ser o
+     claro da página e a navegação recuar. */
+  --sidebar: oklch(0.205 0.06 255);
+  --sidebar-foreground: oklch(0.97 0.008 85);
+  --sidebar-muted: oklch(0.97 0.008 85 / 0.58);
+  --sidebar-hover: oklch(1 0 0 / 0.06);
+  --sidebar-active: oklch(1 0 0 / 0.11);
+  --sidebar-line: oklch(1 0 0 / 0.09);
 
   /* Elevação do card: borda faz o contorno, a sombra só sugere profundidade. */
   --shadow-card: 0 1px 2px oklch(0.2 0.03 250 / 0.04), 0 12px 32px -20px oklch(0.2 0.03 250 / 0.22);
@@ -210,6 +225,13 @@
 
   --shadow-card: none;
 
+  --sidebar: oklch(0.2 0 0);
+  --sidebar-foreground: oklch(0.96 0 0);
+  --sidebar-muted: oklch(0.96 0 0 / 0.58);
+  --sidebar-hover: oklch(1 0 0 / 0.06);
+  --sidebar-active: oklch(1 0 0 / 0.1);
+  --sidebar-line: oklch(1 0 0 / 0.09);
+
   --lote-disponivel: oklch(0.31 0 0);
   --lote-reservado: var(--gold);
   --lote-vendido: oklch(0.52 0 0);
@@ -240,6 +262,17 @@
     font-weight: 400;
     letter-spacing: -0.01em;
   }
+}
+
+/* Números grandes (indicadores): serifa da marca com algarismos de caixa alta.
+   A Cormorant usa por padrão algarismos "antigos", em que o 1 vira um I
+   baixo; lining-nums corrige, e tabular-nums impede que o número "dance" ao
+   atualizar. */
+@utility num-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 @utility eyebrow {

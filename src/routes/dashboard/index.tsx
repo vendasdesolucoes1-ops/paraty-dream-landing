@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, Layers, Map, UserPlus } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   useAgendaProxima,
@@ -13,15 +13,15 @@ import {
   useUltimosLeads,
 } from "@/lib/dashboard-queries";
 import { formatDataLonga, inicioDoDia, saudacao, somarDias } from "@/lib/format";
-import { KpiCard } from "@/components/ds/kpi-card";
+import { KpiCell, KpiStrip } from "@/components/ds/kpi-strip";
 import { PageHeader } from "@/components/ds/page-header";
+import { Sparkbars } from "@/components/ds/sparkbars";
 import { Button } from "@/components/ui/button";
+import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
 import { AgendaProxima } from "@/components/dashboard/home/agenda-proxima";
-import { Chegadas } from "@/components/dashboard/home/chegadas";
-import { FilaDeAcao } from "@/components/dashboard/home/fila-de-acao";
-import { Origem } from "@/components/dashboard/home/origem";
+import { EntradaDeLeads } from "@/components/dashboard/home/entrada-de-leads";
 import { Pipeline } from "@/components/dashboard/home/pipeline";
-import { UltimosLeads } from "@/components/dashboard/home/ultimos-leads";
+import { Prioridades } from "@/components/dashboard/home/prioridades";
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({ meta: [{ title: "Início — Moradas de Paraty" }] }),
@@ -71,14 +71,13 @@ function DashboardHome() {
     return t >= hoje.getTime() && t < amanha.getTime();
   }).length;
   const pendencias = fila.data?.length;
-
   const primeiroNome = nome?.trim().split(/\s+/)[0];
 
   const resumoDoDia = [
     visitasHoje === undefined
       ? null
       : visitasHoje === 0
-        ? "Nenhuma visita hoje"
+        ? "nenhuma visita hoje"
         : `${visitasHoje} ${visitasHoje === 1 ? "visita" : "visitas"} hoje`,
     pendencias === undefined
       ? null
@@ -90,7 +89,7 @@ function DashboardHome() {
     .join(" · ");
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-6">
+    <div className="mx-auto w-full max-w-[1360px] space-y-5">
       <PageHeader
         title={`${saudacao()}${primeiroNome ? `, ${primeiroNome}` : ""}`}
         description={
@@ -102,76 +101,75 @@ function DashboardHome() {
         actions={
           <>
             <Button asChild variant="outline" size="sm">
-              <Link to="/dashboard/agenda">Agenda</Link>
+              <Link to="/dashboard/agenda">
+                <CalendarDays className="h-4 w-4" aria-hidden />
+                Agenda
+              </Link>
             </Button>
-            <Button asChild size="sm">
-              <Link to="/dashboard/crm">Abrir CRM</Link>
-            </Button>
+            <LeadFormDialog />
           </>
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <KpiCard
+      <KpiStrip>
+        <KpiCell
           label="Novos hoje"
-          icon={UserPlus}
           to="/dashboard/crm"
           loading={resumo.isPending}
           value={resumo.data?.novosHoje}
-          context={resumo.data ? `Ontem: ${resumo.data.novosOntem}` : undefined}
-          highlight={(resumo.data?.novosHoje ?? 0) > 0}
-        />
-        <KpiCard
+          delta={
+            resumo.data
+              ? { valor: resumo.data.novosHoje - resumo.data.novosOntem, rotulo: "vs. ontem" }
+              : null
+          }
+          destaque={(resumo.data?.novosHoje ?? 0) > 0}
+        >
+          {chegadas.data ? (
+            <Sparkbars
+              valores={chegadas.data.slice(-7).map((d) => d.total)}
+              label="Leads por dia nos últimos 7 dias"
+            />
+          ) : null}
+        </KpiCell>
+        <KpiCell
           label="Em andamento"
-          icon={Layers}
           to="/dashboard/crm"
           loading={resumo.isPending}
           value={resumo.data?.emAndamento}
           context={resumo.data ? `de ${resumo.data.total} no total` : undefined}
         />
-        <KpiCard
+        <KpiCell
           label="Visitas hoje"
-          icon={CalendarCheck}
           to="/dashboard/agenda"
           loading={agenda.isPending}
           value={visitasHoje}
-          context="Na agenda de hoje"
-          highlight={(visitasHoje ?? 0) > 0}
+          context="na agenda de hoje"
+          destaque={(visitasHoje ?? 0) > 0}
         />
-        <KpiCard
+        <KpiCell
           label="Lotes disponíveis"
-          icon={Map}
           to="/dashboard/lotes"
           loading={lotes.isPending}
           value={lotes.data}
-          context="Prontos para vender"
+          context="prontos para vender"
         />
-      </div>
+      </KpiStrip>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
-          <FilaDeAcao query={fila} />
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-8 [&>section]:h-full">
+          <Prioridades fila={fila} recentes={ultimos} />
         </div>
-        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
+        <div className="min-w-0 lg:col-span-4 [&>section]:h-full">
           <AgendaProxima query={agenda} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-7 [&>section]:h-full">
           <Pipeline query={resumo} />
         </div>
-        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
-          <Chegadas query={chegadas} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
-          <UltimosLeads query={ultimos} />
-        </div>
-        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
-          <Origem query={resumo} />
+        <div className="min-w-0 lg:col-span-5 [&>section]:h-full">
+          <EntradaDeLeads chegadas={chegadas} resumo={resumo} />
         </div>
       </div>
     </div>

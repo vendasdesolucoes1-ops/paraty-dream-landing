@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { AppSidebar } from "@/components/shell/app-sidebar";
+import { SidebarProvider } from "@/components/shell/sidebar-context";
+import { Topbar } from "@/components/shell/topbar";
 import { CommandPaletteProvider } from "@/components/ds/command-palette";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,21 +31,24 @@ function DashboardLayout() {
 
   return (
     <DashboardThemeProvider>
-      <CommandPaletteProvider>
-        <TooltipProvider delayDuration={200}>
-          {/* Altura travada na viewport (dvh, que acompanha a barra do
-              navegador no celular): sidebar e conteúdo rolam cada um por
-              conta própria. No celular a barra superior vira uma faixa no
-              fluxo, e o conteúdo ocupa o resto. */}
-          <div className="flex h-[100dvh] flex-col overflow-hidden bg-background md:flex-row">
-            <DashboardSidebar />
-            <main className="min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
-              <Outlet />
-            </main>
-            <Toaster />
-          </div>
-        </TooltipProvider>
-      </CommandPaletteProvider>
+      <SidebarProvider>
+        <CommandPaletteProvider>
+          <TooltipProvider delayDuration={150}>
+            {/* Altura travada na viewport (dvh acompanha a barra do navegador no
+                celular): a sidebar fica parada e só o conteúdo rola. */}
+            <div className="flex h-[100dvh] overflow-hidden bg-background">
+              <AppSidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <Topbar />
+                <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+                  <Outlet />
+                </main>
+              </div>
+              <Toaster />
+            </div>
+          </TooltipProvider>
+        </CommandPaletteProvider>
+      </SidebarProvider>
     </DashboardThemeProvider>
   );
 }

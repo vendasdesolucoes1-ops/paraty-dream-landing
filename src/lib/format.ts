@@ -45,7 +45,7 @@ export function somarDias(d: Date, dias: number): Date {
   return r;
 }
 
-/** "agora", "há 12 min", "há 3 h", "há 2 dias", e a data a partir de 7 dias. */
+/** "agora", "há 12 min", "há 3 h", "há 5 dias", "há 2 meses". */
 export function tempoRelativo(d: Date | string, agora = new Date()): string {
   const ms = agora.getTime() - new Date(d).getTime();
   const min = Math.floor(ms / 60_000);
@@ -54,8 +54,14 @@ export function tempoRelativo(d: Date | string, agora = new Date()): string {
   const h = Math.floor(min / 60);
   if (h < 24) return `há ${h} h`;
   const dias = Math.floor(h / 24);
-  if (dias < 7) return dias === 1 ? "há 1 dia" : `há ${dias} dias`;
-  return formatDiaCurto(d);
+  if (dias === 1) return "há 1 dia";
+  if (dias < 60) return `há ${dias} dias`;
+  return `há ${Math.floor(dias / 30)} meses`;
+}
+
+/** Idade em dias inteiros. */
+export function diasDesde(d: Date | string, agora = new Date()): number {
+  return Math.floor((agora.getTime() - new Date(d).getTime()) / 86_400_000);
 }
 
 /** "Hoje", "Amanhã" ou "qui, 09/10" para agrupar compromissos por dia. */
