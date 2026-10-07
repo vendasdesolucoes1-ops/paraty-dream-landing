@@ -30,7 +30,7 @@ export function Topbar() {
   );
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/70 bg-canvas/80 px-3 backdrop-blur-md sm:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/70 bg-background/85 px-3 backdrop-blur-md sm:px-6">
       {/* Celular: abre o menu em gaveta. */}
       <button
         type="button"

@@ -152,12 +152,12 @@
 
   /* Barra lateral: um azul mais fundo que o da marca, para o conteúdo ser o
      claro da página e a navegação recuar. */
-  --sidebar: oklch(0.205 0.06 255);
-  --sidebar-foreground: oklch(0.97 0.008 85);
-  --sidebar-muted: oklch(0.97 0.008 85 / 0.58);
-  --sidebar-hover: oklch(1 0 0 / 0.06);
-  --sidebar-active: oklch(1 0 0 / 0.11);
-  --sidebar-line: oklch(1 0 0 / 0.09);
+  --sidebar: var(--canvas);
+  --sidebar-foreground: oklch(0.22 0.03 250);
+  --sidebar-muted: oklch(0.47 0.02 250);
+  --sidebar-hover: oklch(0.2 0.03 250 / 0.055);
+  --sidebar-active: oklch(1 0 0);
+  --sidebar-line: oklch(0.2 0.03 250 / 0.09);
 
   /* Elevação do card: borda faz o contorno, a sombra só sugere profundidade. */
   --shadow-card: 0 1px 2px oklch(0.2 0.03 250 / 0.05), 0 8px 24px -16px oklch(0.2 0.03 250 / 0.16);
@@ -167,7 +167,7 @@
 
   /* Fundo do painel: um creme um pouco mais fundo que o da landing, para o
      card branco se destacar sem precisar de sombra pesada. */
-  --canvas: oklch(0.962 0.01 84);
+  --canvas: oklch(0.94 0.009 84);
   --canvas-wash: oklch(0.72 0.11 75 / 0.09);
 
   /* Movimento: saída rápida e suave (ease-out exponencial) em tudo. */
@@ -237,14 +237,14 @@
 
   --shadow-card: none;
   --shadow-pop: 0 0 0 1px oklch(1 0 0 / 0.08), 0 24px 48px -12px oklch(0 0 0 / 0.6);
-  --canvas: oklch(0.15 0 0);
+  --canvas: oklch(0.115 0 0);
   --canvas-wash: oklch(0.72 0.11 75 / 0.05);
 
-  --sidebar: oklch(0.2 0 0);
+  --sidebar: var(--canvas);
   --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-muted: oklch(0.96 0 0 / 0.58);
+  --sidebar-muted: oklch(0.7 0 0);
   --sidebar-hover: oklch(1 0 0 / 0.06);
-  --sidebar-active: oklch(1 0 0 / 0.1);
+  --sidebar-active: oklch(0.27 0 0);
   --sidebar-line: oklch(1 0 0 / 0.09);
 
   --lote-disponivel: oklch(0.31 0 0);
@@ -284,23 +284,14 @@
   }
 }
 
-/* Números grandes (indicadores): serifa da marca com algarismos de caixa alta.
-   A Cormorant usa por padrão algarismos "antigos", em que o 1 vira um I
-   baixo; lining-nums corrige, e tabular-nums impede que o número "dance" ao
-   atualizar. */
-@utility num-display {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-/* Fundo do painel: canvas liso com um brilho dourado bem discreto no canto
-   superior esquerdo, que dá profundidade sem competir com o conteúdo. */
-@utility surface-canvas {
-  background-color: var(--canvas);
-  background-image: radial-gradient(56rem 26rem at 8% -6rem, var(--canvas-wash), transparent 70%);
-  background-repeat: no-repeat;
+/* Números de indicador: sans da interface, semibold, algarismos de largura
+   fixa (tabular) para o valor não "dançar" ao atualizar. */
+@utility num {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  font-feature-settings: "tnum", "cv11", "ss01";
 }
 
 /* Entrada de modais e gavetas: sobe 6 px e cresce de 97% a 100%. Compõe com o
@@ -352,6 +343,62 @@
     transform: none;
   }
 }
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes sheet-out-right {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes sheet-in-left {
+  from {
+    transform: translateX(-32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes sheet-out-left {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+@utility animate-sheet-right {
+  &[data-state="open"] {
+    animation: sheet-in-right 380ms var(--ease-out) both;
+  }
+  &[data-state="closed"] {
+    animation: sheet-out-right 200ms ease-in both;
+  }
+}
+@utility animate-sheet-left {
+  &[data-state="open"] {
+    animation: sheet-in-left 340ms var(--ease-out) both;
+  }
+  &[data-state="closed"] {
+    animation: sheet-out-left 200ms ease-in both;
+  }
+}
 @utility animate-pop {
   &[data-state="open"] {
     animation: pop-in 220ms var(--ease-out) both;
@@ -378,6 +425,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-pop,
+  .animate-sheet-right,
+  .animate-sheet-left,
   .animate-veil {
     animation-duration: 1ms !important;
   }

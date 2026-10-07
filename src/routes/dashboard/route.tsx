@@ -37,12 +37,14 @@ function DashboardLayout() {
           <TooltipProvider delayDuration={150}>
             {/* Altura travada na viewport (dvh acompanha a barra do navegador no
                 celular): a sidebar fica parada e só o conteúdo rola. */}
-            <div className="flex h-[100dvh] overflow-hidden bg-canvas">
+            <div className="flex h-[100dvh] overflow-hidden bg-canvas md:pr-2 md:py-2">
               <Atalhos />
               <AppSidebar />
-              <div className="flex min-w-0 flex-1 flex-col">
+              {/* A página é uma "folha" apoiada sobre o fundo: borda e sombra
+                  mínimas, cantos arredondados no desktop. */}
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background md:rounded-2xl md:border md:border-border/80 md:shadow-[var(--shadow-card)]">
                 <Topbar />
-                <main className="surface-canvas flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-6 sm:px-8 sm:pt-8 lg:px-10 lg:pt-10">
+                <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-12 pt-6 sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">
                   <Outlet />
                 </main>
               </div>

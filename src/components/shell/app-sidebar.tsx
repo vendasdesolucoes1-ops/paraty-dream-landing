@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { ATALHOS_DE_TELA } from "./atalhos";
 import { useSidebar } from "./sidebar-context";
 
-/** Lista de navegação. `recolhida` mostra só ícones, com o nome numa dica. */
+/** Item de navegação. `recolhida` mostra só o ícone, com o nome numa dica. */
 function ItemNav({
   item,
   recolhida,
@@ -30,23 +30,17 @@ function ItemNav({
       aria-label={recolhida ? item.label : undefined}
       aria-current={ativo ? "page" : undefined}
       className={cn(
-        "group/nav relative flex h-10 items-center gap-3 rounded-lg text-sm transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
-        recolhida ? "justify-center px-0" : "px-3",
+        "group/nav relative flex h-9 items-center gap-3 rounded-lg text-[0.875rem] transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        recolhida ? "justify-center px-0" : "px-2.5",
         ativo
-          ? "bg-sidebar-active font-medium text-sidebar-foreground"
-          : "text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground",
+          ? "bg-sidebar-active font-semibold text-sidebar-foreground shadow-[0_1px_2px_oklch(0.2_0.03_250/0.08),0_0_0_1px_oklch(0.2_0.03_250/0.06)]"
+          : "font-medium text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground",
       )}
     >
-      {ativo ? (
-        <span
-          aria-hidden
-          className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-gold animate-in fade-in-0 slide-in-from-left-1 duration-300"
-        />
-      ) : null}
       <Icon
         className={cn(
-          "h-[18px] w-[18px] shrink-0 transition-transform duration-200 ease-[var(--ease-out)] group-hover/nav:scale-110",
-          ativo && "text-gold",
+          "h-[17px] w-[17px] shrink-0 transition-transform duration-200 ease-[var(--ease-out)] group-hover/nav:scale-110",
+          ativo && "text-accent-foreground",
         )}
         aria-hidden
       />
@@ -76,7 +70,7 @@ export function ListaNav({ recolhida, aoNavegar }: { recolhida: boolean; aoNaveg
   return (
     <nav
       aria-label="Principal"
-      className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 py-2"
+      className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-3"
     >
       {grupos.map((grupo, i) => (
         <div key={grupo.label} className="space-y-0.5">
@@ -85,7 +79,7 @@ export function ListaNav({ recolhida, aoNavegar }: { recolhida: boolean; aoNaveg
               <div aria-hidden className="mx-2 mb-2 h-px bg-sidebar-line" />
             ) : null
           ) : (
-            <p className="px-3 pb-1 pt-1 text-[0.66rem] font-medium uppercase tracking-[0.16em] text-sidebar-muted/80">
+            <p className="px-2.5 pb-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-sidebar-muted/70">
               {grupo.label}
             </p>
           )}
@@ -104,17 +98,17 @@ export function Marca({ recolhida }: { recolhida: boolean }) {
       to="/dashboard"
       aria-label="Moradas de Paraty — início"
       className={cn(
-        "flex h-14 shrink-0 items-center gap-3 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+        "flex h-16 shrink-0 items-center gap-3 px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         recolhida && "justify-center px-0",
       )}
     >
       <Logo variante="emblema" className="h-9 w-9 shrink-0" />
       {recolhida ? null : (
         <span className="min-w-0 leading-none">
-          <span className="block font-display text-[1.35rem] tracking-wide text-sidebar-foreground">
+          <span className="block font-display text-[1.4rem] font-medium tracking-wide text-sidebar-foreground">
             Moradas
           </span>
-          <span className="mt-1 block text-[0.6rem] uppercase tracking-[0.3em] text-gold">
+          <span className="mt-1 block text-[0.58rem] font-medium uppercase tracking-[0.3em] text-sidebar-muted">
             de Paraty
           </span>
         </span>
@@ -123,7 +117,7 @@ export function Marca({ recolhida }: { recolhida: boolean }) {
   );
 }
 
-/** Menu lateral do desktop: 248 px aberto, 68 px recolhido (só ícones). */
+/** Menu lateral do desktop: 236 px aberto, 68 px recolhido (só ícones). Sem fundo próprio: apoia no canvas. */
 export function AppSidebar() {
   const { aberta, alternar } = useSidebar();
   const recolhida = !aberta;
@@ -133,13 +127,13 @@ export function AppSidebar() {
       aria-label="Menu lateral"
       className={cn(
         "hidden h-full shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
-        recolhida ? "w-[68px]" : "w-[248px]",
+        recolhida ? "w-[68px]" : "w-[236px]",
       )}
     >
       <Marca recolhida={recolhida} />
       <ListaNav recolhida={recolhida} />
 
-      <div className="shrink-0 border-t border-sidebar-line p-3">
+      <div className="shrink-0 p-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -148,15 +142,15 @@ export function AppSidebar() {
               aria-label={recolhida ? "Expandir menu" : "Recolher menu"}
               aria-expanded={aberta}
               className={cn(
-                "flex h-10 w-full items-center gap-3 rounded-lg text-sm text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
-                recolhida ? "justify-center" : "px-3",
+                "flex h-9 w-full items-center gap-3 rounded-lg text-[0.875rem] font-medium text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                recolhida ? "justify-center" : "px-2.5",
               )}
             >
               {recolhida ? (
-                <ChevronsRight className="h-[18px] w-[18px]" aria-hidden />
+                <ChevronsRight className="h-[17px] w-[17px]" aria-hidden />
               ) : (
                 <>
-                  <ChevronsLeft className="h-[18px] w-[18px]" aria-hidden />
+                  <ChevronsLeft className="h-[17px] w-[17px]" aria-hidden />
                   <span className="flex-1 text-left">Recolher</span>
                   <Kbd className="border-sidebar-line bg-transparent text-sidebar-muted">[</Kbd>
                 </>
