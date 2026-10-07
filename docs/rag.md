@@ -6,8 +6,13 @@ recuo seguro para o comportamento anterior.
 - **Estado:** índice criado e populado em produção; `rag-admin` publicado; o uso
   pela Sophia (`ai-agent-chat`) entra no ar **no merge desta branch** (ver
   [Colocando no ar](#colocando-no-ar)).
-- **Issues:** [VHA-71](https://linear.app/vhandc-tech/issue/VHA-71) (origem: relatório de
-  auditoria, seção IA, ponto 2 — "a base entra inteira no prompt, sem busca").
+- **Issues:** [VHA-75](https://linear.app/vhandc-tech/issue/VHA-75) (esta entrega; origem:
+  relatório de auditoria, seção IA, ponto 2 — "a base entra inteira no prompt, sem busca") ·
+  [VHA-71](https://linear.app/vhandc-tech/issue/VHA-71) (recomendação original) ·
+  desdobramentos: [VHA-76](https://linear.app/vhandc-tech/issue/VHA-76) (segredo do Vault),
+  [VHA-77](https://linear.app/vhandc-tech/issue/VHA-77) (painel),
+  [VHA-78](https://linear.app/vhandc-tech/issue/VHA-78) (operação contínua),
+  [VHA-79](https://linear.app/vhandc-tech/issue/VHA-79) (advisors de segurança).
 
 ## Resumo
 
