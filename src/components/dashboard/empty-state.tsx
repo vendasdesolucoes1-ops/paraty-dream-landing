@@ -2,10 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
- * Estado vazio padrão de página/seção. Antes cada página tinha sua própria
- * variação de "Card com texto centralizado" — mesma ideia, detalhes
- * ligeiramente diferentes. Um componente só, com ícone, deixa o "não tem
- * nada aqui ainda" reconhecível em qualquer canto do painel.
+ * Estado vazio padrão de página/seção: ícone num selo com halo, título, uma
+ * frase do que vai aparecer ali e, se houver, a ação para começar.
  */
 export function EmptyState({
   icon: Icon,
@@ -19,14 +17,20 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="h-5 w-5" />
+    <div className="flex animate-swap flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-[var(--shadow-card)] ring-1 ring-border">
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-2xl bg-accent/20 blur-xl motion-safe:animate-drift"
+        />
+        <Icon className="relative h-6 w-6" aria-hidden />
       </div>
-      <div className="space-y-1">
-        <p className="font-medium text-foreground">{title}</p>
+      <div className="space-y-1.5">
+        <p className="text-[0.9375rem] font-semibold text-foreground">{title}</p>
         {description ? (
-          <p className="text-sm text-muted-foreground max-w-sm">{description}</p>
+          <p className="mx-auto max-w-sm text-[0.8125rem] leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       {action}

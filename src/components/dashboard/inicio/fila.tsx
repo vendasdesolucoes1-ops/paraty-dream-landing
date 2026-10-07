@@ -17,6 +17,7 @@ import { Chip } from "@/components/ds/chip";
 import { QueryState, SkeletonRows } from "@/components/ds/query-state";
 import type { ItemAcao, MotivoAcao } from "@/lib/dashboard-queries";
 import { diasDesde, formatHora, linkWhatsapp, rotuloDia, tempoRelativo } from "@/lib/format";
+import { atraso } from "@/components/ds/reveal";
 import { cn } from "@/lib/utils";
 
 const MOTIVOS: Record<
@@ -123,8 +124,8 @@ export const Fila = forwardRef<HTMLDivElement, { query: UseQueryResult<ItemAcao[
                   key={filtro}
                   className="-mx-3 divide-y divide-border border-y border-border animate-in fade-in-0 duration-200"
                 >
-                  {visiveis.map((item) => (
-                    <Linha key={item.chave} item={item} />
+                  {visiveis.map((item, i) => (
+                    <Linha key={item.chave} item={item} indice={i} />
                   ))}
                 </ul>
 
@@ -146,7 +147,7 @@ export const Fila = forwardRef<HTMLDivElement, { query: UseQueryResult<ItemAcao[
   );
 });
 
-function Linha({ item }: { item: ItemAcao }) {
+function Linha({ item, indice }: { item: ItemAcao; indice: number }) {
   const m = MOTIVOS[item.motivo];
   const Icon = m.icon;
   const lead = item.lead;
@@ -157,7 +158,10 @@ function Linha({ item }: { item: ItemAcao }) {
     : (lead?.nome ?? "Lead sem nome");
 
   return (
-    <li className="group/linha relative flex items-center gap-4 py-3 transition-colors duration-150 hover:bg-muted/50 focus-within:bg-muted/50 px-3">
+    <li
+      style={atraso(indice, 40, 360)}
+      className="animate-swap group/linha relative flex items-center gap-4 py-3 transition-colors duration-150 hover:bg-muted/50 focus-within:bg-muted/50 px-3"
+    >
       <span
         aria-hidden
         className="absolute inset-y-2 left-0 w-[3px] origin-center scale-y-0 rounded-full bg-accent transition-transform duration-200 ease-[var(--ease-out)] group-hover/linha:scale-y-100 group-focus-within/linha:scale-y-100"

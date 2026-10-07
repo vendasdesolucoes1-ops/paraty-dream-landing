@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Bloco, LINK_BLOCO } from "@/components/ds/bloco";
+import { useMontado } from "@/hooks/use-montado";
 import { QueryState, SkeletonRows } from "@/components/ds/query-state";
 import type { ResumoLeads } from "@/lib/dashboard-queries";
 import { formatNumero, formatPorcento } from "@/lib/format";
@@ -25,6 +26,7 @@ const COR: Record<LeadStatus, string> = {
  * taxa de conversão entre etapas, que exigiria o histórico de movimentos.
  */
 export function Funil({ query }: { query: UseQueryResult<ResumoLeads> }) {
+  const montado = useMontado(250);
   return (
     <Bloco
       divisor
@@ -59,11 +61,16 @@ export function Funil({ query }: { query: UseQueryResult<ResumoLeads> }) {
               >
                 {d.porStatus
                   .filter((p) => p.total > 0)
-                  .map((p) => (
+                  .map((p, i) => (
                     <span
                       key={p.status}
                       className={`${COR[p.status]} transition-[flex-grow] duration-700 ease-out first:rounded-l-full last:rounded-r-full`}
-                      style={{ flexGrow: p.total, flexBasis: 0, minWidth: 6 }}
+                      style={{
+                        flexGrow: montado ? p.total : 0,
+                        flexBasis: 0,
+                        minWidth: montado ? 6 : 0,
+                        transitionDelay: `${i * 70}ms`,
+                      }}
                     />
                   ))}
               </div>

@@ -55,3 +55,22 @@ Telas compostas da Início: `components/dashboard/inicio/*`.
 - [ ] Vendedor vê só a própria carteira (`useEscopo`)
 - [ ] Cores só por token; claro e escuro conferidos
 - [ ] 390 px e 1440 px conferidos; botão só com ícone tem `aria-label`
+
+## Movimento (guia rápido)
+
+| Quero…                                   | Use                                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| Bloco que entra ao abrir a tela          | `<Reveal ordem={n}>` (cascata de 70 ms)                             |
+| Itens de lista entrando em sequência     | `className="animate-swap"` + `style={atraso(i)}` (`ds/reveal`)      |
+| Conteúdo que troca (aba, filtro)         | `animate-swap` com `key` no filtro                                  |
+| Cartão clicável                          | `card-hover` (sobe 2 px, borda e sombra)                            |
+| Barra que cresce até o valor             | `useMontado()` → largura `0%` no 1º quadro + `transition-[width]`   |
+| Número que sobe                          | `useContagem(valor)`                                                |
+| Linha de gráfico que se desenha          | `<path pathLength={1} className="animate-draw">`                    |
+| Esqueleto                                | `Skeleton` / `SkeletonRows` (brilho passando, `skeleton-shimmer`)   |
+| Gaveta / modal / menu                    | `Sheet`, `Dialog`, `DropdownMenu` já trazem `animate-sheet-*`/`pop` |
+
+Tudo respeita `prefers-reduced-motion`. Telas internas usam `dashboard/page-header`
+(`PageHeader`), `dashboard/empty-state` (`EmptyState`), `Card`/`Tabs`/`Table`
+(já no estilo novo) e cores só por token (`success`/`warning`/`info`/`danger`,
+`muted`, `accent`); nada de `emerald-*`, `amber-*`, `red-*`, `gray-*`.

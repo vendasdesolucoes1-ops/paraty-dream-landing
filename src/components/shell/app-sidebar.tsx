@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Logo } from "@/components/logo";
@@ -33,7 +34,7 @@ function ItemNav({
         "group/nav relative flex h-9 items-center gap-3 rounded-lg text-[0.875rem] transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         recolhida ? "justify-center px-0" : "px-2.5",
         ativo
-          ? "bg-sidebar-active font-semibold text-sidebar-foreground shadow-[0_1px_2px_oklch(0.2_0.03_250/0.08),0_0_0_1px_oklch(0.2_0.03_250/0.06)]"
+          ? "font-semibold text-sidebar-foreground"
           : "font-medium text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground",
       )}
     >
@@ -67,11 +68,53 @@ function ItemNav({
 export function ListaNav({ recolhida, aoNavegar }: { recolhida: boolean; aoNavegar?: () => void }) {
   const { profile } = useProfile();
   const grupos = navDoPerfil(profile?.role);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navRef = useRef<HTMLElement>(null);
+  const [marca, setMarca] = useState<{ top: number; left: number; w: number; h: number } | null>(
+    null,
+  );
+  const [animar, setAnimar] = useState(false);
+
+  // A pílula do item ativo é uma peça só que desliza até o item novo, em vez
+  // de acender e apagar fundos: o olho acompanha para onde a navegação foi.
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    const ativo = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !ativo) {
+      setMarca(null);
+      return;
+    }
+    setMarca({
+      top: ativo.offsetTop,
+      left: ativo.offsetLeft,
+      w: ativo.offsetWidth,
+      h: ativo.offsetHeight,
+    });
+    const t = requestAnimationFrame(() => setAnimar(true));
+    return () => cancelAnimationFrame(t);
+  }, [pathname, recolhida, grupos.length]);
+
   return (
     <nav
+      ref={navRef}
       aria-label="Principal"
-      className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-3"
+      className="relative flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-3"
     >
+      {marca ? (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute left-0 top-0 rounded-lg bg-sidebar-active shadow-[0_1px_2px_oklch(0.2_0.03_250/0.08),0_0_0_1px_oklch(0.2_0.03_250/0.06)]",
+            animar &&
+              "transition-[transform,width,height] duration-300 ease-[var(--ease-out)] motion-reduce:transition-none",
+          )}
+          style={{
+            width: marca.w,
+            height: marca.h,
+            transform: `translate(${marca.left}px, ${marca.top}px)`,
+          }}
+        />
+      ) : null}
       {grupos.map((grupo, i) => (
         <div key={grupo.label} className="space-y-0.5">
           {recolhida ? (
