@@ -1,370 +1,179 @@
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  LineChart,
-  Line,
-} from "recharts";
-import { Users, UserPlus, Map, Headset } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { CalendarCheck, Layers, Map, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { LEAD_STATUS_COLUMNS, LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/dashboard/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  useAgendaProxima,
+  useChegadas,
+  useEscopo,
+  useFilaDeAcao,
+  useLotesDisponiveis,
+  useResumoLeads,
+  useUltimosLeads,
+} from "@/lib/dashboard-queries";
+import { formatDataLonga, inicioDoDia, saudacao, somarDias } from "@/lib/format";
+import { KpiCard } from "@/components/ds/kpi-card";
+import { PageHeader } from "@/components/ds/page-header";
+import { Button } from "@/components/ui/button";
+import { AgendaProxima } from "@/components/dashboard/home/agenda-proxima";
+import { Chegadas } from "@/components/dashboard/home/chegadas";
+import { FilaDeAcao } from "@/components/dashboard/home/fila-de-acao";
+import { Origem } from "@/components/dashboard/home/origem";
+import { Pipeline } from "@/components/dashboard/home/pipeline";
+import { UltimosLeads } from "@/components/dashboard/home/ultimos-leads";
 
 export const Route = createFileRoute("/dashboard/")({
-  head: () => ({ meta: [{ title: "Dashboard — Moradas de Paraty" }] }),
+  head: () => ({ meta: [{ title: "Início — Moradas de Paraty" }] }),
   component: DashboardHome,
 });
 
-// Categorical palette validated for CVD safety and >=3:1 contrast on the card surface.
-const CHART_GREEN = "#2E7D4F";
-const ORIGEM_COLORS: Record<string, string> = {
-  lp: "#2E7D4F",
-  whatsapp: "#B8842A",
-  indicacao: "#2273A6",
-  instagram: "#B4552D",
-};
-
-const ORIGEM_LABELS = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
-const STATUS_LABELS = Object.fromEntries(LEAD_STATUS_COLUMNS.map((s) => [s.value, s.label]));
-
-const STATUS_BADGE_STYLES: Record<string, string> = {
-  novo: "bg-sky-100 text-sky-800",
-  qualificado: "bg-indigo-100 text-indigo-800",
-  agendado: "bg-amber-100 text-amber-800",
-  visitou: "bg-violet-100 text-violet-800",
-  proposta: "bg-orange-100 text-orange-800",
-  fechado: "bg-emerald-100 text-emerald-800",
-  perdido: "bg-red-100 text-red-800",
-};
-
-function startOfTodayIso() {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now.toISOString();
+/**
+ * Atualiza a tela quando leads ou visitas mudam no banco. Várias mudanças
+ * seguidas (a Sophia grava lead, interação e visita em sequência) viram uma
+ * única atualização, 1,5 s depois da última.
+ */
+function useAtualizacaoAoVivo() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const atualizar = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => queryClient.invalidateQueries({ queryKey: ["dash"] }), 1500);
+    };
+    const canal = supabase
+      .channel("dashboard-inicio")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, atualizar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "visitas" }, atualizar)
+      .subscribe();
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(canal);
+    };
+  }, [queryClient]);
 }
-
-function useDashboardData() {
-  return useQuery({
-    queryKey: ["dashboard-home"],
-    queryFn: async () => {
-      const today = startOfTodayIso();
-
-      const [leadsRes, lotesDisponiveisRes, takeoversRes] = await Promise.all([
-        supabase
-          .from("leads")
-          .select("*")
-          .is("deletado_em", null)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("lotes")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "disponivel"),
-        supabase
-          .from("ai_agent_human_takeover")
-          .select("id", { count: "exact", head: true })
-          .is("resolved_at", null),
-      ]);
-
-      const firstError = leadsRes.error ?? lotesDisponiveisRes.error ?? takeoversRes.error;
-      if (firstError) throw firstError;
-
-      const leads = (leadsRes.data ?? []) as Lead[];
-      const leadsHoje = leads.filter((l) => l.created_at >= today).length;
-
-      const porStatus = LEAD_STATUS_COLUMNS.map((s) => ({
-        status: s.label,
-        total: leads.filter((l) => l.status_crm === s.value).length,
-      }));
-
-      const porOrigem = LEAD_ORIGEM_OPTIONS.map((o) => ({
-        name: o.label,
-        value: leads.filter((l) => l.origem === o.value).length,
-        origem: o.value,
-      })).filter((o) => o.value > 0);
-
-      const last7: { dia: string; total: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const day = new Date();
-        day.setHours(0, 0, 0, 0);
-        day.setDate(day.getDate() - i);
-        const next = new Date(day);
-        next.setDate(next.getDate() + 1);
-        last7.push({
-          dia: day.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-          total: leads.filter(
-            (l) => l.created_at >= day.toISOString() && l.created_at < next.toISOString(),
-          ).length,
-        });
-      }
-
-      return {
-        totalLeads: leads.length,
-        leadsHoje,
-        lotesDisponiveis: lotesDisponiveisRes.count ?? 0,
-        takeovers: takeoversRes.count ?? 0,
-        porStatus,
-        porOrigem,
-        last7,
-        ultimosLeads: leads.slice(0, 5),
-      };
-    },
-    refetchInterval: 60_000,
-  });
-}
-
-// Recharts pinta os rotulos de eixo com um #666 fixo quando nao recebe fill.
-// No claro isso passa; no escuro e cinza-medio sobre quase-preto, e os eixos
-// somem. O token acompanha os dois temas.
-const axisTick = { fontSize: 12, fill: "var(--muted-foreground)" };
-
-const tooltipStyle = {
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--card)",
-  fontSize: 12,
-};
 
 function DashboardHome() {
-  const { data, isLoading } = useDashboardData();
+  const { pronto, escopo, papel, nome } = useEscopo();
+  useAtualizacaoAoVivo();
 
-  const hoje = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const resumo = useResumoLeads(escopo, pronto);
+  const chegadas = useChegadas(escopo, pronto);
+  const agenda = useAgendaProxima(escopo, pronto);
+  const fila = useFilaDeAcao(escopo, papel, pronto);
+  const ultimos = useUltimosLeads(escopo, pronto);
+  const lotes = useLotesDisponiveis(pronto);
 
-  const metricCards = [
-    { label: "Total de leads", value: data?.totalLeads, icon: Users },
-    { label: "Leads novos hoje", value: data?.leadsHoje, icon: UserPlus },
-    { label: "Lotes disponíveis", value: data?.lotesDisponiveis, icon: Map },
-    { label: "Atendimentos humanos ativos", value: data?.takeovers, icon: Headset },
-  ];
+  const hoje = inicioDoDia();
+  const amanha = somarDias(hoje, 1);
+  const visitasHoje = agenda.data?.filter((v) => {
+    const t = new Date(v.data_hora).getTime();
+    return t >= hoje.getTime() && t < amanha.getTime();
+  }).length;
+  const pendencias = fila.data?.length;
+
+  const primeiroNome = nome?.trim().split(/\s+/)[0];
+
+  const resumoDoDia = [
+    visitasHoje === undefined
+      ? null
+      : visitasHoje === 0
+        ? "Nenhuma visita hoje"
+        : `${visitasHoje} ${visitasHoje === 1 ? "visita" : "visitas"} hoje`,
+    pendencias === undefined
+      ? null
+      : pendencias === 0
+        ? "nada pendente"
+        : `${pendencias} ${pendencias === 1 ? "pendência" : "pendências"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1280px] space-y-6">
       <PageHeader
-        eyebrow="Visão geral"
-        title="Bem-vindo ao Moradas de Paraty"
-        description={<span className="capitalize">{hoje}</span>}
+        title={`${saudacao()}${primeiroNome ? `, ${primeiroNome}` : ""}`}
+        description={
+          <>
+            {formatDataLonga(new Date())}
+            {resumoDoDia ? <span className="text-foreground"> · {resumoDoDia}</span> : null}
+          </>
+        }
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/dashboard/agenda">Agenda</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/dashboard/crm">Abrir CRM</Link>
+            </Button>
+          </>
+        }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {metricCards.map(({ label, value, icon: Icon }) => (
-          <Card key={label} className="shadow-sm">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                {isLoading ? (
-                  <Skeleton className="h-7 w-10 mb-1" />
-                ) : (
-                  <p className="text-2xl font-semibold leading-tight">{value ?? 0}</p>
-                )}
-                <p className="text-xs text-muted-foreground truncate">{label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <KpiCard
+          label="Novos hoje"
+          icon={UserPlus}
+          to="/dashboard/crm"
+          loading={resumo.isPending}
+          value={resumo.data?.novosHoje}
+          context={resumo.data ? `Ontem: ${resumo.data.novosOntem}` : undefined}
+          highlight={(resumo.data?.novosHoje ?? 0) > 0}
+        />
+        <KpiCard
+          label="Em andamento"
+          icon={Layers}
+          to="/dashboard/crm"
+          loading={resumo.isPending}
+          value={resumo.data?.emAndamento}
+          context={resumo.data ? `de ${resumo.data.total} no total` : undefined}
+        />
+        <KpiCard
+          label="Visitas hoje"
+          icon={CalendarCheck}
+          to="/dashboard/agenda"
+          loading={agenda.isPending}
+          value={visitasHoje}
+          context="Na agenda de hoje"
+          highlight={(visitasHoje ?? 0) > 0}
+        />
+        <KpiCard
+          label="Lotes disponíveis"
+          icon={Map}
+          to="/dashboard/lotes"
+          loading={lotes.isPending}
+          value={lotes.data}
+          context="Prontos para vender"
+        />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-display text-primary">Leads por status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data?.porStatus} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="0" />
-                  <XAxis type="number" allowDecimals={false} tick={axisTick} />
-                  <YAxis
-                    type="category"
-                    dataKey="status"
-                    width={82}
-                    tick={axisTick}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)" }} />
-                  <Bar
-                    dataKey="total"
-                    name="Leads"
-                    fill={CHART_GREEN}
-                    barSize={16}
-                    radius={[0, 4, 4, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-display text-primary">Leads por origem</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : data && data.porOrigem.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={data.porOrigem}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={55}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    stroke="var(--card)"
-                    strokeWidth={2}
-                  >
-                    {data.porOrigem.map((entry) => (
-                      <Cell key={entry.origem} fill={ORIGEM_COLORS[entry.origem]} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    iconSize={10}
-                    wrapperStyle={{ fontSize: 12, color: "var(--muted-foreground)" }}
-                  />
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-20">
-                Nenhum lead com origem registrada ainda.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
+          <FilaDeAcao query={fila} />
+        </div>
+        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
+          <AgendaProxima query={agenda} />
+        </div>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-display text-primary">
-            Leads nos últimos 7 dias
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-56 w-full" />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={data?.last7} margin={{ left: 8, right: 24, top: 8 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="0" />
-                <XAxis dataKey="dia" tick={axisTick} axisLine={false} tickLine={false} />
-                <YAxis
-                  allowDecimals={false}
-                  width={32}
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  name="Leads"
-                  stroke={CHART_GREEN}
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: CHART_GREEN }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
+          <Pipeline query={resumo} />
+        </div>
+        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
+          <Chegadas query={chegadas} />
+        </div>
+      </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-lg font-display text-primary">
-            Últimos leads recebidos
-          </CardTitle>
-          <Link
-            to="/dashboard/crm"
-            className="text-sm text-primary hover:text-accent underline underline-offset-4"
-          >
-            Ver todos
-          </Link>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      <Skeleton className="h-8 w-full" />
-                    </TableCell>
-                  </TableRow>
-                ) : !data || data.ultimosLeads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Nenhum lead recebido ainda.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.ultimosLeads.map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">{lead.nome}</TableCell>
-                      <TableCell>{lead.telefone ?? "—"}</TableCell>
-                      <TableCell>
-                        {lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`font-normal ${STATUS_BADGE_STYLES[lead.status_crm] ?? ""}`}
-                        >
-                          {STATUS_LABELS[lead.status_crm] ?? lead.status_crm}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(lead.created_at).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-3 [&>section]:h-full">
+          <UltimosLeads query={ultimos} />
+        </div>
+        <div className="min-w-0 lg:col-span-2 [&>section]:h-full">
+          <Origem query={resumo} />
+        </div>
+      </div>
     </div>
   );
 }

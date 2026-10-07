@@ -23,6 +23,11 @@ import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/crm")({
   head: () => ({ meta: [{ title: "CRM — Moradas de Paraty" }] }),
+  // ?lead=<id> abre a ficha daquele lead. É o que permite ir da tela inicial,
+  // da busca (⌘K) e das notificações direto para a pessoa certa.
+  validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
+    lead: typeof search.lead === "string" && search.lead ? search.lead : undefined,
+  }),
   component: CrmPage,
 });
 
@@ -128,7 +133,12 @@ function CrmPage() {
     return grouped;
   }, [leads, mostrarTestes]);
 
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const { lead: leadDaUrl } = Route.useSearch();
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leadDaUrl ?? null);
+  // Abrir outro lead pela URL com a página já aberta (ex.: pela busca).
+  useEffect(() => {
+    if (leadDaUrl) setSelectedLeadId(leadDaUrl);
+  }, [leadDaUrl]);
   const selectedLead = useMemo(
     () => leads?.find((lead) => lead.id === selectedLeadId) ?? null,
     [leads, selectedLeadId],

@@ -1,7 +1,9 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { CommandPaletteProvider } from "@/components/ds/command-palette";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
 
 export const Route = createFileRoute("/dashboard")({
@@ -27,17 +29,21 @@ function DashboardLayout() {
 
   return (
     <DashboardThemeProvider>
-      {/* h-screen + overflow-hidden trava a altura no viewport: sem isso o
-          documento inteiro rola e a sidebar sai de vista junto com o conteúdo
-          (é o que acontecia com min-h-screen, que só cresce). Sidebar e main
-          rolam cada um por conta própria, abaixo. */}
-      <div className="h-screen flex overflow-hidden bg-muted/30">
-        <DashboardSidebar />
-        <main className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8">
-          <Outlet />
-        </main>
-        <Toaster />
-      </div>
+      <CommandPaletteProvider>
+        <TooltipProvider delayDuration={200}>
+          {/* Altura travada na viewport (dvh, que acompanha a barra do
+              navegador no celular): sidebar e conteúdo rolam cada um por
+              conta própria. No celular a barra superior vira uma faixa no
+              fluxo, e o conteúdo ocupa o resto. */}
+          <div className="flex h-[100dvh] flex-col overflow-hidden bg-background md:flex-row">
+            <DashboardSidebar />
+            <main className="min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+              <Outlet />
+            </main>
+            <Toaster />
+          </div>
+        </TooltipProvider>
+      </CommandPaletteProvider>
     </DashboardThemeProvider>
   );
 }
