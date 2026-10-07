@@ -1,13 +1,14 @@
 // Seletor de compra para o documento: é o vínculo que leva um papel solto para
 // a ficha do lote certo do cliente certo.
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { compraLabel, type Cliente, type Lote } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Campo } from "@/components/documentos/pecas";
+import { Pill } from "@/components/ds/pill";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -38,6 +39,7 @@ export function CompraField({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const id = useId();
 
   const { data: compras } = useQuery({
     queryKey: ["compras", "picker", search],
@@ -62,21 +64,31 @@ export function CompraField({
   );
 
   return (
-    <div className="space-y-2">
-      <Label>Compra (lote do cliente)</Label>
+    <Campo
+      id={id}
+      label="Compra (lote do cliente)"
+      dica="Leva o documento para a ficha do lote certo do cliente."
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            id={id}
             type="button"
             variant="outline"
             role="combobox"
-            className="w-full justify-between font-normal"
+            aria-expanded={open}
+            className="h-10 w-full justify-between gap-2 px-3 font-normal"
           >
-            <span className="truncate">{label || "Nenhuma compra"}</span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <span className="flex min-w-0 items-center gap-2">
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <span className={cn("truncate", !label && "text-muted-foreground")}>
+                {label || "Nenhuma compra"}
+              </span>
+            </span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-0">
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Buscar por cliente ou lote..."
@@ -116,7 +128,18 @@ export function CompraField({
                     />
                     <span className="truncate">{compraLabel(compra)}</span>
                     {compra.status !== "ativo" ? (
-                      <span className="ml-2 text-xs text-muted-foreground">{compra.status}</span>
+                      <Pill
+                        tone={
+                          compra.status === "quitado"
+                            ? "success"
+                            : compra.status === "inadimplente"
+                              ? "danger"
+                              : "neutral"
+                        }
+                        className="ml-auto"
+                      >
+                        {compra.status}
+                      </Pill>
                     ) : null}
                   </CommandItem>
                 ))}
@@ -125,6 +148,6 @@ export function CompraField({
           </Command>
         </PopoverContent>
       </Popover>
-    </div>
+    </Campo>
   );
 }

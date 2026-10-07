@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Clock,
   MessageCircle,
   MoreVertical,
   CheckCircle2,
@@ -14,22 +13,19 @@ import {
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { VisitaStatus, VisitaWithRelations } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ds/avatar";
+import { Pill } from "@/components/ds/pill";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
-import {
-  STATUS_LABELS,
-  STATUS_STYLES,
-  vendorColor,
-  vendorInitials,
-} from "@/components/agenda/visita-status";
+import { STATUS_BARRA, STATUS_LABELS, STATUS_TONE } from "@/components/agenda/visita-status";
+import { formatDiaCurto, formatDiaSemana, formatHora, formatTelefone } from "@/lib/format";
 
 // leads.status_crm has no dedicated value for "no-show", so that transition
 // leaves the lead as "agendado" (awaiting a new visit) rather than losing it.
@@ -40,12 +36,23 @@ const STATUS_CRM_MAP: Record<Exclude<VisitaStatus, "cancelada">, string> = {
   no_show: "agendado",
 };
 
+/**
+ * Visita em formato de cartão: filete na cor do estado, horário em destaque,
+ * lead, vendedor e as ações (WhatsApp, confirmar, remarcar…). Usado na lista
+ * da agenda, na gaveta do dia e na ficha do lead no CRM.
+ */
 export function VisitaCard({
   visita,
   readOnly = false,
+  mostrarData = true,
+  passou = false,
 }: {
   visita: VisitaWithRelations;
   readOnly?: boolean;
+  /** Mostra "qui 09/10" sob o horário; na lista agrupada por dia fica redundante. */
+  mostrarData?: boolean;
+  /** Esmaece a visita que já passou (a lista da agenda decide pela marca "agora"). */
+  passou?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -73,70 +80,103 @@ export function VisitaCard({
     onError: () => toast.error("Erro ao atualizar o status da visita."),
   });
 
-  const horario = new Date(visita.data_hora).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   const whatsappLink = visita.lead?.telefone
     ? `https://wa.me/${visita.lead.telefone.replace(/\D/g, "")}`
     : null;
-
-  const accent = vendorColor(visita.vendedor_id);
+  const encerrada = visita.status === "realizada" || visita.status === "cancelada";
+  const nome = visita.lead?.nome ?? "Lead removido";
 
   return (
-    <Card
-      className="shadow-sm overflow-hidden border-l-4 transition-all duration-200 ease-in-out hover:shadow-md hover:-translate-y-0.5"
-      style={{ borderLeftColor: accent }}
+    <div
+      className={cn(
+        "group/visita relative flex items-center gap-4 overflow-hidden rounded-xl border border-border bg-card py-3.5 pl-6 pr-3 shadow-[var(--shadow-card)] transition-[border-color,box-shadow,opacity] duration-200 hover:border-foreground/20 hover:shadow-[var(--shadow-pop)] motion-reduce:transition-none",
+        (passou || encerrada) && "opacity-80 hover:opacity-100",
+      )}
     >
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="w-14 shrink-0 text-center">
-          <p className="text-lg font-display text-primary leading-none">{horario}</p>
-          <Clock className="h-3 w-3 mx-auto mt-1 text-muted-foreground/70" />
-        </div>
+      <span
+        aria-hidden
+        className={cn("absolute inset-y-0 left-0 w-1.5", STATUS_BARRA[visita.status])}
+      />
 
-        <div className="flex-1 min-w-0">
-          <p className="flex items-center gap-2 font-medium truncate leading-tight">
-            <span className="truncate">{visita.lead?.nome ?? "Lead removido"}</span>
-            {visita.lead?.is_teste ? (
-              <Badge
-                className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs font-normal"
-                title="Visita de um lead gerado pelo painel Testar Agente — não é um cliente real."
-              >
-                TESTE
-              </Badge>
-            ) : null}
+      <div className="w-14 shrink-0">
+        <p className="num text-[1.375rem] leading-none text-foreground">
+          {formatHora(visita.data_hora)}
+        </p>
+        {mostrarData ? (
+          <p className="mt-1.5 text-[0.7rem] capitalize tabular-nums leading-none text-muted-foreground">
+            {formatDiaSemana(visita.data_hora)} {formatDiaCurto(visita.data_hora)}
           </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-            {visita.lead?.telefone ? <span>{visita.lead.telefone}</span> : null}
-            {visita.vendedor?.nome ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold text-white"
-                  style={{ backgroundColor: accent }}
-                  title={visita.vendedor.nome}
-                >
-                  {vendorInitials(visita.vendedor.nome)}
-                </span>
-                {visita.vendedor.nome}
-              </span>
-            ) : null}
-          </div>
+        ) : null}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 leading-tight">
+          <span
+            className={cn(
+              "truncate text-[0.9375rem] font-semibold text-foreground",
+              visita.status === "cancelada" && "text-muted-foreground line-through",
+              !visita.lead && "font-medium text-muted-foreground",
+            )}
+          >
+            {nome}
+          </span>
+          {visita.lead?.is_teste ? (
+            <span
+              className="shrink-0"
+              title="Visita de um lead gerado pelo painel Testar Agente — não é um cliente real."
+            >
+              <Pill tone="warning" className="text-[0.65rem] uppercase tracking-wide">
+                Teste
+              </Pill>
+            </span>
+          ) : null}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-muted-foreground">
+          {visita.lead?.telefone ? (
+            <span className="tabular-nums">{formatTelefone(visita.lead.telefone)}</span>
+          ) : null}
+          {visita.vendedor?.nome ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Avatar nome={visita.vendedor.nome} size="sm" className="h-5 w-5 text-[0.55rem]" />
+              {visita.vendedor.nome}
+            </span>
+          ) : null}
         </div>
+        <div className="mt-2 sm:hidden">
+          <Pill tone={STATUS_TONE[visita.status]} dot>
+            {STATUS_LABELS[visita.status]}
+          </Pill>
+        </div>
+        {visita.observacoes ? (
+          <p
+            className="mt-1.5 line-clamp-1 text-[0.75rem] text-muted-foreground/90"
+            title={visita.observacoes}
+          >
+            {visita.observacoes}
+          </p>
+        ) : null}
+      </div>
 
-        <Badge className={cn("font-normal shrink-0 border-0", STATUS_STYLES[visita.status])}>
-          {STATUS_LABELS[visita.status]}
-        </Badge>
+      <Pill tone={STATUS_TONE[visita.status]} dot className="hidden shrink-0 sm:inline-flex">
+        {STATUS_LABELS[visita.status]}
+      </Pill>
 
+      <div className="flex shrink-0 items-center">
         {whatsappLink ? (
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 transition-transform duration-200 hover:scale-110"
+            className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
             asChild
           >
-            <a href={whatsappLink} target="_blank" rel="noreferrer" title="WhatsApp">
-              <MessageCircle className="h-4 w-4" />
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noreferrer"
+              title="WhatsApp"
+              aria-label={`Abrir conversa com ${nome} no WhatsApp`}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
             </a>
           </Button>
         ) : null}
@@ -144,42 +184,48 @@ export function VisitaCard({
         {readOnly ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <MoreVertical className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={`Ações da visita de ${nome}`}
+              >
+                <MoreVertical className="h-4 w-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => statusMutation.mutate("confirmada")}>
-                <UserCheck className="h-4 w-4 mr-2" />
+                <UserCheck className="h-4 w-4 mr-2" aria-hidden />
                 Confirmar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRescheduleOpen(true)}>
-                <CalendarClock className="h-4 w-4 mr-2" />
+                <CalendarClock className="h-4 w-4 mr-2" aria-hidden />
                 Remarcar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => statusMutation.mutate("realizada")}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <CheckCircle2 className="h-4 w-4 mr-2" aria-hidden />
                 Marcar Realizada
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => statusMutation.mutate("no_show")}>
-                <UserX className="h-4 w-4 mr-2" />
+                <UserX className="h-4 w-4 mr-2" aria-hidden />
                 No-show
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => statusMutation.mutate("cancelada")}
-                className="text-destructive focus:text-destructive"
+                className="text-danger focus:text-danger"
               >
-                <XCircle className="h-4 w-4 mr-2" />
+                <XCircle className="h-4 w-4 mr-2" aria-hidden />
                 Cancelar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </CardContent>
+      </div>
 
       {readOnly ? null : (
         <VisitaFormDialog visita={visita} open={rescheduleOpen} onOpenChange={setRescheduleOpen} />
       )}
-    </Card>
+    </div>
   );
 }

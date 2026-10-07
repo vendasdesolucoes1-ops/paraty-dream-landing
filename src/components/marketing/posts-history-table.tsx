@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { PostMarketing, PostMarketingStatus } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Pill, type Tone } from "@/components/ds/pill";
+import { Bloco } from "@/components/ds/bloco";
+import { atraso } from "@/components/ds/reveal";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,11 +20,11 @@ import {
 
 const PAGE_SIZE = 10;
 
-const STATUS_STYLES: Record<PostMarketingStatus, string> = {
-  rascunho: "bg-muted text-muted-foreground",
-  publicado: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  agendado: "bg-amber-100 text-amber-800 hover:bg-amber-100",
-  erro: "bg-red-100 text-red-800 hover:bg-red-100",
+const STATUS_TONES: Record<PostMarketingStatus, Tone> = {
+  rascunho: "neutral",
+  publicado: "success",
+  agendado: "warning",
+  erro: "danger",
 };
 
 const STATUS_LABELS: Record<PostMarketingStatus, string> = {
@@ -53,20 +55,17 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
   const paginated = (posts ?? []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-display text-primary">Histórico de posts</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-lg border overflow-x-auto">
+    <Bloco titulo="Histórico de posts">
+      <div className="space-y-4">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Miniatura</TableHead>
+                <TableHead className="pl-5">Miniatura</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="pr-5 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -74,50 +73,50 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell colSpan={5}>
-                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-12 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    Nenhum post gerado ainda.
+                  <TableCell colSpan={5} className="p-4">
+                    <EmptyState icon={ImageIcon} title="Nenhum post gerado ainda." />
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map((post) => (
-                  <TableRow key={post.id}>
-                    <TableCell>
+                paginated.map((post, i) => (
+                  <TableRow key={post.id} className="animate-swap" style={atraso(i, 40, 320)}>
+                    <TableCell className="pl-5">
                       {post.imagem_url ? (
                         <img
                           src={post.imagem_url}
                           alt=""
-                          className="h-12 w-12 rounded object-cover"
+                          className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
                         />
                       ) : (
-                        <div className="h-12 w-12 rounded bg-muted" />
+                        <div className="h-12 w-12 rounded-lg bg-muted ring-1 ring-border" />
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[220px] truncate">
+                    <TableCell className="max-w-[220px] truncate font-medium">
                       {post.titulo || "Sem título"}
                     </TableCell>
                     <TableCell>
-                      <Badge className={`font-normal ${STATUS_STYLES[post.status]}`}>
+                      <Pill tone={STATUS_TONES[post.status]} dot>
                         {STATUS_LABELS[post.status]}
-                      </Badge>
+                      </Pill>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(post.created_at).toLocaleDateString("pt-BR")}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="pr-5 text-right">
                       {post.instagram_post_id ? (
                         <a
                           href={`https://www.instagram.com/p/${post.instagram_post_id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-primary hover:text-accent"
+                          className="inline-flex items-center gap-1 rounded text-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          Ver <ExternalLink className="h-3.5 w-3.5" />
+                          Ver <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                         </a>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -132,7 +131,7 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
 
         {!isLoading && total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm tabular-nums text-muted-foreground">
               Página {currentPage} de {totalPages}
             </p>
             <div className="flex items-center gap-2">
@@ -142,7 +141,7 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
+                <ChevronLeft className="h-4 w-4" aria-hidden />
                 Anterior
               </Button>
               <Button
@@ -152,12 +151,12 @@ export function PostsHistoryTable({ refreshKey }: { refreshKey?: number }) {
                 disabled={currentPage === totalPages}
               >
                 Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <ChevronRight className="h-4 w-4" aria-hidden />
               </Button>
             </div>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </Bloco>
   );
 }

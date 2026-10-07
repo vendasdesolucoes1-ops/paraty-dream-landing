@@ -1,14 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown } from "lucide-react";
+import { KeyRound, Link2, MessageSquarePlus, Smartphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Campo, ComIcone, Secao } from "@/components/ajustes/campos";
+import { Kbd } from "@/components/ds/kbd";
 
 export function WhatsappCreateInstanceCard({
   open,
@@ -42,60 +41,111 @@ export function WhatsappCreateInstanceCard({
   }
 
   return (
-    <Card className="shadow-sm">
-      <Collapsible open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer select-none flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xl font-display text-primary">
-              Nova instância do WhatsApp
-            </CardTitle>
-            <ChevronDown
-              className={cn(
-                "h-5 w-5 text-muted-foreground transition-transform",
-                open && "rotate-180",
-              )}
-            />
-          </CardHeader>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-              <div className="space-y-2">
-                <Label htmlFor="instance_name">Nome da instância</Label>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex flex-col gap-0 p-0 sm:max-w-[31rem]">
+        <SheetTitle className="sr-only">Nova instância do WhatsApp</SheetTitle>
+        <SheetDescription className="sr-only">
+          Informe o nome, o endereço da Evolution API e a chave para criar a instância.
+        </SheetDescription>
+
+        <header className="flex items-center gap-4 border-b border-border px-7 pb-5 pr-14 pt-7">
+          <span
+            aria-hidden
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-display text-[1.85rem] font-medium leading-none tracking-[-0.01em]">
+              Nova instância
+            </h2>
+            <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
+              Depois de criar, escaneie o QR code para conectar o número.
+            </p>
+          </div>
+        </header>
+
+        <form
+          id="form-instancia"
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.requestSubmit();
+            }
+          }}
+          className="flex-1 space-y-8 overflow-y-auto px-7 py-6"
+        >
+          <Secao titulo="Identificação">
+            <Campo
+              id="instance_name"
+              label="Nome da instância"
+              obrigatorio
+              dica="Como a instância aparece no painel e nas ferramentas."
+            >
+              <ComIcone icone={Smartphone}>
                 <Input
                   id="instance_name"
                   required
+                  autoFocus
+                  autoComplete="off"
+                  className="pl-9"
                   value={form.instance_name}
                   onChange={(e) => setForm((f) => ({ ...f, instance_name: e.target.value }))}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="api_url">URL da Evolution API</Label>
+              </ComIcone>
+            </Campo>
+          </Secao>
+
+          <Secao titulo="Conexão com a Evolution API">
+            <Campo id="api_url" label="URL da Evolution API" obrigatorio>
+              <ComIcone icone={Link2}>
                 <Input
                   id="api_url"
                   required
                   placeholder="https://sua-evolution-api.com"
+                  className="pl-9"
                   value={form.api_url}
                   onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="api_key">API Key</Label>
+              </ComIcone>
+            </Campo>
+            <Campo
+              id="api_key"
+              label="API Key"
+              obrigatorio
+              dica="Chave de acesso da sua Evolution API."
+            >
+              <ComIcone icone={KeyRound}>
                 <Input
                   id="api_key"
                   required
                   type="password"
+                  autoComplete="off"
+                  className="pl-9"
                   value={form.api_key}
                   onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
                 />
-              </div>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Criando..." : "Criar instância"}
-              </Button>
-            </form>
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+              </ComIcone>
+            </Campo>
+          </Secao>
+        </form>
+
+        <footer className="flex items-center justify-between gap-3 border-t border-border bg-card px-7 py-4">
+          <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+            <Kbd>⌘</Kbd>
+            <Kbd>↵</Kbd> criar
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-instancia" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Criando..." : "Criar instância"}
+            </Button>
+          </div>
+        </footer>
+      </SheetContent>
+    </Sheet>
   );
 }

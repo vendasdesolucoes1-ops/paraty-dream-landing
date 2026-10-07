@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { Download, ExternalLink } from "lucide-react";
+import { AlertCircle, Download, ExternalLink, FileQuestion } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { DOCUMENTOS_BUCKET, isImageTipo, isPdfTipo } from "@/lib/documento-utils";
+import { DOCUMENTOS_BUCKET, formatBytes, isImageTipo, isPdfTipo } from "@/lib/documento-utils";
 import type { DocumentoWithLead } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CategoriaTag, IconeArquivo } from "@/components/documentos/pecas";
 
 const SIGNED_URL_TTL_SECONDS = 60 * 5;
 
@@ -99,50 +105,69 @@ export function DocumentoPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-4xl">
         {documento ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-4 pr-6">
-                <span className="truncate">{documento.titulo}</span>
-                <div className="flex items-center gap-2">
-                  {signedUrl ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(signedUrl, "_blank", "noopener,noreferrer")}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Abrir
-                    </Button>
-                  ) : null}
+            <DialogHeader className="flex-row flex-wrap items-center gap-x-4 gap-y-3 space-y-0 border-b border-border px-6 py-4 pr-14 text-left">
+              <IconeArquivo tipo={documento.tipo_arquivo} />
+              <div className="min-w-0 flex-1 basis-48">
+                <DialogTitle className="truncate font-sans text-[1.0625rem] font-semibold leading-snug tracking-[-0.014em]">
+                  {documento.titulo}
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.8125rem]">
+                    <CategoriaTag categoria={documento.categoria} />
+                    <span className="tabular-nums">
+                      <span className="uppercase">{documento.tipo_arquivo}</span>
+                      {" · "}
+                      {formatBytes(documento.tamanho_bytes)}
+                    </span>
+                  </div>
+                </DialogDescription>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {signedUrl ? (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleDownload}
-                    disabled={downloading}
+                    onClick={() => window.open(signedUrl, "_blank", "noopener,noreferrer")}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    {downloading ? "Gerando..." : "Baixar"}
+                    <ExternalLink className="h-4 w-4" aria-hidden />
+                    Abrir
                   </Button>
-                </div>
-              </DialogTitle>
+                ) : null}
+                <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+                  <Download className="h-4 w-4" aria-hidden />
+                  {downloading ? "Gerando..." : "Baixar"}
+                </Button>
+              </div>
             </DialogHeader>
 
-            <div className="min-h-[60vh] flex items-center justify-center">
+            <div className="flex min-h-[40vh] items-center justify-center overflow-y-auto bg-muted/40 p-4 sm:p-6">
               {loading ? (
-                <Skeleton className="h-[60vh] w-full" />
+                <div
+                  aria-hidden
+                  className="skeleton-shimmer h-[min(62vh,44rem)] w-full rounded-xl bg-muted"
+                />
               ) : error || (!signedUrl && !blobUrl) ? (
-                <p className="text-sm text-destructive">
-                  {error ?? "Erro ao gerar link de visualização."}
-                </p>
+                <div
+                  role="alert"
+                  className="animate-swap flex flex-col items-center gap-3 py-12 text-center"
+                >
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger-soft text-danger">
+                    <AlertCircle className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="text-sm text-foreground">
+                    {error ?? "Erro ao gerar link de visualização."}
+                  </p>
+                </div>
               ) : isPdfTipo(documento.tipo_arquivo) && pdfSrc ? (
                 <object
                   data={pdfSrc}
                   type="application/pdf"
-                  className="w-full h-[70vh] border rounded-md"
+                  className="animate-swap h-[min(70vh,48rem)] w-full rounded-xl border border-border bg-card shadow-[var(--shadow-card)]"
                 >
-                  <div className="p-6 text-center text-sm text-muted-foreground space-y-3">
+                  <div className="space-y-4 p-6 text-center text-sm text-muted-foreground">
                     <p>
                       Seu navegador bloqueou a pré-visualização do PDF. Use os botões abaixo para
                       abrir ou baixar o arquivo.
@@ -155,11 +180,11 @@ export function DocumentoPreviewDialog({
                           window.open(signedUrl ?? pdfSrc, "_blank", "noopener,noreferrer")
                         }
                       >
-                        <ExternalLink className="h-4 w-4 mr-2" />
+                        <ExternalLink className="h-4 w-4" aria-hidden />
                         Abrir em nova aba
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleDownload}>
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="h-4 w-4" aria-hidden />
                         Baixar
                       </Button>
                     </div>
@@ -169,12 +194,18 @@ export function DocumentoPreviewDialog({
                 <img
                   src={signedUrl}
                   alt={documento.titulo}
-                  className="max-h-[70vh] max-w-full rounded-md object-contain"
+                  className="animate-swap max-h-[70vh] max-w-full rounded-xl object-contain shadow-[var(--shadow-card)] ring-1 ring-border"
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Pré-visualização não disponível para este tipo de arquivo. Use o botão "Baixar".
-                </p>
+                <div className="animate-swap flex flex-col items-center gap-3 py-12 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-card text-muted-foreground shadow-[var(--shadow-card)] ring-1 ring-border">
+                    <FileQuestion className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="max-w-xs text-sm text-muted-foreground">
+                    Pré-visualização não disponível para este tipo de arquivo. Use o botão
+                    &ldquo;Baixar&rdquo;.
+                  </p>
+                </div>
               )}
             </div>
           </>

@@ -67,7 +67,7 @@ export function SkeletonRows({
   return (
     <div className="space-y-2" aria-hidden>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className={`${className} animate-pulse rounded-md bg-muted`} />
+        <div key={i} className={`${className} skeleton-shimmer rounded-lg bg-muted`} />
       ))}
     </div>
   );

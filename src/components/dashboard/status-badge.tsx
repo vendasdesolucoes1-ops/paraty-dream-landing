@@ -1,28 +1,22 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
+import { ChevronDown } from "lucide-react";
+import { Pill } from "@/components/ds/pill";
+import {
+  LOTE_STATUS_DOT,
+  LOTE_STATUS_LABELS,
+  LOTE_STATUS_TONE,
+} from "@/components/dashboard/lote-status";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { LOTE_STATUS_OPTIONS, type LoteStatus } from "@/lib/types";
 
-const LOTE_STATUS_STYLES: Record<LoteStatus, string> = {
-  disponivel: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  reservado: "bg-amber-100 text-amber-800 hover:bg-amber-100",
-  vendido: "bg-red-100 text-red-800 hover:bg-red-100",
-};
-
-const LOTE_STATUS_LABELS: Record<LoteStatus, string> = {
-  disponivel: "Disponível",
-  reservado: "Reservado",
-  vendido: "Vendido",
-};
-
 export function LoteStatusBadge({ status }: { status: LoteStatus }) {
   return (
-    <Badge className={cn("font-normal", LOTE_STATUS_STYLES[status])}>
+    <Pill tone={LOTE_STATUS_TONE[status]} dot>
       {LOTE_STATUS_LABELS[status]}
-    </Badge>
+    </Pill>
   );
 }
 
@@ -54,21 +48,38 @@ export function LoteStatusEditableBadge({
       value={status}
       onValueChange={(value) => mutation.mutate(value as LoteStatus)}
     >
-      <SelectTrigger className="h-auto w-auto border-0 bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:hidden">
-        <Badge
-          className={cn(
-            "font-normal cursor-pointer",
-            LOTE_STATUS_STYLES[status],
-            mutation.isPending && "opacity-60",
-          )}
-        >
-          {LOTE_STATUS_LABELS[status]}
-        </Badge>
+      <SelectTrigger
+        aria-label={`Status do lote: ${LOTE_STATUS_LABELS[status]}. Alterar`}
+        className="group/status h-auto w-auto rounded-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus:ring-0 focus-visible:ring-2 focus-visible:ring-ring [&>svg]:hidden"
+      >
+        {/* div, não span: o SelectTrigger aplica line-clamp aos spans filhos diretos. */}
+        <div className="inline-flex">
+          <Pill
+            tone={LOTE_STATUS_TONE[status]}
+            dot
+            className={cn(
+              "cursor-pointer transition-[filter,opacity] duration-150 group-hover/status:brightness-95 motion-reduce:transition-none",
+              mutation.isPending && "opacity-60",
+            )}
+          >
+            {LOTE_STATUS_LABELS[status]}
+            <ChevronDown
+              aria-hidden
+              className="-mr-0.5 h-3 w-3 opacity-0 transition-opacity duration-150 group-hover/status:opacity-70 group-focus-visible/status:opacity-70 group-data-[state=open]/status:opacity-70"
+            />
+          </Pill>
+        </div>
       </SelectTrigger>
       <SelectContent>
         {LOTE_STATUS_OPTIONS.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden
+                className={cn("h-2 w-2 rounded-full", LOTE_STATUS_DOT[opt.value])}
+              />
+              {opt.label}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -4,14 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Badge } from "@/components/ui/badge";
+import { Pill, type Tone } from "@/components/ds/pill";
+import { Bloco } from "@/components/ds/bloco";
+import { SkeletonRows } from "@/components/ds/query-state";
+import { atraso } from "@/components/ds/reveal";
+import { Campo, SeloIcone } from "@/components/ajustes/campos";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -35,6 +39,14 @@ const TYPES = [
   { value: "visual", label: "Direção visual" },
   { value: "banned", label: "Proibido" },
 ];
+
+const TYPE_TONE: Record<string, Tone> = {
+  rule: "neutral",
+  tone: "info",
+  fact: "success",
+  visual: "accent",
+  banned: "danger",
+};
 
 export function BrandAssetsPanel() {
   const queryClient = useQueryClient();
@@ -94,37 +106,36 @@ export function BrandAssetsPanel() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <Card className="shadow-sm h-fit">
-        <CardHeader>
-          <CardTitle className="text-lg font-display text-primary flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-gold" />
-            Nova diretriz
-          </CardTitle>
+    <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <Card className="h-fit lg:sticky lg:top-6">
+        <CardHeader className="flex-row items-center gap-3 space-y-0 p-6 pb-5">
+          <SeloIcone icone={BookOpen} />
+          <CardTitle className="text-[1.0625rem] leading-snug">Nova diretriz</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Tipo</Label>
+        <CardContent className="space-y-5 border-t border-border pt-6">
+          <Campo label="Tipo">
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand_title">Título</Label>
+          </Campo>
+          <Campo id="brand_title" label="Título">
             <Input
               id="brand_title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex.: Nunca usar emoji"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand_content">Conteúdo</Label>
+          </Campo>
+          <Campo id="brand_content" label="Conteúdo">
             <Textarea
               id="brand_content"
               rows={5}
@@ -132,68 +143,73 @@ export function BrandAssetsPanel() {
               onChange={(e) => setContent(e.target.value)}
               placeholder="Descreva a regra como você explicaria para um redator novo."
             />
-          </div>
+          </Campo>
           <Button
             className="w-full"
             disabled={!title.trim() || addMutation.isPending}
             onClick={() => addMutation.mutate()}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" aria-hidden />
             {addMutation.isPending ? "Salvando..." : "Adicionar diretriz"}
           </Button>
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-display text-primary">Brand Bible</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
-          ) : (assets ?? []).length === 0 ? (
-            <p className="py-10 text-center text-muted-foreground">
-              Nenhuma diretriz salva. A IA usa a Brand Bible padrão do Moradas de Paraty.
-            </p>
-          ) : (
-            (assets ?? []).map((asset) => (
-              <div
-                key={asset.id}
-                className="flex items-start gap-4 rounded-lg border p-4"
-              >
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="font-normal">
-                      {TYPES.find((t) => t.value === asset.type)?.label ?? asset.type}
-                    </Badge>
-                    <span className="font-medium">{asset.title}</span>
+      <Bloco titulo="Brand Bible">
+        {isLoading ? (
+          <SkeletonRows rows={3} className="h-24" />
+        ) : (assets ?? []).length === 0 ? (
+          <EmptyState
+            icon={BookOpen}
+            title="Nenhuma diretriz salva."
+            description="A IA usa a Brand Bible padrão do Moradas de Paraty."
+          />
+        ) : (
+          <ul className="space-y-3">
+            {(assets ?? []).map((asset, i) => (
+              <li key={asset.id} className="animate-swap" style={atraso(i, 45, 360)}>
+                <div
+                  className={cn(
+                    "flex items-start gap-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] transition-[opacity,border-color] duration-200 hover:border-foreground/25",
+                    !asset.is_active && "opacity-60",
+                  )}
+                >
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Pill tone={TYPE_TONE[asset.type] ?? "neutral"}>
+                        {TYPES.find((t) => t.value === asset.type)?.label ?? asset.type}
+                      </Pill>
+                      <span className="text-[0.9375rem] font-semibold">{asset.title}</span>
+                    </div>
+                    {asset.content ? (
+                      <p className="whitespace-pre-wrap text-[0.875rem] leading-relaxed text-muted-foreground">
+                        {asset.content}
+                      </p>
+                    ) : null}
                   </div>
-                  {asset.content ? (
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {asset.content}
-                    </p>
-                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Switch
+                      aria-label={`${asset.is_active ? "Desativar" : "Ativar"} diretriz ${asset.title}`}
+                      checked={asset.is_active}
+                      onCheckedChange={(v) => toggleMutation.mutate({ id: asset.id, is_active: v })}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                      onClick={() => deleteMutation.mutate(asset.id)}
+                      aria-label={`Remover diretriz ${asset.title}`}
+                      title="Remover diretriz"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Switch
-                    checked={asset.is_active}
-                    onCheckedChange={(v) =>
-                      toggleMutation.mutate({ id: asset.id, is_active: v })}
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={() => deleteMutation.mutate(asset.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Bloco>
     </div>
   );
 }

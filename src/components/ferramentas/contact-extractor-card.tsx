@@ -12,7 +12,8 @@ import { downloadCsv } from "@/lib/csv";
 import type { WhatsappInstance } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ds/pill";
+import { Campo } from "@/components/ajustes/campos";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -320,8 +321,7 @@ export function ContactExtractorCard() {
       title="Extrator de contatos do WhatsApp"
       subtitle="Puxe a agenda completa da instância conectada e importe pro CRM com revisão"
     >
-      <div className="space-y-2 max-w-xs">
-        <label className="text-sm font-medium">Instância</label>
+      <Campo label="Instância" className="max-w-xs">
         <Select value={instanceId} onValueChange={setInstanceId}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione a instância" />
@@ -334,7 +334,7 @@ export function ContactExtractorCard() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Campo>
 
       <Button
         onClick={() => contactsMutation.mutate()}
@@ -344,9 +344,9 @@ export function ContactExtractorCard() {
       </Button>
 
       {contactsMutation.isPending ? (
-        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-40 w-full rounded-xl" />
       ) : contacts ? (
-        <div className="space-y-3">
+        <div className="animate-swap space-y-4">
           {owner?.number ? (
             <p className="text-xs text-muted-foreground">
               Agenda do aparelho conectado: {owner.name ? `${owner.name} · ` : ""}
@@ -360,7 +360,7 @@ export function ContactExtractorCard() {
               caindo direto no texto genérico "nenhum contato encontrado" sem
               explicar o motivo. */}
           {sessionInfo?.since ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-xs leading-relaxed text-foreground">
               Aparelho reconectado em {new Date(sessionInfo.since).toLocaleString("pt-BR")}.
               Contatos de antes dessa data (aparelho anterior) foram descartados automaticamente
               {sessionInfo.discardedFromPreviousSession > 0
@@ -403,7 +403,7 @@ export function ContactExtractorCard() {
                 </p>
               </div>
 
-              <div className="rounded-lg border overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -447,20 +447,13 @@ export function ContactExtractorCard() {
                         </TableCell>
                         <TableCell>
                           {contact.numeroIndisponivel ? (
-                            <Badge
-                              className="bg-muted text-muted-foreground hover:bg-muted font-normal"
-                              title="Este contato usa o identificador interno @lid do WhatsApp e não expôs o telefone real — não pode ser importado."
-                            >
-                              Não importável
-                            </Badge>
+                            <span title="Este contato usa o identificador interno @lid do WhatsApp e não expôs o telefone real — não pode ser importado.">
+                              <Pill>Não importável</Pill>
+                            </span>
                           ) : contact.number && existingPhones.has(contact.number) ? (
-                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-normal">
-                              Já existe
-                            </Badge>
+                            <Pill tone="warning">Já existe</Pill>
                           ) : (
-                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal">
-                              Novo
-                            </Badge>
+                            <Pill tone="success">Novo</Pill>
                           )}
                         </TableCell>
                       </TableRow>

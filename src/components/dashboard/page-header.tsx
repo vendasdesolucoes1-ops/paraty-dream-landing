@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 
 /**
- * Cabeçalho padrão de cada página do painel: eyebrow (categoria) + título +
- * descrição opcional, com espaço reservado para a ação principal à direita.
- * Antes cada página montava essa faixa à mão — metade tinha eyebrow, metade
- * não, o que quebrava a leitura de "em que seção eu estou" ao navegar.
+ * Cabeçalho padrão das telas internas do painel: categoria em caixa-alta, título
+ * na serifa da marca, descrição e as ações à direita. A mesma peça em toda tela
+ * é o que faz o painel parecer um produto só.
  */
 export function PageHeader({
   eyebrow,
@@ -18,13 +17,22 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p className="eyebrow text-muted-foreground">{eyebrow}</p>
-        <h1 className="text-3xl font-display text-primary">{title}</h1>
-        {description ? <p className="text-muted-foreground">{description}</p> : null}
+    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <span aria-hidden className="h-px w-5 bg-accent" />
+          {eyebrow}
+        </p>
+        <h1 className="mt-2.5 text-balance font-display text-[2.2rem] font-medium leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[2.75rem]">
+          {title}
+        </h1>
+        {description ? (
+          <p className="mt-2.5 max-w-2xl text-pretty text-[0.9375rem] leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
       </div>
-      {action ? <div className="flex items-center gap-3">{action}</div> : null}
-    </div>
+      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
+    </header>
   );
 }

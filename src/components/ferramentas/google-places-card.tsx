@@ -7,7 +7,7 @@ import { downloadCsv } from "@/lib/csv";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Campo } from "@/components/ajustes/campos";
 import {
   Select,
   SelectContent,
@@ -94,26 +94,23 @@ export function GooglePlacesCard() {
       subtitle="Busque empresas e profissionais no Google Maps e importe para o CRM"
     >
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="places-query">Termo de busca</Label>
+        <Campo id="places-query" label="Termo de busca">
           <Input
             id="places-query"
             placeholder="corretores de imóveis Paraty"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="places-city">Cidade/Região</Label>
+        </Campo>
+        <Campo id="places-city" label="Cidade/Região">
           <Input
             id="places-city"
             placeholder="Paraty, RJ"
             value={city}
             onChange={(e) => setCity(e.target.value)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Quantidade máxima</Label>
+        </Campo>
+        <Campo label="Quantidade máxima">
           <Select value={maxResults} onValueChange={setMaxResults}>
             <SelectTrigger>
               <SelectValue />
@@ -125,7 +122,7 @@ export function GooglePlacesCard() {
               <SelectItem value="100">100</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </Campo>
       </div>
 
       <Button onClick={() => searchMutation.mutate()} disabled={searchMutation.isPending}>
@@ -133,14 +130,14 @@ export function GooglePlacesCard() {
       </Button>
 
       {searchMutation.isPending ? (
-        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-40 w-full rounded-xl" />
       ) : results ? (
-        <div className="space-y-3">
+        <div className="animate-swap space-y-4">
           <p className="text-sm">
             <span className="font-medium">{results.length}</span> resultados encontrados
           </p>
 
-          <div className="rounded-lg border overflow-x-auto max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -163,7 +160,7 @@ export function GooglePlacesCard() {
                           href={r.website}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-primary underline underline-offset-4"
+                          className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {r.website}
                         </a>

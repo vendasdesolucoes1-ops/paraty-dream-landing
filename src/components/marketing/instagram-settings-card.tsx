@@ -6,8 +6,9 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Pill } from "@/components/ds/pill";
+import { Campo, SeloIcone } from "@/components/ajustes/campos";
+import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export function useInstagramConfig() {
@@ -35,6 +36,7 @@ export function InstagramSettingsCard({ defaultOpen = false }: { defaultOpen?: b
   const [token, setToken] = useState("");
 
   const { data: config } = useInstagramConfig();
+  const conectado = Boolean(config?.instagram_token && config?.instagram_user_id);
 
   useEffect(() => {
     if (config) {
@@ -65,45 +67,56 @@ export function InstagramSettingsCard({ defaultOpen = false }: { defaultOpen?: b
   });
 
   return (
-    <Card className="shadow-sm">
+    <Card className="overflow-hidden">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer select-none flex flex-row items-center justify-between gap-3 space-y-0">
-            <CardTitle className="text-lg font-display text-primary flex items-center gap-2">
-              <Instagram className="h-5 w-5 text-gold" />
-              Configurações do Instagram
-            </CardTitle>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 p-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <SeloIcone icone={Instagram} />
+              <span className="min-w-0">
+                <span className="block font-sans text-[1.0625rem] font-semibold leading-snug tracking-[-0.011em]">
+                  Configurações do Instagram
+                </span>
+                <span className="mt-1 flex">
+                  <Pill tone={conectado ? "success" : "neutral"} dot>
+                    {conectado ? "Credenciais salvas" : "Não configurado"}
+                  </Pill>
+                </span>
+              </span>
+            </span>
             <ChevronDown
+              aria-hidden
               className={cn(
-                "h-5 w-5 text-muted-foreground transition-transform shrink-0",
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--ease-out)]",
                 open && "rotate-180",
               )}
             />
-          </CardHeader>
+          </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="space-y-4 max-w-md">
-            <div className="space-y-2">
-              <Label htmlFor="instagram_user_id">Instagram User ID</Label>
+          <CardContent className="max-w-xl space-y-5 border-t border-border pt-6">
+            <Campo id="instagram_user_id" label="Instagram User ID">
               <Input
                 id="instagram_user_id"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram_token">Access Token</Label>
+            </Campo>
+            <Campo id="instagram_token" label="Access Token">
               <Input
                 id="instagram_token"
                 type="password"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
               />
-            </div>
+            </Campo>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Salvando..." : "Salvar token"}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Para obter seu token, acesse developers.facebook.com, crie um app, conecte sua conta
               Business do Instagram e gere um token de longa duração com permissão
               instagram_content_publish.

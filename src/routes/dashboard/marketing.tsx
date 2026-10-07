@@ -7,6 +7,8 @@ import { InstagramSettingsCard } from "@/components/marketing/instagram-settings
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleGuard } from "@/components/dashboard/role-guard";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { Reveal } from "@/components/ds/reveal";
+import { LayoutGrid, Palette, Wand2 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/marketing")({
   head: () => ({
@@ -32,34 +34,47 @@ export const Route = createFileRoute("/dashboard/marketing")({
 function MarketingPage() {
   return (
     <RoleGuard allow={["admin", "gestor"]}>
-      <div className="space-y-6">
-        <PageHeader
-          eyebrow="Operação"
-          title="Marketing"
-          description="Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty"
-        />
+      <div className="space-y-8">
+        <Reveal ordem={0}>
+          <PageHeader
+            eyebrow="Operação"
+            title="Marketing"
+            description="Imagery Engine — do briefing à publicação no Instagram do Moradas de Paraty"
+          />
+        </Reveal>
 
-        <Tabs defaultValue="criar" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="criar">Criar post</TabsTrigger>
-            <TabsTrigger value="galeria">Galeria</TabsTrigger>
-            <TabsTrigger value="marca">Marca</TabsTrigger>
-          </TabsList>
+        <Reveal ordem={1}>
+          <Tabs defaultValue="criar">
+            <TabsList>
+              <TabsTrigger value="criar">
+                <Wand2 className="h-4 w-4" aria-hidden />
+                Criar post
+              </TabsTrigger>
+              <TabsTrigger value="galeria">
+                <LayoutGrid className="h-4 w-4" aria-hidden />
+                Galeria
+              </TabsTrigger>
+              <TabsTrigger value="marca">
+                <Palette className="h-4 w-4" aria-hidden />
+                Marca
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="criar">
-            <CreatePostTab />
-          </TabsContent>
+            <TabsContent value="criar" className="mt-8">
+              <CreatePostTab />
+            </TabsContent>
 
-          <TabsContent value="galeria">
-            <PostsGalleryTab />
-          </TabsContent>
+            <TabsContent value="galeria" className="mt-8">
+              <PostsGalleryTab />
+            </TabsContent>
 
-          <TabsContent value="marca" className="space-y-6">
-            <AcervoPanel />
-            <BrandAssetsPanel />
-            <InstagramSettingsCard />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="marca" className="mt-8 space-y-8">
+              <AcervoPanel />
+              <BrandAssetsPanel />
+              <InstagramSettingsCard />
+            </TabsContent>
+          </Tabs>
+        </Reveal>
       </div>
     </RoleGuard>
   );

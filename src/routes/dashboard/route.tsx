@@ -1,10 +1,11 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { SidebarProvider } from "@/components/shell/sidebar-context";
 import { Topbar } from "@/components/shell/topbar";
 import { CommandPaletteProvider } from "@/components/ds/command-palette";
 import { Toaster } from "@/components/ui/sonner";
+import { Splash } from "@/components/shell/splash";
 import { Atalhos } from "@/components/shell/atalhos";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardThemeProvider } from "@/hooks/use-dashboard-theme";
@@ -20,11 +21,15 @@ export const Route = createFileRoute("/dashboard")({
 
     return { user: data.user };
   },
+  pendingComponent: Splash,
+  pendingMs: 120,
+  pendingMinMs: 700,
   component: DashboardLayout,
 });
 
 function DashboardLayout() {
   const { user } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   if (!user) {
     return <LoginPrompt />;
@@ -45,7 +50,10 @@ function DashboardLayout() {
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background md:rounded-2xl md:border md:border-border/80 md:shadow-[var(--shadow-card)]">
                 <Topbar />
                 <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-12 pt-6 sm:px-8 sm:pt-8 lg:px-12 lg:pt-10">
-                  <Outlet />
+                  {/* Cada tela entra com um fade + subida curta; trocar de rota remonta o bloco. */}
+                  <div key={pathname} className="animate-swap">
+                    <Outlet />
+                  </div>
                 </main>
               </div>
               <Toaster />

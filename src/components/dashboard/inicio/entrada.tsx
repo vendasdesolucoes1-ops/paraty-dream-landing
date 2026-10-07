@@ -1,6 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { AreaChart } from "@/components/ds/area-chart";
 import { Bloco } from "@/components/ds/bloco";
+import { useMontado } from "@/hooks/use-montado";
 import { QueryState, SkeletonRows } from "@/components/ds/query-state";
 import { DIAS_CHEGADAS, type ResumoLeads } from "@/lib/dashboard-queries";
 import { formatDiaCurto, formatDiaSemana, formatNumero, formatPorcento } from "@/lib/format";
@@ -30,6 +31,7 @@ export function Entrada({
   chegadas: UseQueryResult<Dia[]>;
   resumo: UseQueryResult<ResumoLeads>;
 }) {
+  const montado = useMontado(350);
   return (
     <Bloco divisor titulo="Entrada de leads" descricao="Como a demanda chega e de onde ela vem">
       <div className="grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-12">
@@ -100,7 +102,7 @@ export function Entrada({
               const maior = fatias[0]?.total ?? 1;
               return (
                 <ul className="space-y-3.5">
-                  {fatias.map((f) => (
+                  {fatias.map((f, i) => (
                     <li key={f.origem ?? "sem"}>
                       <div className="flex items-baseline justify-between gap-3 text-[0.875rem]">
                         <span className="truncate text-foreground">
@@ -124,7 +126,10 @@ export function Entrada({
                             "h-full rounded-full transition-[width] duration-700 ease-out",
                             f.origem ? COR[f.origem] : "bg-chart-muted",
                           )}
-                          style={{ width: `${(f.total / maior) * 100}%` }}
+                          style={{
+                            width: montado ? `${(f.total / maior) * 100}%` : "0%",
+                            transitionDelay: `${i * 80}ms`,
+                          }}
                         />
                       </div>
                     </li>

@@ -7,7 +7,9 @@ import { downloadCsv } from "@/lib/csv";
 import type { WhatsappInstance } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ds/pill";
+import { atraso } from "@/components/ds/reveal";
+import { Campo } from "@/components/ajustes/campos";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -139,8 +141,7 @@ export function GroupExtractorCard() {
       title="Extrator de membros de grupos"
       subtitle="Liste os participantes de um grupo do WhatsApp e importe para o CRM"
     >
-      <div className="space-y-2 max-w-xs">
-        <label className="text-sm font-medium">Instância</label>
+      <Campo label="Instância" className="max-w-xs">
         <Select value={instanceId} onValueChange={setInstanceId}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione a instância" />
@@ -153,7 +154,7 @@ export function GroupExtractorCard() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Campo>
 
       <Button
         onClick={() => groupsMutation.mutate()}
@@ -165,16 +166,18 @@ export function GroupExtractorCard() {
       {groupsMutation.isPending ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-lg" />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       ) : groups && groups.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {groups.map((group) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {groups.map((group, i) => (
             <button
               key={group.id}
+              type="button"
+              style={atraso(i, 35, 300)}
               onClick={() => participantsMutation.mutate(group)}
-              className="flex items-center gap-2 rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors"
+              className="card-hover animate-swap flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left shadow-[var(--shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {group.picture_url ? (
                 <img
@@ -183,7 +186,7 @@ export function GroupExtractorCard() {
                   className="h-9 w-9 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                   <UsersRound className="h-4 w-4" />
                 </div>
               )}
@@ -203,15 +206,15 @@ export function GroupExtractorCard() {
       ) : null}
 
       {participantsMutation.isPending ? (
-        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-40 w-full rounded-xl" />
       ) : participants ? (
-        <div className="space-y-3">
+        <div className="animate-swap space-y-4">
           <p className="text-sm">
             <span className="font-medium">{participants.length}</span> membros encontrados
             {selectedGroup ? ` em "${selectedGroup.subject}"` : ""}
           </p>
 
-          <div className="rounded-lg border overflow-x-auto max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -225,15 +228,7 @@ export function GroupExtractorCard() {
                   <TableRow key={p.number}>
                     <TableCell>{p.name}</TableCell>
                     <TableCell>{p.number}</TableCell>
-                    <TableCell>
-                      {p.is_admin ? (
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-normal">
-                          Sim
-                        </Badge>
-                      ) : (
-                        "Não"
-                      )}
-                    </TableCell>
+                    <TableCell>{p.is_admin ? <Pill tone="warning">Sim</Pill> : "Não"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

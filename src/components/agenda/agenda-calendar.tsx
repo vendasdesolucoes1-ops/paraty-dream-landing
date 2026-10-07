@@ -1,86 +1,59 @@
-import { useMemo, useState, type DragEvent } from "react";
+import { useMemo, useState, type DragEvent, type KeyboardEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { VisitaWithRelations } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Pill } from "@/components/ds/pill";
+import { atraso } from "@/components/ds/reveal";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { VisitaCard } from "@/components/agenda/visita-card";
-import { STATUS_DOT } from "@/components/agenda/visita-status";
+import { MarcaAgora } from "@/components/agenda/marca-agora";
+import { STATUS_DOT, STATUS_EVENTO, STATUS_LABELS } from "@/components/agenda/visita-status";
+import {
+  DIAS_SEMANA,
+  buildMonthGrid,
+  buildWeekDays,
+  dayKey,
+  isSameDay,
+  startOfDay,
+  startOfWeek,
+  timeOf,
+} from "@/components/agenda/periodo";
+import { formatDataLonga } from "@/lib/format";
 
-const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MAX_POR_DIA_MES = 3;
 
-function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+function BarraCarregando() {
+  return (
+    <span
+      aria-hidden
+      className="skeleton-shimmer absolute inset-x-0 top-0 z-10 h-0.5 bg-accent/60"
+    />
+  );
 }
 
-function dayKey(date: Date) {
-  return startOfDay(date).toISOString();
-}
-
-function isSameDay(a: Date, b: Date) {
-  return dayKey(a) === dayKey(b);
-}
-
-function startOfWeek(date: Date) {
-  const d = startOfDay(date);
-  d.setDate(d.getDate() - d.getDay());
-  return d;
-}
-
-function buildMonthGrid(refDate: Date) {
-  const monthStart = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
-  const gridStart = startOfWeek(monthStart);
-  return Array.from({ length: 42 }, (_, i) => {
-    const date = new Date(gridStart);
-    date.setDate(date.getDate() + i);
-    return date;
-  });
-}
-
-function buildWeekDays(refDate: Date) {
-  const weekStart = startOfWeek(refDate);
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(weekStart);
-    date.setDate(date.getDate() + i);
-    return date;
-  });
-}
-
-function formatMonthLabel(date: Date) {
-  const label = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function formatWeekLabel(refDate: Date) {
-  const days = buildWeekDays(refDate);
-  const first = days[0];
-  const last = days[6];
-  const fmt = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-  return `${fmt(first)} – ${fmt(last)}`;
-}
-
-function timeOf(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+function descricaoDia(date: Date, total: number) {
+  const dia = date.toLocaleDateString("pt-BR", { day: "numeric", month: "long" });
+  if (total === 0) return `${dia}, sem visitas`;
+  return `${dia}, ${total} ${total === 1 ? "visita" : "visitas"}`;
 }
 
 export function AgendaCalendar({
   mode,
   visitas,
   refDate,
-  onRefDateChange,
   readOnly = false,
+  carregando = false,
 }: {
   mode: "mes" | "semana";
   visitas: VisitaWithRelations[];
   refDate: Date;
-  onRefDateChange: (date: Date) => void;
   readOnly?: boolean;
+  /** Enquanto as visitas do período chegam, a grade fica de pé com um brilho no topo. */
+  carregando?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -135,139 +108,180 @@ export function AgendaCalendar({
   }
 
   const today = new Date();
+  const agora = today.getTime();
   const selectedDayVisitas = selectedDay ? (visitasByDay.get(dayKey(selectedDay)) ?? []) : [];
 
-  const label = mode === "mes" ? formatMonthLabel(refDate) : formatWeekLabel(refDate);
-
-  function navigate(delta: number) {
-    const d = new Date(refDate);
-    if (mode === "mes") d.setMonth(d.getMonth() + delta);
-    else d.setDate(d.getDate() + delta * 7);
-    onRefDateChange(d);
+  function abrirDia(date: Date) {
+    const lista = visitasByDay.get(dayKey(date)) ?? [];
+    if (lista.length > 0) setSelectedDay(date);
+    else setNewVisitDate(date);
   }
 
-  function dayChip(visita: VisitaWithRelations) {
+  function dragProps(date: Date) {
+    const key = dayKey(date);
+    return {
+      onDragOver: (e: DragEvent) => {
+        if (readOnly) return;
+        e.preventDefault();
+        setDragOverKey(key);
+      },
+      onDragLeave: () => setDragOverKey((k) => (k === key ? null : k)),
+      onDrop: (e: DragEvent) => handleDrop(date, e),
+    };
+  }
+
+  /** Visita arrastável: abre o dia ao clicar (ou Enter/Espaço). */
+  function evento(visita: VisitaWithRelations, grande = false, idx = 0) {
+    const nome = visita.lead?.nome ?? "Lead removido";
+    const abrir = () => setSelectedDay(startOfDay(new Date(visita.data_hora)));
     return (
       <div
         key={visita.id}
+        role="button"
+        tabIndex={0}
         draggable={!readOnly}
+        aria-label={`${timeOf(visita.data_hora)}, ${nome}, ${STATUS_LABELS[visita.status]}`}
         onDragStart={(e) => {
           e.dataTransfer.setData("text/visita-id", visita.id);
           e.dataTransfer.effectAllowed = "move";
         }}
         onClick={(e) => {
           e.stopPropagation();
-          setSelectedDay(startOfDay(new Date(visita.data_hora)));
+          abrir();
         }}
+        onKeyDown={(e: KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            abrir();
+          }
+        }}
+        title={`${timeOf(visita.data_hora)} · ${nome} · ${STATUS_LABELS[visita.status]}`}
+        style={atraso(idx, 35, 280)}
         className={cn(
-          "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] leading-tight bg-secondary/60 text-foreground/80 transition-colors hover:bg-secondary",
+          "animate-swap min-w-0 border-l-[3px] transition-[transform,box-shadow,filter] duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+          STATUS_EVENTO[visita.status],
+          grande
+            ? "rounded-lg px-2 py-1.5 hover:-translate-y-px"
+            : "rounded-[0.3125rem] px-1.5 py-[3px] hover:brightness-95",
           !readOnly && "cursor-grab active:cursor-grabbing",
-          visita.status === "realizada" && "opacity-60",
-          visita.status === "cancelada" && "line-through opacity-50",
+          visita.status === "cancelada" && "opacity-70",
         )}
       >
-        <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full"
-          style={{ backgroundColor: STATUS_DOT[visita.status] }}
-        />
-        <span className="tabular-nums">{timeOf(visita.data_hora)}</span>
-        <span className="truncate">{visita.lead?.nome?.split(" ")[0] ?? "Lead"}</span>
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span
+            className={cn(
+              "shrink-0 font-semibold tabular-nums",
+              grande ? "text-[0.8125rem]" : "text-[0.6875rem]",
+            )}
+          >
+            {timeOf(visita.data_hora)}
+          </span>
+          <span
+            className={cn(
+              "truncate font-medium text-foreground/90",
+              grande ? "text-[0.8125rem]" : "text-[0.6875rem]",
+              visita.status === "cancelada" && "line-through",
+            )}
+          >
+            {grande ? nome : (visita.lead?.nome?.split(" ")[0] ?? "Lead")}
+          </span>
+        </div>
+        {grande && visita.vendedor?.nome ? (
+          <p className="mt-0.5 truncate text-[0.6875rem] text-muted-foreground">
+            {visita.vendedor.nome.split(" ")[0]} · {STATUS_LABELS[visita.status]}
+          </p>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-display text-xl text-primary">{label}</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="transition-colors"
-            onClick={() => onRefDateChange(new Date())}
-          >
-            Hoje
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 transition-transform hover:-translate-x-0.5"
-            onClick={() => navigate(-1)}
-            aria-label="Anterior"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 transition-transform hover:translate-x-0.5"
-            onClick={() => navigate(1)}
-            aria-label="Próximo"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
       {mode === "mes" ? (
         <div
           key={`${refDate.getFullYear()}-${refDate.getMonth()}`}
-          className="border rounded-lg overflow-hidden animate-in fade-in duration-300"
+          aria-busy={carregando}
+          className="animate-swap relative overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]"
         >
-          <div className="grid grid-cols-7 bg-muted/40">
-            {WEEKDAY_LABELS.map((wl) => (
-              <div key={wl} className="p-2 text-center text-xs font-medium text-muted-foreground">
+          {carregando ? <BarraCarregando /> : null}
+          <div className="grid grid-cols-7 border-b border-border bg-muted/50">
+            {DIAS_SEMANA.map((wl) => (
+              <div
+                key={wl}
+                className="py-2.5 text-center text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+              >
                 <span className="hidden sm:inline">{wl}</span>
                 <span className="sm:hidden">{wl[0]}</span>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 gap-px bg-border">
             {buildMonthGrid(refDate).map((date) => {
               const inMonth = date.getMonth() === refDate.getMonth();
               const isToday = isSameDay(date, today);
               const dayVisitas = visitasByDay.get(dayKey(date)) ?? [];
-              const visible = dayVisitas.slice(0, 3);
+              const visible = dayVisitas.slice(0, MAX_POR_DIA_MES);
               const extra = dayVisitas.length - visible.length;
               const key = dayKey(date);
+              const arrastando = dragOverKey === key;
 
               return (
-                <button
+                <div
                   key={date.toISOString()}
-                  type="button"
-                  onClick={() =>
-                    dayVisitas.length > 0 ? setSelectedDay(date) : setNewVisitDate(date)
-                  }
-                  onDragOver={(e) => {
-                    if (readOnly) return;
-                    e.preventDefault();
-                    setDragOverKey(key);
-                  }}
-                  onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
-                  onDrop={(e) => handleDrop(date, e)}
+                  onClick={() => abrirDia(date)}
+                  {...dragProps(date)}
                   className={cn(
-                    "min-h-16 sm:min-h-24 border-t border-l p-1 sm:p-1.5 text-left align-top last:border-r [&:nth-child(7n)]:border-r flex flex-col gap-1 transition-colors",
-                    !inMonth && "bg-muted/20 text-muted-foreground/60",
-                    isToday && "bg-gold/10 ring-1 ring-inset ring-gold/60",
-                    dragOverKey === key && "bg-primary/10 ring-1 ring-inset ring-primary/40",
+                    "group/dia relative flex min-h-[4.75rem] cursor-pointer flex-col gap-1 p-1 transition-colors duration-150 sm:min-h-[7.25rem] sm:p-1.5",
+                    inMonth ? "bg-card hover:bg-muted/50" : "bg-muted/40 hover:bg-muted/70",
+                    isToday && "bg-accent/10 hover:bg-accent/15",
+                    arrastando && "bg-accent/20 ring-2 ring-inset ring-accent/70",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "text-xs font-medium inline-flex h-5 w-5 items-center justify-center rounded-full",
-                      isToday && "bg-gold text-forest-deep font-semibold",
-                    )}
-                  >
-                    {date.getDate()}
-                  </span>
-                  <div className="space-y-0.5 overflow-hidden">
-                    {visible.map(dayChip)}
-                    {extra > 0 ? (
-                      <p className="text-[10px] text-muted-foreground px-1">+{extra} mais</p>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      aria-label={descricaoDia(date, dayVisitas.length)}
+                      aria-current={isToday ? "date" : undefined}
+                      className={cn(
+                        "num inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[0.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isToday
+                          ? "bg-primary text-primary-foreground"
+                          : inMonth
+                            ? "text-foreground"
+                            : "text-muted-foreground/60",
+                      )}
+                    >
+                      {date.getDate()}
+                    </button>
+                    {dayVisitas.length === 0 && !readOnly ? (
+                      <Plus
+                        aria-hidden
+                        className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/dia:opacity-100"
+                      />
                     ) : null}
                   </div>
-                </button>
+
+                  {/* Celular: sem espaço para texto, só pontos na cor do estado. */}
+                  {dayVisitas.length > 0 ? (
+                    <div className="flex flex-wrap gap-0.5 px-0.5 sm:hidden" aria-hidden>
+                      {dayVisitas.slice(0, 6).map((v) => (
+                        <span
+                          key={v.id}
+                          className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[v.status])}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="hidden min-w-0 flex-1 flex-col gap-[3px] overflow-hidden sm:flex">
+                    {visible.map((v, k) => evento(v, false, k))}
+                    {extra > 0 ? (
+                      <p className="px-1 text-[0.6875rem] font-medium text-muted-foreground">
+                        +{extra} mais
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -275,55 +289,76 @@ export function AgendaCalendar({
       ) : (
         <div
           key={dayKey(startOfWeek(refDate))}
-          className="border rounded-lg overflow-x-auto animate-in fade-in duration-300"
+          aria-busy={carregando}
+          className="animate-swap relative overflow-x-auto rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]"
         >
-          <div className="grid grid-cols-7 min-w-[640px]">
-            {buildWeekDays(refDate).map((date) => {
+          {carregando ? <BarraCarregando /> : null}
+          <div className="grid min-w-[52rem] grid-cols-7 divide-x divide-border">
+            {buildWeekDays(refDate).map((date, i) => {
               const isToday = isSameDay(date, today);
               const dayVisitas = visitasByDay.get(dayKey(date)) ?? [];
               const key = dayKey(date);
+              const arrastando = dragOverKey === key;
+              const proximo = isToday
+                ? dayVisitas.findIndex((v) => new Date(v.data_hora).getTime() > agora)
+                : -1;
+              // Hoje: a marca fica antes da primeira visita futura (ou no fim, se todas já passaram).
+              const posAgora =
+                !isToday || dayVisitas.length === 0
+                  ? -1
+                  : proximo === -1
+                    ? dayVisitas.length
+                    : proximo;
               return (
                 <div
                   key={date.toISOString()}
-                  onDragOver={(e) => {
-                    if (readOnly) return;
-                    e.preventDefault();
-                    setDragOverKey(key);
-                  }}
-                  onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
-                  onDrop={(e) => handleDrop(date, e)}
+                  {...dragProps(date)}
+                  style={atraso(i, 50)}
                   className={cn(
-                    "border-l last:border-r min-h-[24rem] flex flex-col transition-colors",
-                    dragOverKey === key && "bg-primary/5",
+                    "animate-swap flex min-h-[26rem] min-w-0 flex-col transition-colors duration-150",
+                    isToday && "bg-accent/[0.06]",
+                    arrastando && "bg-accent/15",
                   )}
                 >
                   <button
                     type="button"
-                    onClick={() =>
-                      dayVisitas.length > 0 ? setSelectedDay(date) : setNewVisitDate(date)
-                    }
-                    className={cn(
-                      "px-2 py-2 text-center border-b transition-colors hover:bg-muted/40",
-                      isToday && "bg-gold/10",
-                    )}
+                    onClick={() => abrirDia(date)}
+                    aria-label={descricaoDia(date, dayVisitas.length)}
+                    aria-current={isToday ? "date" : undefined}
+                    className="group/cab flex flex-col items-center gap-1 border-b border-border px-2 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {WEEKDAY_LABELS[date.getDay()]}
-                    </p>
-                    <p
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                      {DIAS_SEMANA[date.getDay()]}
+                    </span>
+                    <span
                       className={cn(
-                        "text-sm font-display mx-auto mt-0.5 h-6 w-6 flex items-center justify-center rounded-full",
-                        isToday ? "bg-gold text-forest-deep font-semibold" : "text-primary",
+                        "num inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-[1.125rem] transition-transform duration-200 group-hover/cab:scale-105",
+                        isToday ? "bg-primary text-primary-foreground" : "text-foreground",
                       )}
                     >
                       {date.getDate()}
-                    </p>
+                    </span>
+                    <span className="h-4 text-[0.6875rem] text-muted-foreground">
+                      {dayVisitas.length > 0
+                        ? `${dayVisitas.length} ${dayVisitas.length === 1 ? "visita" : "visitas"}`
+                        : null}
+                    </span>
                   </button>
-                  <div className="flex-1 p-1.5 space-y-1">
+                  <div className="flex flex-1 flex-col gap-1.5 p-2">
                     {dayVisitas.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground/60 text-center pt-4">—</p>
+                      <p className="pt-6 text-center text-[0.75rem] text-muted-foreground/70">
+                        Livre
+                      </p>
                     ) : (
-                      dayVisitas.map(dayChip)
+                      <>
+                        {dayVisitas.map((v, idx) => (
+                          <div key={v.id} className="contents">
+                            {idx === posAgora ? <MarcaAgora /> : null}
+                            {evento(v, true, idx)}
+                          </div>
+                        ))}
+                        {posAgora === dayVisitas.length ? <MarcaAgora /> : null}
+                      </>
                     )}
                   </div>
                 </div>
@@ -334,30 +369,38 @@ export function AgendaCalendar({
       )}
 
       <Sheet open={!!selectedDay} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md overflow-y-auto animate-in slide-in-from-right duration-300"
-        >
+        <SheetContent className="flex flex-col gap-0 p-0 sm:max-w-[31rem]">
           {selectedDay ? (
             <>
-              <SheetHeader>
-                <SheetTitle className="font-display text-xl text-primary">
-                  {selectedDay.toLocaleDateString("pt-BR", {
-                    weekday: "long",
-                    day: "2-digit",
-                    month: "long",
-                  })}
+              <header className="border-b border-border px-7 pb-5 pr-14 pt-7">
+                <p className="flex items-center gap-2 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <span aria-hidden className="h-px w-5 bg-accent" />
+                  Visitas do dia
+                </p>
+                <SheetTitle className="mt-2.5 font-display text-[1.85rem] font-medium leading-none tracking-[-0.01em]">
+                  {formatDataLonga(selectedDay)}
                 </SheetTitle>
-              </SheetHeader>
+                <SheetDescription className="mt-2 flex items-center gap-2 text-[0.8125rem]">
+                  <Pill tone={selectedDayVisitas.length > 0 ? "accent" : "neutral"}>
+                    {selectedDayVisitas.length}{" "}
+                    {selectedDayVisitas.length === 1 ? "visita" : "visitas"}
+                  </Pill>
+                </SheetDescription>
+              </header>
 
-              <div className="mt-4 space-y-3">
+              <div className="flex-1 space-y-3 overflow-y-auto px-7 py-6">
                 {selectedDayVisitas.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Nenhuma visita agendada para este dia.
-                  </p>
+                  <div className="flex animate-swap flex-col items-center gap-3 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+                    <CalendarDays className="h-6 w-6 text-muted-foreground" aria-hidden />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma visita agendada para este dia.
+                    </p>
+                  </div>
                 ) : (
-                  selectedDayVisitas.map((visita) => (
-                    <VisitaCard key={visita.id} visita={visita} readOnly={readOnly} />
+                  selectedDayVisitas.map((visita, i) => (
+                    <div key={visita.id} className="animate-swap" style={atraso(i, 60)}>
+                      <VisitaCard visita={visita} readOnly={readOnly} mostrarData={false} />
+                    </div>
                   ))
                 )}
               </div>

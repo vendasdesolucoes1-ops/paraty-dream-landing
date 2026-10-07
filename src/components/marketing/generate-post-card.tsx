@@ -6,11 +6,11 @@ import { supabase } from "@/lib/supabase";
 import { useInstagramConfig } from "@/components/marketing/instagram-settings-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Pill } from "@/components/ds/pill";
+import { Campo, Secao, SeloIcone } from "@/components/ajustes/campos";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -142,28 +142,24 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
   }
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg font-display text-primary flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-gold" />
-          Gerador de post
-        </CardTitle>
+    <Card>
+      <CardHeader className="flex-row items-center gap-3 space-y-0 p-6 pb-5">
+        <SeloIcone icone={Sparkles} />
+        <CardTitle className="text-[1.0625rem] leading-snug">Gerador de post</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="tema">Tema do post</Label>
+      <CardContent className="space-y-6 border-t border-border pt-6">
+        <Secao titulo="Briefing">
+          <Campo id="tema" label="Tema do post">
             <Input
               id="tema"
               placeholder="Ex: Lote disponível 250m², Fim de semana em Paraty, Natureza e qualidade de vida..."
               value={form.tema}
               onChange={(e) => setForm((f) => ({ ...f, tema: e.target.value }))}
             />
-          </div>
+          </Campo>
 
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Tipo de lote</Label>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Campo label="Tipo de lote">
               <Select
                 value={form.tipo_lote || "nao_especificar"}
                 onValueChange={(v) =>
@@ -179,9 +175,8 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
                   <SelectItem value="Comercial">Comercial</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="metragem">Metragem</Label>
+            </Campo>
+            <Campo id="metragem" label="Metragem">
               <Input
                 id="metragem"
                 type="number"
@@ -189,92 +184,87 @@ export function GeneratePostCard({ onPublished }: { onPublished?: () => void }) 
                 value={form.metragem}
                 onChange={(e) => setForm((f) => ({ ...f, metragem: e.target.value }))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor">Valor a partir de (R$)</Label>
+            </Campo>
+            <Campo id="valor" label="Valor a partir de (R$)">
               <Input
                 id="valor"
                 placeholder="Opcional"
                 value={form.valor}
                 onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
               />
-            </div>
+            </Campo>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="destaque">Destaque especial</Label>
+          <Campo id="destaque" label="Destaque especial">
             <Input
               id="destaque"
               placeholder="Ex: Últimas unidades, Condições especiais de pagamento..."
               value={form.destaque}
               onChange={(e) => setForm((f) => ({ ...f, destaque: e.target.value }))}
             />
-          </div>
+          </Campo>
 
           <Button onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
-            <Sparkles className="h-4 w-4 mr-2" />
+            <Sparkles className="h-4 w-4" aria-hidden />
             {generateMutation.isPending ? "Gerando..." : "Gerar Post com IA"}
           </Button>
-        </div>
+        </Secao>
 
         {generateMutation.isPending ? (
-          <div className="space-y-3">
+          <div className="animate-swap space-y-3">
             <p className="text-sm text-muted-foreground">Gerando copy e imagem com IA...</p>
-            <Skeleton className="aspect-square w-full max-w-md rounded-lg" />
+            <Skeleton className="aspect-square w-full max-w-md rounded-2xl" />
             <Skeleton className="h-6 w-1/2" />
             <Skeleton className="h-24 w-full" />
           </div>
         ) : result ? (
-          <div className="space-y-4 border-t pt-6">
+          <div className="animate-swap space-y-5 border-t border-border pt-6">
             <img
               src={result.imagem_url}
               alt={result.titulo}
-              className="aspect-square w-full max-w-md rounded-lg object-cover border"
+              className="aspect-square w-full max-w-md rounded-2xl border border-border object-cover shadow-[var(--shadow-card)]"
             />
 
-            <div className="space-y-2 max-w-md">
-              <Label>Título</Label>
+            <Campo label="Título" className="max-w-md">
               <p className="font-medium">{result.titulo}</p>
-            </div>
+            </Campo>
 
-            <div className="space-y-2 max-w-md">
-              <Label htmlFor="copy-text">Copy</Label>
+            <Campo id="copy-text" label="Copy" className="max-w-md">
               <Textarea
                 id="copy-text"
                 rows={5}
                 value={copyText}
                 onChange={(e) => setCopyText(e.target.value)}
               />
-            </div>
+            </Campo>
 
-            <div className="space-y-2 max-w-md">
-              <Label htmlFor="hashtags-text">Hashtags</Label>
+            <Campo id="hashtags-text" label="Hashtags" className="max-w-md">
               <Textarea
                 id="hashtags-text"
                 rows={2}
                 value={hashtagsText}
                 onChange={(e) => setHashtagsText(e.target.value)}
               />
-            </div>
+            </Campo>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="h-4 w-4" aria-hidden />
                 Baixar imagem
               </Button>
               <Button onClick={handlePublishClick} disabled={publishMutation.isPending}>
-                <Send className="h-4 w-4 mr-2" />
+                <Send className="h-4 w-4" aria-hidden />
                 {publishMutation.isPending ? "Publicando..." : "Publicar no Instagram"}
               </Button>
             </div>
 
             {publishedUrl ? (
-              <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-normal">
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+              <Pill tone="success">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                 <a href={publishedUrl} target="_blank" rel="noreferrer">
                   Publicado no Instagram
                 </a>
-              </Badge>
+              </Pill>
             ) : null}
           </div>
         ) : null}

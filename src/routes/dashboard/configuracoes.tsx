@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { MessageSquare, Plus } from "lucide-react";
+import { MessageSquare, Plus, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WhatsappInstance } from "@/lib/types";
 import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-card";
@@ -9,7 +9,9 @@ import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
 import { TeamPanel } from "@/components/dashboard/team-panel";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Bloco } from "@/components/ds/bloco";
+import { SkeletonRows } from "@/components/ds/query-state";
+import { Reveal, atraso } from "@/components/ds/reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -38,76 +40,90 @@ function ConfiguracoesPage() {
   });
 
   const whatsappSection = (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-display text-primary">Instâncias Evolution API</h2>
-            <p className="text-sm text-muted-foreground">Configure a conexão com sua VPS</p>
-          </div>
-          <Button onClick={() => setFormOpen((v) => !v)}>
-            <Plus className="h-4 w-4 mr-2" />
+    <div className="space-y-10">
+      <Bloco
+        titulo="Instâncias Evolution API"
+        descricao="Configure a conexão com sua VPS"
+        acao={
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden />
             Nova Instância
           </Button>
-        </div>
-
-        {formOpen ? (
-          <WhatsappCreateInstanceCard open={formOpen} onOpenChange={setFormOpen} />
-        ) : null}
+        }
+      >
+        <WhatsappCreateInstanceCard open={formOpen} onOpenChange={setFormOpen} />
 
         {isLoading ? (
-          <Skeleton className="h-72 w-full rounded-xl" />
+          <SkeletonRows rows={1} className="h-72" />
         ) : !instances || instances.length === 0 ? (
-          !formOpen ? (
-            <EmptyState
-              icon={MessageSquare}
-              title="Nenhuma instância configurada"
-              description='Clique em "Nova Instância" para conectar seu WhatsApp.'
-            />
-          ) : null
+          <EmptyState
+            icon={MessageSquare}
+            title="Nenhuma instância configurada"
+            description='Clique em "Nova Instância" para conectar seu WhatsApp.'
+          />
         ) : (
-          <div className="grid md:grid-cols-2 gap-4">
-            {instances.map((instance) => (
-              <WhatsappInstanceCard key={instance.id} instance={instance} />
+          <div className="grid gap-4 md:grid-cols-2">
+            {instances.map((instance, i) => (
+              <div key={instance.id} className="animate-swap" style={atraso(i, 70, 350)}>
+                <WhatsappInstanceCard instance={instance} />
+              </div>
             ))}
           </div>
         )}
-      </section>
+      </Bloco>
 
       {instances && instances.length > 0 ? (
-        <section className="space-y-4">
-          {instances.map((instance) => (
-            <AiAgentPanel key={instance.id} instanceId={instance.id} />
-          ))}
-        </section>
+        <Bloco
+          titulo="Agente de atendimento"
+          descricao="Comportamento, conhecimento e testes do assistente de cada instância."
+          divisor
+        >
+          <div className="space-y-6">
+            {instances.map((instance, i) => (
+              <div key={instance.id} className="animate-swap" style={atraso(i, 90, 360)}>
+                <AiAgentPanel instanceId={instance.id} />
+              </div>
+            ))}
+          </div>
+        </Bloco>
       ) : null}
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Sistema"
-        title="Configurações"
-        description="Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no CRM."
-      />
+    <div className="space-y-8">
+      <Reveal ordem={0}>
+        <PageHeader
+          eyebrow="Sistema"
+          title="Configurações"
+          description="Configure a conexão com a Evolution API para enviar e receber mensagens diretamente no CRM."
+        />
+      </Reveal>
 
-      {isAdmin ? (
-        <Tabs defaultValue="whatsapp">
-          <TabsList>
-            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-            <TabsTrigger value="equipe">Equipe</TabsTrigger>
-          </TabsList>
-          <TabsContent value="whatsapp" className="pt-4">
-            {whatsappSection}
-          </TabsContent>
-          <TabsContent value="equipe" className="pt-4">
-            <TeamPanel />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        whatsappSection
-      )}
+      <Reveal ordem={1}>
+        {isAdmin ? (
+          <Tabs defaultValue="whatsapp">
+            <TabsList>
+              <TabsTrigger value="whatsapp">
+                <MessageSquare className="h-4 w-4" aria-hidden />
+                WhatsApp
+              </TabsTrigger>
+              <TabsTrigger value="equipe">
+                <Users className="h-4 w-4" aria-hidden />
+                Equipe
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="whatsapp" className="mt-8">
+              {whatsappSection}
+            </TabsContent>
+            <TabsContent value="equipe" className="mt-8">
+              <TeamPanel />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          whatsappSection
+        )}
+      </Reveal>
     </div>
   );
 }

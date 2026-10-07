@@ -11,15 +11,16 @@ import {
   MoreVertical,
   Plus,
   Trash2,
+  UserPlus,
+  Users,
+  Phone,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn, readFunctionError } from "@/lib/utils";
 import { PROFILE_ROLE_OPTIONS, type Profile, type ProfileRole, type Vendedor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,8 +36,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,8 +50,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
 import { useProfile } from "@/hooks/use-profile";
+import { Avatar } from "@/components/ds/avatar";
+import { Bloco } from "@/components/ds/bloco";
+import { Kbd } from "@/components/ds/kbd";
+import { Pill, type Tone } from "@/components/ds/pill";
+import { SkeletonRows } from "@/components/ds/query-state";
+import { atraso } from "@/components/ds/reveal";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { Campo, ComIcone, LinhaAjuste, Secao } from "@/components/ajustes/campos";
 import {
   Select,
   SelectContent,
@@ -65,10 +73,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const ROLE_STYLES: Record<ProfileRole, string> = {
-  admin: "bg-violet-100 text-violet-800 hover:bg-violet-100",
-  gestor: "bg-sky-100 text-sky-800 hover:bg-sky-100",
-  vendedor: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+const ROLE_TONES: Record<ProfileRole, Tone> = {
+  admin: "accent",
+  gestor: "info",
+  vendedor: "neutral",
 };
 
 const ROLE_LABELS: Record<ProfileRole, string> = {
@@ -99,10 +107,9 @@ function CopyableField({ label, value }: { label: string; value: string }) {
   };
 
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
+    <Campo label={label}>
       <div className="flex items-center gap-2">
-        <code className="flex-1 rounded-md border bg-muted/50 px-3 py-2 text-sm font-mono break-all">
+        <code className="flex-1 break-all rounded-lg border border-border bg-muted/50 px-3 py-2.5 font-mono text-sm">
           {value}
         </code>
         <Button
@@ -111,11 +118,16 @@ function CopyableField({ label, value }: { label: string; value: string }) {
           size="icon"
           onClick={copy}
           title={`Copiar ${label}`}
+          aria-label={`Copiar ${label}`}
         >
-          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+          {copied ? (
+            <Check className="h-4 w-4 text-success" aria-hidden />
+          ) : (
+            <Copy className="h-4 w-4" aria-hidden />
+          )}
         </Button>
       </div>
-    </div>
+    </Campo>
   );
 }
 
@@ -149,8 +161,13 @@ function CredentialsDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          <DialogTitle className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-soft text-success"
+            >
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
             {criado ? "Usuário criado com sucesso!" : "Nova senha gerada!"}
           </DialogTitle>
         </DialogHeader>
@@ -160,7 +177,7 @@ function CredentialsDialog({
             <CopyableField label="E-mail" value={credentials.email} />
             <CopyableField label="Senha temporária" value={credentials.senha_temporaria} />
 
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="rounded-xl border border-warning/30 bg-warning-soft p-4 text-sm leading-relaxed text-foreground">
               Compartilhe essas credenciais com {credentials.nome} por um canal seguro (WhatsApp,
               por exemplo). Essa senha não poderá ser vista novamente depois de fechar esta janela.
               {criado ? null : " A senha anterior deixou de funcionar."}
@@ -240,125 +257,170 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Convidar Vendedor
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display">Convidar membro da equipe</DialogTitle>
-          </DialogHeader>
+      <Button onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" aria-hidden />
+        Convidar Vendedor
+      </Button>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent className="flex flex-col gap-0 p-0 sm:max-w-[31rem]">
+          <SheetTitle className="sr-only">Convidar membro da equipe</SheetTitle>
+          <SheetDescription className="sr-only">
+            Preencha os dados do novo membro para criar o acesso ao painel.
+          </SheetDescription>
+
+          <header className="flex items-center gap-4 border-b border-border px-7 pb-5 pr-14 pt-7">
+            <span
+              aria-hidden
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"
+            >
+              <UserPlus className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-display text-[1.85rem] font-medium leading-none tracking-[-0.01em]">
+                Convidar membro da equipe
+              </h2>
+              <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
+                Gera uma senha temporária para compartilhar.
+              </p>
+            </div>
+          </header>
 
           <form
+            id="form-convite"
             onSubmit={(e) => {
               e.preventDefault();
               mutation.mutate();
             }}
-            className="space-y-4"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.requestSubmit();
+              }
+            }}
+            className="flex-1 space-y-8 overflow-y-auto px-7 py-6"
           >
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome</Label>
-              <Input id="nome" required value={nome} onChange={(e) => setNome(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Papel</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as ProfileRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROFILE_ROLE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Vendedor vinculado</Label>
-              <Select value={vendedorId} onValueChange={setVendedorId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
-                  <SelectItem value={NEW_VENDEDOR}>Criar novo vendedor</SelectItem>
-                  {vendedores.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.nome}
-                      {v.ativo ? "" : " (fora do rodízio)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {vendedorId === NEW_VENDEDOR ? (
-              <div className="space-y-2">
-                <Label htmlFor="novo_vendedor_nome">Nome do novo vendedor</Label>
+            <Secao titulo="Acesso">
+              <Campo id="nome" label="Nome" obrigatorio>
                 <Input
+                  id="nome"
+                  required
+                  autoFocus
+                  autoComplete="off"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                />
+              </Campo>
+
+              <Campo id="email" label="E-mail" obrigatorio>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </Campo>
+
+              <Campo label="Papel">
+                <Select value={role} onValueChange={(v) => setRole(v as ProfileRole)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROFILE_ROLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+            </Secao>
+
+            <Secao titulo="Vendas">
+              <Campo label="Vendedor vinculado">
+                <Select value={vendedorId} onValueChange={setVendedorId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
+                    <SelectItem value={NEW_VENDEDOR}>Criar novo vendedor</SelectItem>
+                    {vendedores.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.nome}
+                        {v.ativo ? "" : " (fora do rodízio)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+
+              {vendedorId === NEW_VENDEDOR ? (
+                <Campo
                   id="novo_vendedor_nome"
-                  required
-                  value={novoVendedorNome}
-                  onChange={(e) => setNovoVendedorNome(e.target.value)}
-                />
-              </div>
-            ) : null}
+                  label="Nome do novo vendedor"
+                  obrigatorio
+                  className="animate-swap"
+                >
+                  <Input
+                    id="novo_vendedor_nome"
+                    required
+                    value={novoVendedorNome}
+                    onChange={(e) => setNovoVendedorNome(e.target.value)}
+                  />
+                </Campo>
+              ) : null}
 
-            {vinculaVendedor ? (
-              <div className="space-y-2">
-                <Label htmlFor="telefone">Telefone (WhatsApp)</Label>
-                <Input
+              {vinculaVendedor ? (
+                <Campo
                   id="telefone"
-                  required
-                  inputMode="tel"
-                  placeholder="(12) 99999-8888"
-                  value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Obrigatório para quem entra no rodízio de leads: é para este número que o resumo
-                  do lead qualificado é enviado por WhatsApp.
-                </p>
-              </div>
-            ) : null}
+                  label="Telefone (WhatsApp)"
+                  obrigatorio
+                  className="animate-swap"
+                  dica="Obrigatório para quem entra no rodízio de leads: é para este número que o resumo do lead qualificado é enviado por WhatsApp."
+                >
+                  <ComIcone icone={Phone}>
+                    <Input
+                      id="telefone"
+                      required
+                      inputMode="tel"
+                      placeholder="(12) 99999-8888"
+                      className="pl-9"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                    />
+                  </ComIcone>
+                </Campo>
+              ) : null}
+            </Secao>
 
             {mutation.isError ? (
-              <p className="text-sm text-destructive">
+              <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">
                 {mutation.error instanceof Error
                   ? mutation.error.message
                   : "Erro ao criar o usuário. Tente novamente."}
               </p>
             ) : null}
+          </form>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <footer className="flex items-center justify-between gap-3 border-t border-border bg-card px-7 py-4">
+            <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+              <Kbd>⌘</Kbd>
+              <Kbd>↵</Kbd> convidar
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={mutation.isPending}>
+              <Button type="submit" form="form-convite" disabled={mutation.isPending}>
                 {mutation.isPending ? "Criando..." : "Convidar"}
               </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </footer>
+        </SheetContent>
+      </Sheet>
 
       <CredentialsDialog credentials={credentials} onClose={() => setCredentials(null)} />
     </>
@@ -500,178 +562,195 @@ function EditMemberDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display">Editar Membro da Equipe</DialogTitle>
-            <DialogDescription>
-              {profile.nome ?? "—"} · {profile.email ?? "—"}
-            </DialogDescription>
-          </DialogHeader>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="flex flex-col gap-0 p-0 sm:max-w-[31rem]">
+          <SheetTitle className="sr-only">Editar Membro da Equipe</SheetTitle>
+          <SheetDescription className="sr-only">
+            {profile.nome ?? "—"} · {profile.email ?? "—"}
+          </SheetDescription>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Papel</Label>
-              <Select
-                value={role}
-                onValueChange={(v) => setRole(v as ProfileRole)}
-                disabled={!canEditRole}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROFILE_ROLE_OPTIONS.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                      disabled={opt.value === "admin" && !isAdmin}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <header className="flex items-center gap-4 border-b border-border px-7 pb-5 pr-14 pt-7">
+            <Avatar nome={profile.nome} className="h-11 w-11 text-sm" />
+            <div className="min-w-0">
+              <h2 className="truncate font-display text-[1.85rem] font-medium leading-none tracking-[-0.01em]">
+                {profile.nome ?? "Membro"}
+              </h2>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-muted-foreground">
+                <span className="truncate">{profile.email ?? "—"}</span>
+                <Pill tone={ROLE_TONES[profile.role]}>{ROLE_LABELS[profile.role]}</Pill>
+              </p>
             </div>
+          </header>
 
-            <div className="space-y-2">
-              <Label>Vendedor vinculado</Label>
-              <Select
-                value={vendedorId}
-                onValueChange={(v) => {
-                  setVendedorId(v);
-                  // Trocar o vendedor vinculado traz telefone e status do
-                  // cadastro dele — senão os campos continuariam mostrando o
-                  // vendedor anterior e salvariam por cima.
-                  const escolhido = vendedores.find((item) => item.id === v);
-                  setTelefone(escolhido?.telefone ?? "");
-                  setVendedorAtivo(escolhido?.ativo ?? true);
-                }}
-                disabled={!canEditRole}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
-                  {vendedores.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.nome}
-                      {v.ativo ? "" : " (fora do rodízio)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex-1 space-y-8 overflow-y-auto px-7 py-6">
+            <Secao titulo="Acesso">
+              <Campo label="Papel">
+                <Select
+                  value={role}
+                  onValueChange={(v) => setRole(v as ProfileRole)}
+                  disabled={!canEditRole}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROFILE_ROLE_OPTIONS.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        disabled={opt.value === "admin" && !isAdmin}
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+            </Secao>
 
-            {vendedorId !== NO_VENDEDOR ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor={`telefone-${profile.id}`}>Telefone (WhatsApp)</Label>
-                  <Input
+            <Secao titulo="Vendas">
+              <Campo label="Vendedor vinculado">
+                <Select
+                  value={vendedorId}
+                  onValueChange={(v) => {
+                    setVendedorId(v);
+                    // Trocar o vendedor vinculado traz telefone e status do
+                    // cadastro dele — senão os campos continuariam mostrando o
+                    // vendedor anterior e salvariam por cima.
+                    const escolhido = vendedores.find((item) => item.id === v);
+                    setTelefone(escolhido?.telefone ?? "");
+                    setVendedorAtivo(escolhido?.ativo ?? true);
+                  }}
+                  disabled={!canEditRole}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
+                    {vendedores.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.nome}
+                        {v.ativo ? "" : " (fora do rodízio)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+
+              {vendedorId !== NO_VENDEDOR ? (
+                <div className="animate-swap space-y-5">
+                  <Campo
                     id={`telefone-${profile.id}`}
-                    inputMode="tel"
-                    placeholder="(12) 99999-8888"
-                    value={telefone}
-                    onChange={(e) => setTelefone(e.target.value)}
-                    disabled={!canEditRole}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o
-                    vendedor continua no rodízio mas não recebe a notificação por WhatsApp.
-                  </p>
-                </div>
+                    label="Telefone (WhatsApp)"
+                    dica="Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o vendedor continua no rodízio mas não recebe a notificação por WhatsApp."
+                  >
+                    <ComIcone icone={Phone}>
+                      <Input
+                        id={`telefone-${profile.id}`}
+                        inputMode="tel"
+                        placeholder="(12) 99999-8888"
+                        className="pl-9"
+                        value={telefone}
+                        onChange={(e) => setTelefone(e.target.value)}
+                        disabled={!canEditRole}
+                      />
+                    </ComIcone>
+                  </Campo>
 
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <Label htmlFor={`vendedor-ativo-${profile.id}`}>Participa do rodízio</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {vendedorAtivo
-                        ? "Recebe leads na fila de round-robin."
-                        : "Fora da fila — não recebe leads novos nem resumos de qualificação."}
-                    </p>
+                  <div className="rounded-xl border border-border bg-background px-4 py-3.5">
+                    <LinhaAjuste
+                      titulo={
+                        <Label htmlFor={`vendedor-ativo-${profile.id}`}>Participa do rodízio</Label>
+                      }
+                      descricao={
+                        vendedorAtivo
+                          ? "Recebe leads na fila de round-robin."
+                          : "Fora da fila — não recebe leads novos nem resumos de qualificação."
+                      }
+                      controle={
+                        <Switch
+                          id={`vendedor-ativo-${profile.id}`}
+                          checked={vendedorAtivo}
+                          onCheckedChange={setVendedorAtivo}
+                          disabled={!canEditRole}
+                        />
+                      }
+                    />
                   </div>
-                  <Switch
-                    id={`vendedor-ativo-${profile.id}`}
-                    checked={vendedorAtivo}
-                    onCheckedChange={setVendedorAtivo}
-                    disabled={!canEditRole}
-                  />
                 </div>
-              </>
-            ) : null}
+              ) : null}
+            </Secao>
 
             {canManageAccount ? (
-              <>
-                <Separator />
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="status-toggle">Status</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {profile.ativo
+              <Secao titulo="Conta">
+                <div className="divide-y divide-border rounded-xl border border-border bg-background px-4">
+                  <LinhaAjuste
+                    className="py-4 first:pt-4 last:pb-4"
+                    titulo={<Label htmlFor="status-toggle">Status</Label>}
+                    descricao={
+                      profile.ativo
                         ? "Ativo — pode acessar o painel."
-                        : "Inativo — login bloqueado."}
-                    </p>
-                  </div>
-                  <Switch
-                    id="status-toggle"
-                    checked={profile.ativo}
-                    disabled={statusMutation.isPending}
-                    onCheckedChange={() => setConfirmStatus(true)}
+                        : "Inativo — login bloqueado."
+                    }
+                    controle={
+                      <Switch
+                        id="status-toggle"
+                        checked={profile.ativo}
+                        disabled={statusMutation.isPending}
+                        onCheckedChange={() => setConfirmStatus(true)}
+                      />
+                    }
+                  />
+                  <LinhaAjuste
+                    className="py-4 first:pt-4 last:pb-4"
+                    titulo="Senha"
+                    descricao="Gera uma nova senha temporária para compartilhar."
+                    controle={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setResetOpen(true)}
+                        disabled={resetMutation.isPending}
+                      >
+                        <KeyRound className="h-4 w-4" aria-hidden />
+                        Redefinir Senha
+                      </Button>
+                    }
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <Label>Senha</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Gera uma nova senha temporária para compartilhar.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setResetOpen(true)}
-                    disabled={resetMutation.isPending}
-                  >
-                    <KeyRound className="h-4 w-4 mr-2" />
-                    Redefinir Senha
-                  </Button>
+                <div className="rounded-xl border border-danger/30 bg-danger-soft/50 px-4">
+                  <LinhaAjuste
+                    className="py-4 first:pt-4 last:pb-4"
+                    titulo={<span className="text-danger">Excluir membro</span>}
+                    descricao="Remove da Equipe e revoga o acesso. O histórico é preservado."
+                    controle={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-danger/40 text-danger hover:bg-danger-soft hover:text-danger"
+                        onClick={() => setConfirmDelete(true)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        Excluir Membro
+                      </Button>
+                    }
+                  />
                 </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-destructive">Excluir membro</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Remove da Equipe e revoga o acesso. O histórico é preservado.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setConfirmDelete(true)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir Membro
-                  </Button>
-                </div>
-              </>
+              </Secao>
             ) : isSelf ? (
-              <p className="text-xs text-muted-foreground border-t pt-3">
+              <p className="border-t border-border pt-4 text-xs text-muted-foreground">
                 Status e senha da própria conta não podem ser alterados por esta tela.
               </p>
             ) : null}
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <footer className="flex items-center justify-end gap-2 border-t border-border bg-card px-7 py-4">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button
@@ -680,9 +759,9 @@ function EditMemberDialog({
             >
               {saveMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </footer>
+        </SheetContent>
+      </Sheet>
 
       <Dialog
         open={resetOpen}
@@ -693,7 +772,7 @@ function EditMemberDialog({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Redefinir senha</DialogTitle>
+            <DialogTitle>Redefinir senha</DialogTitle>
             <DialogDescription>
               Gerar nova senha para {profile.nome ?? "este membro"}? A senha atual deixará de
               funcionar.
@@ -706,10 +785,17 @@ function EditMemberDialog({
               onValueChange={(v) => setResetMode(v as "aleatoria" | "manual")}
               className="gap-3"
             >
-              <div className="flex items-start gap-3 rounded-md border p-3">
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-xl border p-4 transition-colors",
+                  resetMode === "aleatoria"
+                    ? "border-foreground/40 bg-muted/60"
+                    : "border-border hover:border-foreground/25",
+                )}
+              >
                 <RadioGroupItem value="aleatoria" id="modo-aleatoria" className="mt-0.5" />
                 <div className="space-y-0.5">
-                  <Label htmlFor="modo-aleatoria" className="font-normal cursor-pointer">
+                  <Label htmlFor="modo-aleatoria" className="cursor-pointer text-sm">
                     Gerar senha aleatória
                   </Label>
                   <p className="text-xs text-muted-foreground">
@@ -718,10 +804,17 @@ function EditMemberDialog({
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-md border p-3">
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-xl border p-4 transition-colors",
+                  resetMode === "manual"
+                    ? "border-foreground/40 bg-muted/60"
+                    : "border-border hover:border-foreground/25",
+                )}
+              >
                 <RadioGroupItem value="manual" id="modo-manual" className="mt-0.5" />
                 <div className="space-y-0.5">
-                  <Label htmlFor="modo-manual" className="font-normal cursor-pointer">
+                  <Label htmlFor="modo-manual" className="cursor-pointer text-sm">
                     Definir senha manualmente
                   </Label>
                   <p className="text-xs text-muted-foreground">
@@ -732,8 +825,7 @@ function EditMemberDialog({
             </RadioGroup>
 
             {resetMode === "manual" ? (
-              <div className="space-y-2">
-                <Label htmlFor="senha-manual">Nova senha</Label>
+              <Campo id="senha-manual" label="Nova senha" className="animate-swap">
                 <div className="flex items-center gap-2">
                   <Input
                     id="senha-manual"
@@ -748,8 +840,13 @@ function EditMemberDialog({
                     size="icon"
                     onClick={() => setMostrarSenha((v) => !v)}
                     title={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                    aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
                   >
-                    {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {mostrarSenha ? (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    )}
                   </Button>
                 </div>
                 <p
@@ -758,13 +855,13 @@ function EditMemberDialog({
                     senhaManual.length === 0
                       ? "text-muted-foreground"
                       : senhaManualValida
-                        ? "text-emerald-600"
-                        : "text-destructive",
+                        ? "text-success"
+                        : "text-danger",
                   )}
                 >
                   Mínimo de 8 caracteres, com pelo menos uma letra e um número.
                 </p>
-              </div>
+              </Campo>
             ) : null}
           </div>
 
@@ -785,7 +882,7 @@ function EditMemberDialog({
       <AlertDialog open={confirmStatus} onOpenChange={setConfirmStatus}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display">
+            <AlertDialogTitle>
               {profile.ativo ? "Desativar membro" : "Reativar membro"}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -812,7 +909,7 @@ function EditMemberDialog({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display">Excluir membro</AlertDialogTitle>
+            <AlertDialogTitle>Excluir membro</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir {profile.nome ?? "este membro"}? Ele perderá acesso ao
               sistema e deixará de aparecer na lista de Equipe. Todo o histórico de leads,
@@ -827,7 +924,7 @@ function EditMemberDialog({
                 deleteMutation.mutate();
               }}
               disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-danger text-primary-foreground hover:bg-danger/90"
             >
               {deleteMutation.isPending ? "Excluindo..." : "Excluir membro"}
             </AlertDialogAction>
@@ -843,46 +940,51 @@ function EditMemberDialog({
 function TeamRow({
   profile,
   vendedores,
+  indice,
 }: {
   profile: ProfileWithVendedor;
   vendedores: Vendedor[];
+  indice: number;
 }) {
   const [editOpen, setEditOpen] = useState(false);
 
   return (
-    <TableRow>
-      <TableCell className="font-medium">{profile.nome ?? "—"}</TableCell>
-      <TableCell className="text-muted-foreground">{profile.email ?? "—"}</TableCell>
-      <TableCell>
-        <Badge className={cn("font-normal", ROLE_STYLES[profile.role])}>
-          {ROLE_LABELS[profile.role]}
-        </Badge>
+    <TableRow className="animate-swap" style={atraso(indice, 40, 320)}>
+      <TableCell className="py-3.5 pl-5">
+        <div className="flex items-center gap-3">
+          <Avatar nome={profile.nome} className="h-10 w-10 text-[0.8rem]" />
+          <div className="min-w-0">
+            <p className="truncate font-medium leading-tight">{profile.nome ?? "—"}</p>
+            <p className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">
+              {profile.email ?? "—"}
+            </p>
+          </div>
+        </div>
       </TableCell>
       <TableCell>
-        <Badge
-          className={cn(
-            "font-normal",
-            profile.ativo
-              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
+        <Pill tone={ROLE_TONES[profile.role]}>{ROLE_LABELS[profile.role]}</Pill>
+      </TableCell>
+      <TableCell>
+        <Pill tone={profile.ativo ? "success" : "neutral"} dot>
           {profile.ativo ? "Ativo" : "Inativo"}
-        </Badge>
+        </Pill>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {profile.vendedores?.nome ?? "—"}
-        {profile.vendedores && !profile.vendedores.ativo ? (
-          <Badge className="ml-2 bg-muted text-muted-foreground hover:bg-muted font-normal">
-            Fora do rodízio
-          </Badge>
-        ) : null}
+        <span className="inline-flex flex-wrap items-center gap-2">
+          {profile.vendedores?.nome ?? "—"}
+          {profile.vendedores && !profile.vendedores.ativo ? <Pill>Fora do rodízio</Pill> : null}
+        </span>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="pr-4 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label={`Ações para ${profile.nome ?? "o membro"}`}
+            >
+              <MoreVertical className="h-4 w-4" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -961,24 +1063,21 @@ export function TeamPanel() {
   }, [rawProfiles, vendedores]);
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-display text-primary">Equipe</h2>
-          <p className="text-sm text-muted-foreground">
-            Gerencie os membros com acesso ao painel e seus papéis.
-          </p>
-        </div>
-        <InviteMemberDialog vendedores={vendedores ?? []} />
-      </div>
-
+    <Bloco
+      titulo="Equipe"
+      descricao="Gerencie os membros com acesso ao painel e seus papéis."
+      acao={<InviteMemberDialog vendedores={vendedores ?? []} />}
+    >
       {isLoading ? (
-        <Skeleton className="h-72 w-full rounded-xl" />
+        <SkeletonRows rows={5} className="h-[4.25rem]" />
       ) : isError ? (
         // Distinguir falha de lista vazia: tratar as duas igual foi o que
         // escondeu este bug — a query quebrava e a tela dizia "nenhum membro".
-        <div className="border border-destructive/40 rounded-lg p-6 text-center space-y-1">
-          <p className="text-sm font-medium text-destructive">Erro ao carregar a equipe.</p>
+        <div
+          role="alert"
+          className="animate-swap space-y-1 rounded-2xl border border-danger/30 bg-danger-soft p-6 text-center"
+        >
+          <p className="text-sm font-semibold text-danger">Erro ao carregar a equipe.</p>
           <p className="text-xs text-muted-foreground">
             {error instanceof Error ? error.message : "Tente recarregar a página."}
           </p>
@@ -987,30 +1086,36 @@ export function TeamPanel() {
           </p>
         </div>
       ) : !profiles || profiles.length === 0 ? (
-        <p className="text-sm text-muted-foreground border rounded-lg p-6 text-center">
-          Nenhum membro cadastrado ainda.
-        </p>
+        <EmptyState
+          icon={Users}
+          title="Nenhum membro cadastrado ainda."
+          description="Convide o primeiro membro da equipe para dar acesso ao painel."
+        />
       ) : (
-        <div className="border rounded-lg overflow-x-auto">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>E-mail</TableHead>
+                <TableHead className="pl-5">Membro</TableHead>
                 <TableHead>Papel</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Vendedor vinculado</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="pr-4 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {profiles.map((profile) => (
-                <TeamRow key={profile.id} profile={profile} vendedores={vendedores ?? []} />
+              {profiles.map((profile, i) => (
+                <TeamRow
+                  key={profile.id}
+                  profile={profile}
+                  vendedores={vendedores ?? []}
+                  indice={i}
+                />
               ))}
             </TableBody>
           </Table>
         </div>
       )}
-    </section>
+    </Bloco>
   );
 }

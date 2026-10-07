@@ -100,10 +100,17 @@ export function AreaChart({
             vectorEffect="non-scaling-stroke"
           />
         ))}
-        <path d={area} fill={`url(#g${id})`} />
+        <path
+          d={area}
+          fill={`url(#g${id})`}
+          className="animate-swap"
+          style={{ animationDelay: "500ms" }}
+        />
         <path
           d={linha}
           fill="none"
+          pathLength={1}
+          className="animate-draw"
           stroke="var(--chart-1)"
           strokeWidth="2"
           strokeLinecap="round"

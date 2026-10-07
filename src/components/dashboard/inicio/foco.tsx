@@ -43,7 +43,7 @@ export function Foco({
       {/* Textura: brilho dourado no canto e linhas de relevo ao fundo. */}
       <div
         aria-hidden
-        className="absolute -right-24 -top-32 -z-10 h-80 w-80 rounded-full bg-gold/25 blur-3xl"
+        className="absolute -right-24 -top-32 -z-10 h-80 w-80 rounded-full bg-gold/25 blur-3xl animate-drift"
       />
       <svg
         aria-hidden

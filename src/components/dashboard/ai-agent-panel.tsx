@@ -9,11 +9,13 @@ import type { AiAgent } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Pill } from "@/components/ds/pill";
+import { PontoVivo } from "@/components/ajustes/ponto-vivo";
+import { Campo, LinhaAjuste, SeloIcone } from "@/components/ajustes/campos";
+import { SkeletonRows } from "@/components/ds/query-state";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -93,25 +95,37 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
   });
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-xl font-display text-primary flex items-center gap-2">
-          <Bot className="h-5 w-5 text-gold" />
-          Agente IA
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Configure o comportamento do assistente comercial
-        </p>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b border-border p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <SeloIcone icone={Bot} />
+          <div className="min-w-0">
+            <CardTitle className="text-[1.0625rem] leading-snug">Agente IA</CardTitle>
+            <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">
+              Configure o comportamento do assistente comercial
+            </p>
+          </div>
+        </div>
+        {agent ? (
+          <Pill tone={agent.is_active ? "success" : "warning"} className="gap-2 px-3 py-1 text-xs">
+            <PontoVivo
+              tom={agent.is_active ? "success" : "warning"}
+              vivo={agent.is_active}
+              className="h-2 w-2"
+            />
+            {agent.is_active ? "Ativo" : "Pausado"}
+          </Pill>
+        ) : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-5">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-10 w-full" />
           </div>
         ) : !agent ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex animate-swap flex-col items-start gap-4 rounded-xl border border-dashed border-border p-6">
+            <p className="max-w-lg text-[0.875rem] leading-relaxed text-muted-foreground">
               Nenhum agente configurado para esta instância. Crie o agente para começar a qualificar
               leads automaticamente pelo WhatsApp.
             </p>
@@ -123,27 +137,27 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
           // Navegação vertical: a lista de abas vira uma barra lateral à
           // esquerda do conteúdo. "Testar Agente" é a aba padrão — é o que se
           // usa no dia a dia; as outras três são configuração.
-          <Tabs defaultValue="testar" className="flex flex-col gap-4 sm:flex-row">
-            <TabsList className="h-auto w-full shrink-0 flex-row justify-start gap-1 overflow-x-auto bg-transparent p-0 sm:w-52 sm:flex-col sm:overflow-visible">
+          <Tabs defaultValue="testar" className="flex flex-col gap-6 sm:flex-row sm:gap-8">
+            <TabsList className="h-auto w-full shrink-0 flex-row justify-start gap-1 overflow-x-auto bg-transparent p-0 sm:w-56 sm:flex-col sm:items-stretch sm:overflow-visible">
               <TabsTrigger
                 value="testar"
-                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+                className="justify-start gap-2.5 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none sm:w-full"
               >
-                <MessageSquare className="h-4 w-4" />
+                <MessageSquare className="h-4 w-4" aria-hidden />
                 Testar Agente
               </TabsTrigger>
               <TabsTrigger
                 value="rag"
-                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+                className="justify-start gap-2.5 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none sm:w-full"
               >
-                <BookOpen className="h-4 w-4" />
+                <BookOpen className="h-4 w-4" aria-hidden />
                 Base de Conhecimento
               </TabsTrigger>
               <TabsTrigger
                 value="geral"
-                className="w-full justify-start gap-2 data-[state=active]:bg-muted"
+                className="justify-start gap-2.5 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none sm:w-full"
               >
-                <Bot className="h-4 w-4" />
+                <Bot className="h-4 w-4" aria-hidden />
                 Geral
               </TabsTrigger>
             </TabsList>
@@ -207,45 +221,51 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
   });
 
   return (
-    <div className="space-y-5 max-w-lg">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="font-medium">Status do agente</p>
-          <p className="text-xs text-muted-foreground">
-            {form.is_active
+    <div className="max-w-xl space-y-6">
+      <div className="rounded-xl border border-border bg-background p-4">
+        <LinhaAjuste
+          titulo={
+            <span className="flex items-center gap-2">
+              <PontoVivo tom={form.is_active ? "success" : "warning"} vivo={form.is_active} />
+              Status do agente
+            </span>
+          }
+          descricao={
+            form.is_active
               ? "Respondendo leads automaticamente"
-              : "Pausado — mensagens não serão respondidas pela IA"}
-          </p>
-        </div>
-        <Switch
-          checked={form.is_active}
-          onCheckedChange={(checked) => setForm((f) => ({ ...f, is_active: checked }))}
+              : "Pausado — mensagens não serão respondidas pela IA"
+          }
+          controle={
+            <Switch
+              aria-label="Agente ativo"
+              checked={form.is_active}
+              onCheckedChange={(checked) => setForm((f) => ({ ...f, is_active: checked }))}
+            />
+          }
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="welcome_message">Mensagem de boas-vindas</Label>
+      <Campo id="welcome_message" label="Mensagem de boas-vindas">
         <Input
           id="welcome_message"
           placeholder="Olá! Vim pelo site do Moradas de Paraty..."
           value={form.mensagem_boas_vindas}
           onChange={(e) => setForm((f) => ({ ...f, mensagem_boas_vindas: e.target.value }))}
         />
-      </div>
+      </Campo>
 
-      <div className="space-y-2">
-        <Label htmlFor="transfer_keywords">Palavras-chave de transferência para humano</Label>
+      <Campo
+        id="transfer_keywords"
+        label="Palavras-chave de transferência para humano"
+        dica="Separe por vírgula. Quando o lead usar uma dessas palavras, a conversa é transferida para um atendente humano."
+      >
         <Input
           id="transfer_keywords"
           placeholder="atendente, humano, corretor"
           value={form.keywordsInput}
           onChange={(e) => setForm((f) => ({ ...f, keywordsInput: e.target.value }))}
         />
-        <p className="text-xs text-muted-foreground">
-          Separe por vírgula. Quando o lead usar uma dessas palavras, a conversa é transferida para
-          um atendente humano.
-        </p>
-      </div>
+      </Campo>
 
       <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
         {saveMutation.isPending ? "Salvando..." : "Salvar configurações"}
@@ -314,7 +334,7 @@ function PromptActions({ agent, instanceId }: { agent: AiAgent; instanceId: stri
               previewMutation.mutate();
             }}
           >
-            <FileText className="h-4 w-4 mr-1.5" />
+            <FileText className="h-4 w-4" aria-hidden />
             {previewMutation.isPending ? "Carregando..." : "Ver Prompt Atual"}
           </Button>
         </DialogTrigger>
@@ -327,7 +347,7 @@ function PromptActions({ agent, instanceId }: { agent: AiAgent; instanceId: stri
             (buildSystemPrompt), mais os lotes disponíveis em tempo real e a base de conhecimento.
             Para alterá-lo, edite o código.
           </p>
-          <pre className="max-h-[60vh] overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap break-words">
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-muted/50 p-4 text-xs leading-relaxed">
             {promptAtual ?? ""}
           </pre>
         </DialogContent>
@@ -341,7 +361,7 @@ function PromptActions({ agent, instanceId }: { agent: AiAgent; instanceId: stri
             <Button
               variant="ghost"
               size="sm"
-              className="text-amber-700"
+              className="text-warning hover:bg-warning-soft hover:text-warning"
               disabled={resetMutation.isPending}
             >
               {resetMutation.isPending ? "Restaurando..." : "Resetar para o padrão"}
@@ -418,12 +438,12 @@ function KnowledgeBaseTab() {
   }
 
   if (isLoading) {
-    return <Skeleton className="h-96 w-full" />;
+    return <SkeletonRows rows={1} className="h-96" />;
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
+    <div className="space-y-4">
+      <p className="text-[0.875rem] leading-relaxed text-muted-foreground">
         Esta é a base de conhecimento que o agente consulta a cada conversa. Inclua informações
         sobre lotes, preços, condições de pagamento e diferenciais do empreendimento.
       </p>
@@ -435,7 +455,7 @@ function KnowledgeBaseTab() {
           style={{ minHeight: 400 }}
           className="resize-y"
         />
-        <span className="absolute bottom-2 right-3 text-xs text-muted-foreground bg-background/80 px-1 rounded">
+        <span className="absolute bottom-2.5 right-3 rounded bg-card/90 px-1.5 text-xs tabular-nums text-muted-foreground">
           {text.length} caracteres
         </span>
       </div>
@@ -591,11 +611,9 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <Badge variant="outline" className="font-normal">
-          Modelo: {agent.modelo}
-        </Badge>
+        <Pill>Modelo: {agent.modelo}</Pill>
         <Button
           variant="ghost"
           size="sm"
@@ -612,18 +630,18 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
           }}
           disabled={messages.length === 0}
         >
-          <Trash2 className="h-4 w-4 mr-1.5" />
+          <Trash2 className="h-4 w-4" aria-hidden />
           Limpar conversa
         </Button>
       </div>
 
       <div
         ref={scrollRef}
-        className="overflow-y-auto rounded-lg border p-3"
+        className="overflow-y-auto rounded-2xl border border-border p-4 shadow-[var(--shadow-card)]"
         style={{ height: 380, background: CHAT_BG }}
       >
         {messages.length === 0 ? (
-          <p className="rounded bg-background/90 p-2 text-center text-sm text-muted-foreground">
+          <p className="animate-swap rounded-lg bg-background/90 p-3 text-center text-sm text-muted-foreground">
             Envie uma mensagem para começar a conversa com a Sophia.
           </p>
         ) : (
@@ -641,7 +659,7 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
         {sendMutation.isPending ? (
           <div className="flex justify-start pt-1">
             <div
-              className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-sm italic text-neutral-500 shadow-sm"
+              className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-sm italic text-muted-foreground shadow-sm motion-safe:animate-pulse"
               style={{ background: BOLHA_LEAD }}
             >
               Digitando...
@@ -650,8 +668,9 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-muted/60 p-2">
+      <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/60 p-2">
         <Input
+          aria-label="Mensagem para o agente"
           placeholder="Mensagem"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -666,12 +685,13 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
           className="h-9 w-9 shrink-0 rounded-full"
           disabled={sendMutation.isPending || !input.trim()}
           title="Enviar"
+          aria-label="Enviar mensagem"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4" aria-hidden />
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <PromptActions agent={agent} instanceId={instanceId} />
       </div>
 
