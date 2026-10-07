@@ -226,10 +226,7 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
         <LinhaAjuste
           titulo={
             <span className="flex items-center gap-2">
-              <PontoVivo
-                tom={form.is_active ? "success" : "warning"}
-                vivo={form.is_active}
-              />
+              <PontoVivo tom={form.is_active ? "success" : "warning"} vivo={form.is_active} />
               Status do agente
             </span>
           }

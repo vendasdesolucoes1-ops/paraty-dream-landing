@@ -5,12 +5,7 @@ import { KeyRound, Link2, MessageSquarePlus, Smartphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Campo, ComIcone, Secao } from "@/components/ajustes/campos";
 import { Kbd } from "@/components/ds/kbd";
 

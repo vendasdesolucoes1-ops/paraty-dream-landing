@@ -660,7 +660,9 @@ function EditMemberDialog({
 
                   <div className="rounded-xl border border-border bg-background px-4 py-3.5">
                     <LinhaAjuste
-                      titulo={<Label htmlFor={`vendedor-ativo-${profile.id}`}>Participa do rodízio</Label>}
+                      titulo={
+                        <Label htmlFor={`vendedor-ativo-${profile.id}`}>Participa do rodízio</Label>
+                      }
                       descricao={
                         vendedorAtivo
                           ? "Recebe leads na fila de round-robin."
@@ -687,7 +689,9 @@ function EditMemberDialog({
                     className="py-4 first:pt-4 last:pb-4"
                     titulo={<Label htmlFor="status-toggle">Status</Label>}
                     descricao={
-                      profile.ativo ? "Ativo — pode acessar o painel." : "Inativo — login bloqueado."
+                      profile.ativo
+                        ? "Ativo — pode acessar o painel."
+                        : "Inativo — login bloqueado."
                     }
                     controle={
                       <Switch
@@ -968,9 +972,7 @@ function TeamRow({
       <TableCell className="text-muted-foreground">
         <span className="inline-flex flex-wrap items-center gap-2">
           {profile.vendedores?.nome ?? "—"}
-          {profile.vendedores && !profile.vendedores.ativo ? (
-            <Pill>Fora do rodízio</Pill>
-          ) : null}
+          {profile.vendedores && !profile.vendedores.ativo ? <Pill>Fora do rodízio</Pill> : null}
         </span>
       </TableCell>
       <TableCell className="pr-4 text-right">

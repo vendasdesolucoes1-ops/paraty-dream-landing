@@ -1,25 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Check, MapPinned } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import { LOTE_STATUS_DOT } from "@/components/dashboard/status-badge";
+import { Campo, FormGaveta, Secao } from "@/components/visoes/form-gaveta";
 import {
   LOTE_TIPO_OPTIONS,
   LOTE_STATUS_OPTIONS,
@@ -106,122 +93,187 @@ export function LoteFormDialog({ lote, trigger, open, onOpenChange }: LoteFormDi
   }
 
   return (
-    <Dialog open={actualOpen} onOpenChange={setActualOpen}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar lote" : "Novo lote"}</DialogTitle>
-        </DialogHeader>
+    <FormGaveta
+      open={actualOpen}
+      onOpenChange={setActualOpen}
+      trigger={trigger}
+      icone={MapPinned}
+      titulo={isEdit ? "Editar lote" : "Novo lote"}
+      subtitulo={
+        isEdit
+          ? `Quadra ${lote?.quadra ?? "—"} · Lote ${lote?.numero_lote ?? ""}`
+          : "Entra no estoque do loteamento."
+      }
+      descricao={
+        isEdit
+          ? "Altere os dados, o valor e o status do lote."
+          : "Preencha os dados do lote para cadastrá-lo no estoque."
+      }
+      formId="form-lote"
+      onSubmit={handleSubmit}
+      rotuloSalvar={isEdit ? "Salvar" : "Criar"}
+      rotuloSalvando="Salvando..."
+      rotuloAtalho={isEdit ? "salvar" : "criar"}
+      salvando={mutation.isPending}
+      erro={mutation.isError ? "Erro ao salvar o lote. Tente novamente." : null}
+    >
+      <Secao titulo="Identificação">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo id="quadra" label="Quadra" obrigatorio>
+            <Input
+              id="quadra"
+              type="number"
+              inputMode="numeric"
+              required
+              autoFocus
+              placeholder="Ex.: 3"
+              value={form.quadra}
+              onChange={(e) => setForm((f) => ({ ...f, quadra: e.target.value }))}
+            />
+          </Campo>
+          <Campo id="numero_lote" label="Número do lote" obrigatorio>
+            <Input
+              id="numero_lote"
+              type="number"
+              inputMode="numeric"
+              required
+              placeholder="Ex.: 12"
+              value={form.numero_lote}
+              onChange={(e) => setForm((f) => ({ ...f, numero_lote: e.target.value }))}
+            />
+          </Campo>
+        </div>
+      </Secao>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quadra">Quadra</Label>
-              <Input
-                id="quadra"
-                type="number"
-                required
-                value={form.quadra}
-                onChange={(e) => setForm((f) => ({ ...f, quadra: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="numero_lote">Número do lote</Label>
-              <Input
-                id="numero_lote"
-                type="number"
-                required
-                value={form.numero_lote}
-                onChange={(e) => setForm((f) => ({ ...f, numero_lote: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="metragem">Metragem (m²)</Label>
+      <Secao titulo="Medidas e valor">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo id="metragem" label="Metragem">
+            <Sufixo texto="m²">
               <Input
                 id="metragem"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
+                placeholder="360"
+                className="pr-10"
                 value={form.metragem}
                 onChange={(e) => setForm((f) => ({ ...f, metragem: e.target.value }))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor">Valor (R$)</Label>
+            </Sufixo>
+          </Campo>
+          <Campo id="valor" label="Valor">
+            <div className="relative">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[0.8125rem] text-muted-foreground"
+              >
+                R$
+              </span>
               <Input
                 id="valor"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
+                placeholder="0,00"
+                className="pl-9"
                 value={form.valor}
                 onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
               />
             </div>
-          </div>
+          </Campo>
+        </div>
+      </Secao>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select
-                value={form.tipo}
-                onValueChange={(value: LoteTipo) => setForm((f) => ({ ...f, tipo: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOTE_TIPO_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value: LoteStatus) => setForm((f) => ({ ...f, status: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOTE_STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <Secao titulo="Classificação">
+        <Opcoes
+          rotulo="Tipo"
+          valor={form.tipo}
+          onChange={(tipo) => setForm((f) => ({ ...f, tipo }))}
+          opcoes={LOTE_TIPO_OPTIONS}
+        />
+        <Opcoes
+          rotulo="Status"
+          valor={form.status}
+          onChange={(status) => setForm((f) => ({ ...f, status }))}
+          opcoes={LOTE_STATUS_OPTIONS}
+          ponto={(v) => LOTE_STATUS_DOT[v]}
+        />
+      </Secao>
 
-          <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
-            <Textarea
-              id="observacoes"
-              value={form.observacoes}
-              onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
-            />
-          </div>
+      <Secao titulo="Observações">
+        <Campo id="observacoes" label="Observações" dica="Visível só para a equipe.">
+          <Textarea
+            id="observacoes"
+            rows={3}
+            placeholder="Esquina, ponto alto, combinados com o proprietário…"
+            value={form.observacoes}
+            onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
+          />
+        </Campo>
+      </Secao>
+    </FormGaveta>
+  );
+}
 
-          {mutation.isError ? (
-            <p className="text-sm text-destructive">Erro ao salvar o lote. Tente novamente.</p>
-          ) : null}
+/** Input com unidade à direita. */
+function Sufixo({ texto, children }: { texto: string; children: ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[0.8125rem] text-muted-foreground"
+      >
+        {texto}
+      </span>
+    </div>
+  );
+}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActualOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Salvando..." : isEdit ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+/** Escolha única em pílulas (mesmo padrão de "Como chegou" no cadastro de cliente). */
+function Opcoes<T extends string>({
+  rotulo,
+  valor,
+  onChange,
+  opcoes,
+  ponto,
+}: {
+  rotulo: string;
+  valor: T;
+  onChange: (valor: T) => void;
+  opcoes: { value: T; label: string }[];
+  ponto?: (valor: T) => string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={rotulo} className="space-y-2">
+      <p className="text-[0.8125rem] font-medium">{rotulo}</p>
+      <div className="flex flex-wrap gap-2">
+        {opcoes.map((opt) => {
+          const ativo = valor === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={ativo}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[0.8125rem] font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/15",
+                ativo
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-input bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+              )}
+            >
+              {ativo ? (
+                <Check className="h-3.5 w-3.5" aria-hidden />
+              ) : ponto ? (
+                <span aria-hidden className={cn("h-2 w-2 rounded-full", ponto(opt.value))} />
+              ) : null}
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

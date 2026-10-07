@@ -1,7 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Wifi, WifiOff, Pencil, QrCode, Trash2, RefreshCcw, Smartphone } from "lucide-react";
+import {
+  Loader2,
+  Wifi,
+  WifiOff,
+  Pencil,
+  QrCode,
+  Trash2,
+  RefreshCcw,
+  Smartphone,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { WhatsappInstance } from "@/lib/types";
@@ -198,7 +207,10 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
 
       <CardContent className="flex min-h-[280px] flex-col items-center justify-center border-t border-border bg-background/60 px-5 py-8">
         {connected ? (
-          <div key="conectado" className="flex animate-swap flex-col items-center gap-3 text-center">
+          <div
+            key="conectado"
+            className="flex animate-swap flex-col items-center gap-3 text-center"
+          >
             <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-success-soft text-success">
               <span
                 aria-hidden
@@ -232,7 +244,10 @@ export function WhatsappInstanceCard({ instance }: { instance: WhatsappInstance 
             </p>
           </div>
         ) : qrFetching ? (
-          <div key="gerando" className="flex animate-swap flex-col items-center gap-2 text-muted-foreground">
+          <div
+            key="gerando"
+            className="flex animate-swap flex-col items-center gap-2 text-muted-foreground"
+          >
             <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
             <p className="text-sm">Gerando QR code...</p>
           </div>

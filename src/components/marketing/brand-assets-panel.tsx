@@ -167,11 +167,7 @@ export function BrandAssetsPanel() {
         ) : (
           <ul className="space-y-3">
             {(assets ?? []).map((asset, i) => (
-              <li
-                key={asset.id}
-                className="animate-swap"
-                style={atraso(i, 45, 360)}
-              >
+              <li key={asset.id} className="animate-swap" style={atraso(i, 45, 360)}>
                 <div
                   className={cn(
                     "flex items-start gap-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] transition-[opacity,border-color] duration-200 hover:border-foreground/25",

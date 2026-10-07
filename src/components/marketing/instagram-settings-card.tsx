@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pill } from "@/components/ds/pill";
 import { Campo, SeloIcone } from "@/components/ajustes/campos";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export function useInstagramConfig() {
@@ -77,9 +77,9 @@ export function InstagramSettingsCard({ defaultOpen = false }: { defaultOpen?: b
             <span className="flex min-w-0 items-center gap-3">
               <SeloIcone icone={Instagram} />
               <span className="min-w-0">
-                <CardTitle className="text-[1.0625rem] leading-snug">
+                <span className="block font-sans text-[1.0625rem] font-semibold leading-snug tracking-[-0.011em]">
                   Configurações do Instagram
-                </CardTitle>
+                </span>
                 <span className="mt-1 flex">
                   <Pill tone={conectado ? "success" : "neutral"} dot>
                     {conectado ? "Credenciais salvas" : "Não configurado"}
