@@ -10,6 +10,142 @@
   --lp-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── Identidade visual 2026 (design system "Moradas de Paraty" no Figma) ──
+ *
+ * Verde floresta + dourado + creme, Playfair Display nos nomes e números,
+ * Montserrat em caixa alta nos rótulos, Nunito Sans no texto corrido e Allura
+ * só em frases curtas de assinatura. É a mesma linguagem das peças de feed.
+ *
+ * Tudo fica preso à classe .lp-brand, aplicada só na landing (rota /): o
+ * painel/CRM usa o design system próprio (styles.css) e não muda. As cores
+ * entram redefinindo as mesmas variáveis que o Tailwind já lê (--primary,
+ * --gold...), então as classes existentes (bg-primary, text-sand) passam a
+ * pintar na paleta nova sem renomear nada.
+ *
+ * Fontes servidas pelo próprio site, subconjunto latino, uma por família
+ * (variáveis no peso). Allura não tem preload: só aparece abaixo da dobra
+ * e em uma linha do hero, e o swap para a fonte de sistema é aceitável ali. */
+
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url("/fonts/playfair-display-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/montserrat-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Allura";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/allura-latin.woff") format("woff");
+}
+
+.lp-brand {
+  /* Paleta da marca (mesmos valores das variáveis do Figma). */
+  --mp-green-950: #0f1f16; /* Verde Noite */
+  --mp-green-800: #1f3a2b; /* Verde Floresta */
+  --mp-green-700: #2b4a37; /* Verde Mata */
+  --mp-gold-700: #9c7a3c; /* Dourado escuro: texto dourado sobre creme */
+  --mp-gold-500: #c9a45c; /* Dourado */
+  --mp-gold-300: #e3c88a; /* Dourado Claro */
+  --mp-cream-200: #eae0cc;
+  --mp-cream-100: #f5efe3; /* Creme */
+  --mp-cream-50: #fbf8f1; /* Papel */
+  --mp-ink-900: #1e2a22; /* Tinta */
+  --mp-ink-600: #4a554d;
+
+  /* Tokens do Tailwind redefinidos para a landing. */
+  --forest-deep: var(--mp-green-800);
+  --forest: var(--mp-green-700);
+  --sand: var(--mp-gold-300);
+  --sand-light: var(--mp-cream-100);
+  --ivory: var(--mp-cream-50);
+  --gold: var(--mp-gold-500);
+
+  --background: var(--mp-cream-50);
+  --foreground: var(--mp-ink-900);
+  --card: #ffffff;
+  --card-foreground: var(--mp-ink-900);
+  --primary: var(--mp-green-800);
+  --primary-foreground: var(--mp-cream-50);
+  --secondary: var(--mp-cream-100);
+  --secondary-foreground: var(--mp-green-800);
+  --muted: #f1eadc;
+  --muted-foreground: var(--mp-ink-600);
+  --accent: var(--mp-gold-700);
+  --accent-foreground: var(--mp-green-800);
+  --border: var(--mp-cream-200);
+  --input: #e2d7c1;
+  --ring: var(--mp-gold-500);
+
+  font-family: "Nunito Sans", "Inter", system-ui, sans-serif;
+}
+
+/* Títulos: Playfair Display. Em @layer para que classes utilitárias
+   (font-bold, tracking-*) continuem mandando quando usadas. */
+@layer base {
+  .lp-brand :is(h1, h2, h3, h4) {
+    font-family: "Playfair Display", Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+}
+
+@layer utilities {
+  .lp-brand .font-display {
+    font-family: "Playfair Display", Georgia, serif;
+  }
+
+  /* Rótulos em caixa alta: Montserrat, como nos selos e CTAs das peças. */
+  .lp-brand .eyebrow,
+  .lp-brand .lp-brand-eyebrow {
+    font-family: "Montserrat", "Inter", sans-serif;
+    font-weight: 600;
+  }
+
+  .lp-brand .lp-brand-eyebrow {
+    text-transform: uppercase;
+  }
+
+  .lp-brand .font-script {
+    font-family: "Allura", "Snell Roundhand", cursive;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  /* Algarismos de caixa alta nos números da oferta (10%, 240x). */
+  .lp-brand .lp-num {
+    font-family: "Playfair Display", Georgia, serif;
+    font-weight: 700;
+    font-variant-numeric: lining-nums;
+    line-height: 0.9;
+  }
+}
+
+/* Cada linha do título do hero é um bloco, com ou sem animação. Sem isto,
+   quem pede menos movimento via as duas linhas coladas ("Paratycom"). */
+.lp-line {
+  display: block;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* ── Abertura do hero ────────────────────────────────────────────── */
 
