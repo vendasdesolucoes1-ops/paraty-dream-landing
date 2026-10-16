@@ -32,9 +32,10 @@ alter table public.condicoes_comerciais enable row level security;
 drop policy if exists "condicoes_select" on public.condicoes_comerciais;
 create policy "condicoes_select" on public.condicoes_comerciais
   for select to authenticated using (true);
-drop policy if exists "condicoes_write_gestao" on public.condicoes_comerciais;
-create policy "condicoes_write_gestao" on public.condicoes_comerciais
-  for all to authenticated using (public.sou_gestao()) with check (public.sou_gestao());
+drop policy if exists "condicoes_write_admin" on public.condicoes_comerciais;
+create policy "condicoes_write_admin" on public.condicoes_comerciais
+  for all to authenticated
+  using (public.get_my_role() = 'admin') with check (public.get_my_role() = 'admin');
 grant select, insert, update on public.condicoes_comerciais to authenticated;
 
 drop trigger if exists auditoria on public.condicoes_comerciais;
@@ -111,7 +112,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.sou_gestao() then
+  if coalesce(public.get_my_role(), '') <> 'admin' then
     raise exception 'Sem permissão.' using errcode = '42501';
   end if;
   update public.condicoes_comerciais set vigente = false where vigente and id is distinct from p_id;

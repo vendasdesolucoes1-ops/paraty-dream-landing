@@ -167,7 +167,7 @@ function ConfiguracoesPage() {
 // acesso direto pela URL; a RLS e as edge functions garantem o mesmo no servidor.
 function ConfiguracoesPageProtegida() {
   return (
-    <RoleGuard allow={["admin", "gestor"]}>
+    <RoleGuard allow={["admin"]}>
       <ConfiguracoesPage />
     </RoleGuard>
   );

@@ -49,7 +49,7 @@ function formatarPercentual(n: number) {
 export function CondicoesComerciaisCard() {
   const queryClient = useQueryClient();
   const { profile } = useProfile();
-  const podeEditar = profile?.role === "admin" || profile?.role === "gestor";
+  const podeEditar = profile?.role === "admin";
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
 
