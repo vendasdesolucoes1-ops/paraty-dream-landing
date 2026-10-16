@@ -37,7 +37,15 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
   alterações, exclusão completa do titular (LGPD), opt-out só desfeito pela
   gestão com justificativa.
 - **Muda de lugar:** o disparo em massa sai do laço no navegador e vira
-  campanha no servidor (mesmas regras das cadências).
+  campanha no servidor (mesmas regras das cadências), acompanhada em
+  Ferramentas. Mudanças que a equipe vai notar:
+  - a campanha usa só leads do CRM: as fontes "CSV" e "lista manual" saíram
+    (importe os contatos como leads antes; assim opt-out e base legal valem);
+  - a variável do texto é `{{primeiro_nome}}` (antes `{{nome}}`/`{{telefone}}`);
+  - o histórico de disparos antigos continua visível na aba "Histórico antigo".
+- **Novo menu "Follow-up"** (gestão): cadências, aprovação dos textos da IA,
+  métricas e saúde da fila, regras de envio. No detalhe do lead, aba
+  "Follow-up" com as inscrições do lead.
 
 ## 3. Antes do dia
 
@@ -67,7 +75,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 > o site novo usa RPCs e colunas que só existem depois das migrations.
 
 1. **Pausar a IA** no painel (desliga respostas, fila e cadências).
-2. **Migrations** (22 arquivos, de `20261016000000` a `20261018000500`):
+2. **Migrations** (23 arquivos, de `20261016000000` a `20261018000600`):
    `supabase db push` com o projeto de produção linkado. Se o Lovable aplicar
    migrations por conta própria ao sincronizar, confirme no editor do Lovable
    que todas rodaram, na ordem, sem erro.
@@ -115,7 +123,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 
 - CI: typecheck, testes unitários (Edge Functions e app), lint dos arquivos
   alterados, build, `deno check` de todas as funções, auditoria de dependências.
-- Banco: `scripts/db/testar-migrations.sh` aplica as 72 migrations num Postgres
+- Banco: `scripts/db/testar-migrations.sh` aplica as 73 migrations num Postgres
   limpo e roda os testes SQL (cadências, campanhas, métricas, alerta, busca,
   opt-out).
 - **Não verificado:** comportamento real de pg_cron, pg_net, Vault e pgvector
