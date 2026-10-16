@@ -314,6 +314,7 @@ export const COLUNAS_INSTANCIA_PAINEL =
   "id, instance_name, api_url, status, qr_code, qr_code_expires_at, created_at";
 
 export type AiAgentModelo = "gpt-4o-mini" | "gpt-4o";
+export type AiAgentAutonomia = "responder" | "qualificar" | "agendar";
 export type AiAgentTomVoz = "profissional" | "amigavel" | "formal" | "informal";
 
 export interface AiAgent {
@@ -335,6 +336,8 @@ export interface AiAgent {
   instrucoes_extras: string | null;
   /** Texto da transferência por palavra-chave; "||" separa bolhas. Nulo = padrão. */
   mensagem_transferencia: string | null;
+  /** O quanto a Sophia age sozinha (ferramentas e sinais). */
+  autonomia: AiAgentAutonomia;
   created_at: string;
 }
 

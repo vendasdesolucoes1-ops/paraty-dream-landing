@@ -75,7 +75,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 > o site novo usa RPCs e colunas que só existem depois das migrations.
 
 1. **Pausar a IA** no painel (desliga respostas, fila e cadências).
-2. **Migrations** (26 arquivos, de `20261016000000` a `20261018000900`):
+2. **Migrations** (27 arquivos, de `20261016000000` a `20261019000000`):
    `supabase db push` com o projeto de produção linkado. Se o Lovable aplicar
    migrations por conta própria ao sincronizar, confirme no editor do Lovable
    que todas rodaram, na ordem, sem erro.
@@ -127,7 +127,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 
 - CI: typecheck, testes unitários (Edge Functions e app), lint dos arquivos
   alterados, build, `deno check` de todas as funções, auditoria de dependências.
-- Banco: `scripts/db/testar-migrations.sh` aplica as 76 migrations num Postgres
+- Banco: `scripts/db/testar-migrations.sh` aplica as 77 migrations num Postgres
   limpo e roda os testes SQL (cadências, campanhas, métricas, alerta, busca,
   opt-out, opções do agente, aprovação e agente único por instância).
 - **Não verificado:** comportamento real de pg_cron, pg_net, Vault e pgvector
