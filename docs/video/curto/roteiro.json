@@ -1,0 +1,26 @@
+{
+  "cenas": [
+    {"id": 1, "nome": "Abertura", "batidas": ["f01", "f02"]},
+    {"id": 2, "nome": "Site e Sophia", "batidas": ["f03", "f04", "f05", "f06"]},
+    {"id": 3, "nome": "Equipe", "batidas": ["f07", "f08"]},
+    {"id": 4, "nome": "Follow-up", "batidas": ["f09", "f10"]},
+    {"id": 5, "nome": "Resultados", "batidas": ["f11", "f12"]},
+    {"id": 6, "nome": "Encerramento", "batidas": ["f13", "f14"]}
+  ],
+  "falas": {
+    "f01": "O Moradas de Paraty agora tem um sistema próprio de vendas.",
+    "f02": "Ele cuida do cliente do primeiro clique até a visita ao terreno… sem deixar ninguém para trás.",
+    "f03": "O cliente chega pelo site, deixa o contato e autoriza o atendimento.",
+    "f04": "Em segundos, a Sophia, nossa assistente no WhatsApp, responde, entende o que ele procura e oferece os lotes disponíveis.",
+    "f05": "Ela nunca fala de preço. O objetivo é um só: marcar a visita.",
+    "f06": "E, se o cliente quiser falar com uma pessoa, a conversa passa na hora para um consultor.",
+    "f07": "A equipe trabalha num CRM organizado por etapa, do primeiro contato ao contrato.",
+    "f08": "Cada vendedor sabe o que fazer hoje, e a agenda lembra o cliente da visita na véspera.",
+    "f09": "Quem não responde recebe um novo contato no momento certo, e as mensagens param assim que ele responde ou pede para sair.",
+    "f10": "Como usamos o WhatsApp sem a API oficial, o sistema protege o número: limita os envios por dia e pausa sozinho se algo sair do normal.",
+    "f11": "Você acompanha tudo em números: mensagens entregues e respondidas, conversão por etapa e as metas de cada vendedor.",
+    "f12": "E as condições comerciais que aparecem no site são definidas por você, sem depender de programador.",
+    "f13": "Mais velocidade no atendimento, nenhum lead esquecido…",
+    "f14": "e uma equipe focada no que dá resultado: levar o cliente até o terreno."
+  }
+}

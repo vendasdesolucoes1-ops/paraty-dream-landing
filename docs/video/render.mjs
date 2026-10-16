@@ -3,6 +3,7 @@
 // Uso:
 //   node docs/video/render.mjs [--fps 30] [--saida docs/video/saida/video-mudo.mp4]
 //                              [--de 0 --ate 20] [--legendas]
+//                              [--pagina curto/cenas.html --tempos curto/saida/tempos.json]
 // Lê docs/video/saida/tempos.json se existir (gerado por narracao.mjs), senão
 // usa as durações padrão das cenas. O áudio entra depois, em montar.sh.
 import { createRequire } from "node:module";
@@ -30,14 +31,14 @@ try {
   playwright = createRequire(`${raiz}/`)("playwright");
 }
 
-const tempos = existsSync(`${aqui}/saida/tempos.json`)
-  ? JSON.parse(readFileSync(`${aqui}/saida/tempos.json`, "utf8"))
-  : null;
+const paginaHtml = resolve(aqui, arg("pagina", "cenas.html"));
+const arqTempos = resolve(aqui, arg("tempos", "saida/tempos.json"));
+const tempos = existsSync(arqTempos) ? JSON.parse(readFileSync(arqTempos, "utf8")) : null;
 
 const navegador = await playwright.chromium.launch();
 const pagina = await navegador.newPage({ viewport: { width: 1920, height: 1080 } });
 if (tempos) await pagina.addInitScript((t) => (window.TEMPOS = t), tempos);
-await pagina.goto(`file://${aqui}/cenas.html${comLegendas ? "?legendas" : ""}`);
+await pagina.goto(`file://${paginaHtml}${comLegendas ? "?legendas" : ""}`);
 await pagina.evaluate(() => document.fonts.ready);
 
 const total = await pagina.evaluate(() => window.duracaoTotal());
