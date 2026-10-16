@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Calendar,
   FileText,
   LayoutDashboard,
@@ -22,6 +23,7 @@ export interface NavItem {
     | "/dashboard/documentos"
     | "/dashboard/ferramentas"
     | "/dashboard/marketing"
+    | "/dashboard/relatorios"
     | "/dashboard/configuracoes";
   label: string;
   icon: LucideIcon;
@@ -64,6 +66,14 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Lotes",
         icon: Map,
         palavras: "terrenos estoque mapa planta",
+      },
+      // Conversão da equipe inteira e cadastro de metas: visão de gestão.
+      {
+        to: "/dashboard/relatorios",
+        label: "Relatórios",
+        icon: BarChart3,
+        hideFor: ["vendedor"],
+        palavras: "metas conversão funil desempenho vendedores",
       },
     ],
   },

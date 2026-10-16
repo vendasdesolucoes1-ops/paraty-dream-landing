@@ -21,6 +21,7 @@ import { Route as DashboardDocumentosRouteImport } from './routes/dashboard/docu
 import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/ferramentas'
 import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
 import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
+import { Route as DashboardRelatoriosRouteImport } from './routes/dashboard/relatorios'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const DashboardMarketingRoute = DashboardMarketingRouteImport.update({
   path: '/marketing',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardRelatoriosRoute = DashboardRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
+  '/dashboard/relatorios': typeof DashboardRelatoriosRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
+  '/dashboard/relatorios': typeof DashboardRelatoriosRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/dashboard/ferramentas': typeof DashboardFerramentasRoute
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
+  '/dashboard/relatorios': typeof DashboardRelatoriosRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
+    | '/dashboard/relatorios'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
+    | '/dashboard/relatorios'
     | '/dashboard'
   id:
     | '__root__'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/dashboard/ferramentas'
     | '/dashboard/lotes'
     | '/dashboard/marketing'
+    | '/dashboard/relatorios'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMarketingRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/relatorios': {
+      id: '/dashboard/relatorios'
+      path: '/relatorios'
+      fullPath: '/dashboard/relatorios'
+      preLoaderRoute: typeof DashboardRelatoriosRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
   }
 }
 
@@ -273,6 +292,7 @@ interface DashboardRouteRouteChildren {
   DashboardFerramentasRoute: typeof DashboardFerramentasRoute
   DashboardLotesRoute: typeof DashboardLotesRoute
   DashboardMarketingRoute: typeof DashboardMarketingRoute
+  DashboardRelatoriosRoute: typeof DashboardRelatoriosRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -285,6 +305,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardFerramentasRoute: DashboardFerramentasRoute,
   DashboardLotesRoute: DashboardLotesRoute,
   DashboardMarketingRoute: DashboardMarketingRoute,
+  DashboardRelatoriosRoute: DashboardRelatoriosRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
