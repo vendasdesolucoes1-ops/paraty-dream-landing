@@ -12,6 +12,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { fetchComRetry } from "../_shared/http.ts";
 import { registrarChamadaIA } from "../_shared/telemetria.ts";
+import { MODELOS } from "../_shared/modelos.ts";
 import {
   FORMATO_REDACAO,
   lerRedacao,
@@ -22,7 +23,7 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const MODELO = Deno.env.get("FOLLOWUP_MODELO") ?? "gpt-4o-mini";
+const MODELO = MODELOS.followUpRedator.id;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: MODELO,
-            temperature: 0.5,
+            temperature: MODELOS.followUpRedator.temperatura,
             max_tokens: 400,
             response_format: FORMATO_REDACAO,
             messages: [

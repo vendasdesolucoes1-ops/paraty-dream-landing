@@ -7,6 +7,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchComRetry } from "./http.ts";
 import { notificarResponsaveis } from "./notificar.ts";
 import { registrarChamadaIA } from "./telemetria.ts";
+import { MODELOS } from "./modelos.ts";
 import {
   acaoDaIntencao,
   decidirIntencao,
@@ -17,7 +18,7 @@ import {
   type Classificacao,
 } from "./intencao-followup.ts";
 
-const MODELO = Deno.env.get("FOLLOWUP_MODELO") ?? "gpt-4o-mini";
+const MODELO = MODELOS.followUpClassificador.id;
 
 export async function classificarRespostaFollowUp(
   supabase: SupabaseClient,
@@ -64,7 +65,7 @@ export async function classificarRespostaFollowUp(
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model: MODELO,
-              temperature: 0.2,
+              temperature: MODELOS.followUpClassificador.temperatura,
               max_tokens: 150,
               response_format: FORMATO_CLASSIFICACAO,
               messages: [
