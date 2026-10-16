@@ -14,6 +14,12 @@ import { proximosDias } from "../_shared/data-br.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
 import { registrarChamadaIA } from "../_shared/telemetria.ts";
 import {
+  FORMATO_SAIDA,
+  INSTRUCAO_SAIDA,
+  lerSaidaEstruturada,
+  textoComMarcasConfiaveis,
+} from "../_shared/saida-sophia.ts";
+import {
   registrarConsultaRag,
   resolverConhecimento,
   type ConhecimentoParaPrompt,
@@ -893,8 +899,9 @@ Deno.serve(async (req) => {
             model: modelo,
             max_tokens: 1000,
             temperature: 0.4,
+            response_format: FORMATO_SAIDA,
             messages: [
-              { role: "system", content: systemPrompt },
+              { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
               ...history,
               { role: "user", content: message },
             ],
@@ -938,7 +945,12 @@ Deno.serve(async (req) => {
       usage: openaiResult.usage,
       latenciaMs: Date.now() - inicioModelo,
     });
-    const rawText: string = openaiResult.choices?.[0]?.message?.content ?? "";
+    const conteudoModelo: string = openaiResult.choices?.[0]?.message?.content ?? "";
+    // Saída estruturada: sinais só do campo `sinais`; marcas no texto são
+    // descartadas. Se o JSON vier quebrado, cai na leitura antiga por marcas.
+    const estruturada = lerSaidaEstruturada(conteudoModelo);
+    if (!estruturada) console.warn("[ai-agent-chat] saída fora do schema; lendo marcas do texto");
+    const rawText = estruturada ? textoComMarcasConfiaveis(estruturada) : conteudoModelo;
 
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
