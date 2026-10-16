@@ -39,9 +39,21 @@ test("pedido de parada: conversa normal não vira opt-out", () => {
   }
 });
 
-test("chave de telefone: mesmos 10 dígitos com e sem máscara", () => {
-  assert.equal(chaveTelefone("(24) 99999-1234"), chaveTelefone("5524999991234"));
+test("chave de telefone: mesmo celular com e sem 9, DDI e máscara", () => {
+  const chave = "552499991234";
+  assert.equal(chaveTelefone("(24) 99999-1234"), chave);
+  assert.equal(chaveTelefone("5524999991234"), chave);
+  assert.equal(chaveTelefone("552499991234"), chave); // JID antigo, sem o 9
+  assert.equal(chaveTelefone("24 9999-1234"), chave);
   assert.equal(chaveTelefone("123"), null);
+});
+
+test("chave de telefone: DDDs diferentes nunca colidem", () => {
+  assert.notEqual(chaveTelefone("(11) 98765-4321"), chaveTelefone("(21) 98765-4321"));
+});
+
+test("chave de telefone: fixo mantém os 8 dígitos", () => {
+  assert.equal(chaveTelefone("(24) 3371-1234"), "552433711234");
 });
 
 test("primeiro nome: aceita nomes reais, com acento e hífen", () => {

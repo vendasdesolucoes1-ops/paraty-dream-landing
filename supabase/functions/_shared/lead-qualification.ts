@@ -163,7 +163,8 @@ function camposParaAtualizar(
 // Resumo por TEMPLATE puro: monta a partir das colunas do lead, nunca de texto
 // livre devolvido pela IA. Campo ausente vira "não informado" em vez de sumir,
 // pra o vendedor saber o que ainda falta perguntar.
-function montarResumoQualificacao(lead: Record<string, unknown>): string {
+function montarResumoQualificacao(entrada: object): string {
+  const lead = entrada as Record<string, unknown>;
   const ou = (valor: unknown) => {
     const texto = valor === null || valor === undefined ? "" : String(valor).trim();
     return texto.length > 0 ? texto : "não informado";

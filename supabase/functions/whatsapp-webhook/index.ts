@@ -8,43 +8,21 @@ import {
   isHumanTakeoverActive as takeoverAtivo,
   pauseAI as pausarIA,
 } from "../_shared/ai-takeover.ts";
-import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import { reconciliarEco } from "../_shared/envio-registrado.ts";
 import {
-  confirmarEnvio,
-  descartarEnvio,
-  enviarTextoRegistrado,
-  reconciliarEco,
-  registrarEnvio,
-} from "../_shared/envio-registrado.ts";
-import { fetchComRetry } from "../_shared/http.ts";
-import { notificarResponsaveis } from "../_shared/notificar.ts";
-import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
-import { handleVisitaAgendada as criarVisita } from "../_shared/lead-visita.ts";
+  enfileirarResposta,
+  responderLead,
+  type InstanciaWhatsapp,
+} from "../_shared/resposta-ia.ts";
 import { chaveTelefone } from "../_shared/contato-bloqueado.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// Mesma higienização usada em ai-agent-chat: a chave copiada do painel costuma
-// vir com quebra de linha invisível, que faz o header Authorization falhar.
-const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
-  .trim()
-  .replace(/[\r\n\t]/g, "")
-  .replace(/[^\x20-\x7E]/g, "");
+
+// Global do runtime das Edge Functions do Supabase (não tem tipo no Deno puro).
+declare const EdgeRuntime: { waitUntil(promessa: Promise<unknown>): void };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-const AI_RESPONSE_DELAY_MS = 30_000;
-// Intervalo entre as mensagens quebradas de uma mesma resposta (separadas por
-// ||), pra parecer alguém digitando em partes em vez de um bot disparando
-// tudo de uma vez. Proporcional ao tamanho do texto, com piso e teto.
-const INTER_MESSAGE_DELAY_MIN_MS = 1000;
-const INTER_MESSAGE_DELAY_MAX_MS = 3000;
-const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
-
-function humanizedDelay(text: string): number {
-  const estimated = text.length * INTER_MESSAGE_DELAY_MS_PER_CHAR;
-  return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
-}
 
 function normalizePhone(remoteJid: string): string | null {
   // @lid é um identificador interno do WhatsApp, não um telefone. Quando a
@@ -79,11 +57,23 @@ async function findInstance(instanceName: string) {
 }
 
 async function findOrCreateLead(phone: string, name: string | null) {
-  const { data: existingLead } = await supabase
-    .from("leads")
-    .select("*")
-    .eq("telefone", phone)
-    .maybeSingle();
+  // Pela chave canônica: o WhatsApp pode mandar o número sem o 9 que o
+  // formulário gravou, e sem isso nascia um lead duplicado com outro vendedor.
+  const chave = chaveTelefone(phone);
+  const porChave = chave
+    ? await supabase
+        .from("leads")
+        .select("*")
+        .eq("telefone_chave", chave)
+        .is("deletado_em", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+  // Coluna ainda inexistente (migration pendente): cai na busca exata antiga.
+  const existingLead =
+    porChave.data ??
+    (await supabase.from("leads").select("*").eq("telefone", phone).maybeSingle()).data;
 
   if (existingLead) return existingLead;
 
@@ -153,19 +143,6 @@ const isHumanTakeoverActive = (sessionId: string) => takeoverAtivo(supabase, ses
 const pauseAIForHumanTakeover = (agentId: string | null, sessionId: string) =>
   pausarIA(supabase, sessionId, agentId);
 
-async function sendPresence(apiUrl: string, apiKey: string, instanceName: string, number: string) {
-  try {
-    await fetch(`${apiUrl}/chat/sendPresence/${instanceName}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number, presence: "composing" }),
-    });
-  } catch (error) {
-    // presence indicator is a UX nicety — log but don't fail the webhook
-    console.error("=== ERROR ===", (error as Error)?.message, (error as Error)?.stack);
-  }
-}
-
 async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
   const remoteJid: string = data.key?.remoteJid;
@@ -221,211 +198,43 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   // manual no painel. Antes o bloqueio caía sozinho a cada mensagem.
 
   // 5. Save incoming message
-  await supabase.from("whatsapp_messages").insert({
-    instance_id: instance.id,
-    contact_id: contact.id,
-    lead_id: lead.id,
-    remote_jid: remoteJid,
-    message_id: messageId,
-    from_me: false,
-    message_type: data.messageType ?? "text",
-    content: text,
-    status: "received",
-  });
+  const { data: recebida } = await supabase
+    .from("whatsapp_messages")
+    .insert({
+      instance_id: instance.id,
+      contact_id: contact.id,
+      lead_id: lead.id,
+      remote_jid: remoteJid,
+      message_id: messageId,
+      from_me: false,
+      message_type: data.messageType ?? "text",
+      content: text,
+      status: "received",
+    })
+    .select("created_at")
+    .maybeSingle();
 
   const sessionId = phone;
 
-  console.log("=== CHECKING HUMAN TAKEOVER ===", { leadId: lead.id });
-
-  // 6. Human takeover check
+  // 6. Atendimento humano em curso ou IA desligada: a Sophia não responde.
   if (await isHumanTakeoverActive(sessionId)) return;
-
-  // Active agent for this instance
   const { data: agent } = await supabase
     .from("ai_agents")
-    .select("*")
+    .select("id")
     .eq("instance_id", instance.id)
     .eq("is_active", true)
     .maybeSingle();
   if (!agent) return;
 
-  const receivedAt = new Date().toISOString();
-
-  console.log("=== CALLING AI AGENT ===", { agentId: agent.id, leadId: lead.id, sessionId });
-
-  // 7. Call ai-agent-chat
-  const aiResponse = await fetchComRetry(
-    `${SUPABASE_URL}/functions/v1/ai-agent-chat`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        agent_id: agent.id,
-        message: text,
-        contact_phone: phone,
-        contact_name: pushName,
-        lead_id: lead.id,
-        session_id: sessionId,
-      }),
-    },
-    { timeoutMs: 60_000 },
-  ).catch((e) => e as Error);
-
-  // A IA falhou (timeout, OpenAI fora, erro interno): o lead não pode ficar
-  // falando sozinho. Resposta segura, IA pausada e um humano avisado.
-  if (aiResponse instanceof Error || !aiResponse.ok) {
-    const motivo = aiResponse instanceof Error ? aiResponse.message : `HTTP ${aiResponse.status}`;
-    console.error("=== IA FALHOU ===", { leadId: lead.id, motivo });
-    await responderFalhaDaIA(instance, lead.id, phone, sessionId, agent.id);
-    return;
-  }
-  const aiResult = await aiResponse.json();
-  console.log("=== AI RESPONSE ===", {
-    partes: (aiResult.messages ?? []).length,
-    lead_qualificado: aiResult.lead_qualificado ?? false,
-    visita_agendada: aiResult.visita_agendada ?? false,
-    transferido_para_humano: aiResult.transferido_para_humano ?? false,
+  // 7. Resposta durável: a linha na fila garante que, se este isolate morrer
+  // durante o debounce, o cron responde. O caminho rápido abaixo responde em
+  // ~30 s quando tudo corre bem (ver _shared/resposta-ia.ts).
+  await enfileirarResposta(supabase, lead.id, phone, instance.id);
+  const resultado = await responderLead(supabase, instance as InstanciaWhatsapp, lead.id, {
+    aguardarDebounce: true,
+    recebidaEm: (recebida?.created_at as string | undefined) ?? new Date().toISOString(),
   });
-
-  const messages: string[] = aiResult.messages ?? [];
-  if (messages.length === 0) return;
-
-  // ai-agent-chat já detecta e remove a marca do texto antes de devolver —
-  // ela nunca chega aqui dentro de `messages` (isso também corrige o painel
-  // "Testar Agente", que consome a mesma function direto e antes vazava a
-  // marca crua na tela). Só o sinal booleano chega.
-  if (aiResult.lead_qualificado) {
-    try {
-      await posQualificacao(supabase, lead, instance, OPENAI_API_KEY);
-    } catch (error) {
-      console.error(
-        "=== LEAD QUALIFICATION ERROR ===",
-        (error as Error)?.message,
-        (error as Error)?.stack,
-      );
-    }
-  }
-
-  // Visita real na Agenda. Até agora a marca [VISITA_AGENDADA] só movia o card
-  // para "Agendado" (isso a ai-agent-chat já fazia); a visita em si só era
-  // criada para lead de teste. A extração de data foi validada, então passa a
-  // valer para lead real — a partir daqui a Sophia escreve no calendário de
-  // quem vende.
-  //
-  // Idempotente por lead (ver _shared/lead-visita.ts): uma segunda marca na
-  // mesma conversa reagenda a visita existente em vez de duplicar a agenda. E
-  // falhar aqui não pode derrubar a resposta ao lead — no pior caso o card
-  // fica em "Agendado" sem a linha na Agenda, que é o comportamento antigo.
-  if (aiResult.visita_agendada) {
-    try {
-      await criarVisita(supabase, lead, OPENAI_API_KEY);
-    } catch (error) {
-      console.error(
-        "=== VISITA CREATION ERROR ===",
-        (error as Error)?.message,
-        (error as Error)?.stack,
-      );
-    }
-  }
-
-  const cleanMessages = messages.map((m) => m.trim()).filter((m) => m.length > 0);
-
-  if (cleanMessages.length === 0) return;
-
-  // 8. Humanized delay with composing presence
-  await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
-  await new Promise((resolve) => setTimeout(resolve, AI_RESPONSE_DELAY_MS));
-
-  // 9. Debounce — abort if a newer inbound message arrived meanwhile
-  const { data: newerMessages } = await supabase
-    .from("whatsapp_messages")
-    .select("id")
-    .eq("contact_id", contact.id)
-    .eq("from_me", false)
-    .gt("created_at", receivedAt)
-    .neq("message_id", messageId);
-
-  if (newerMessages && newerMessages.length > 0) return;
-
-  console.log("=== SENDING TO EVOLUTION ===", { messageCount: cleanMessages.length });
-
-  // 10 & 11. Send response(s) and persist them
-  for (const [index, messageText] of cleanMessages.entries()) {
-    // Antes da primeira mensagem já rolou o delay + presence lá em cima; a
-    // partir da segunda, cada parte espera um pouco — como alguém digitando
-    // em blocos, não um bot cuspindo tudo de uma vez.
-    if (index > 0) {
-      await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
-      await new Promise((resolve) => setTimeout(resolve, humanizedDelay(messageText)));
-    }
-
-    // Registra ANTES de enviar: o eco da Evolution chega em milissegundos e
-    // precisa encontrar esta linha, senão handleOutgoingMessage o confunde com
-    // um vendedor digitando no celular e pausa a IA.
-    const rowId = await registrarEnvio(supabase, {
-      instance_id: instance.id,
-      contact_id: contact.id,
-      lead_id: lead.id,
-      remote_jid: remoteJid,
-      content: messageText,
-    });
-
-    try {
-      const sendResult = await sendWhatsAppText(
-        instance.api_url,
-        instance.api_key,
-        instance.instance_name,
-        phone,
-        messageText,
-      );
-      await confirmarEnvio(supabase, rowId, sendResult?.key?.id);
-    } catch (error) {
-      // Sem isso ficaria uma bolha no CRM de uma mensagem que não chegou.
-      await descartarEnvio(supabase, rowId);
-      throw error;
-    }
-  }
-}
-
-const MENSAGEM_FALHA_IA =
-  "Opa, tive um probleminha aqui pra te responder. Já chamei alguém da equipe pra continuar com você.";
-
-async function responderFalhaDaIA(
-  instance: Record<string, any>,
-  leadId: string,
-  phone: string,
-  sessionId: string,
-  agentId: string,
-) {
-  await pauseAIForHumanTakeover(agentId, sessionId);
-  await supabase.from("interacoes").insert({
-    lead_id: leadId,
-    tipo: "sistema",
-    canal: "sistema",
-    conteudo:
-      "A IA não conseguiu responder (falha técnica). O lead recebeu uma mensagem de espera e a IA foi pausada até alguém assumir.",
-  });
-  await enviarTextoRegistrado(
-    supabase,
-    (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
-    instance as { id: string; api_url: string; api_key: string; instance_name: string },
-    phone,
-    MENSAGEM_FALHA_IA,
-    { lead_id: leadId },
-  ).catch((e) => console.error("=== RESPOSTA DE FALHA NÃO ENVIADA ===", (e as Error).message));
-  await notificarResponsaveis(
-    supabase,
-    leadId,
-    {
-      tipo: "ia_falhou",
-      titulo: "Lead esperando atendimento",
-      corpo: "A IA falhou ao responder e foi pausada. Assuma a conversa pelo CRM.",
-    },
-    instance as { id: string; api_url: string; api_key: string; instance_name: string },
-  );
+  console.log("=== RESPOSTA ===", { leadId: lead.id, resultado });
 }
 
 /** O telefone é de alguém da equipe de vendas (mesma chave de 10 dígitos)? */

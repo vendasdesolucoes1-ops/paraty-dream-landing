@@ -22,14 +22,23 @@ function ehColunaInexistente(error: { code?: string; message?: string } | null):
 }
 
 /**
- * Últimos 10 dígitos — DDD + número, sem o 55 do país e sem o nono dígito
- * quando ele varia. É a mesma chave que o frontend usa em chaveTelefone(),
- * pelo mesmo motivo: o CRM guarda "(DD) 9XXXX-XXXX", a Evolution devolve
- * "55DD9XXXXXXXX", e comparar as duas formas cruas nunca casa.
+ * Chave canônica de telefone brasileiro: "55" + DDD + os 8 últimos dígitos.
+ *
+ * O mesmo celular aparece com e sem o 9 inicial (o WhatsApp ainda devolve JIDs
+ * antigos sem ele), com e sem DDI, com e sem máscara. A chave antiga (10
+ * últimos dígitos) separava "com 9" de "sem 9" e, nos números com 9, perdia o
+ * primeiro dígito do DDD — 11 e 21 colidiam. Esta chave mantém o DDD inteiro e
+ * descarta só o 9 de celular, então os dois formatos casam e DDDs diferentes
+ * nunca colidem. Mesma regra de public.telefone_chave() no banco.
+ *
+ * Devolve null quando não é um telefone brasileiro reconhecível.
  */
 export function chaveTelefone(bruto: string | null | undefined): string | null {
-  const digitos = String(bruto ?? "").replace(/\D/g, "");
-  return digitos.length >= 10 ? digitos.slice(-10) : null;
+  let d = String(bruto ?? "").replace(/\D/g, "");
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  if (d.length === 11 && d[2] === "9") d = d.slice(0, 2) + d.slice(3);
+  if (d.length !== 10) return null;
+  return `55${d}`;
 }
 
 /**

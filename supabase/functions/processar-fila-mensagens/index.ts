@@ -16,7 +16,7 @@ import { exigirChamador } from "../_shared/auth.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
 import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 import { podeAbordar } from "../_shared/primeiro-contato.ts";
-import { leadBloqueado } from "../_shared/contato-bloqueado.ts";
+import { responderLead, type InstanciaWhatsapp } from "../_shared/resposta-ia.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -30,8 +30,8 @@ const LOTE = 20;
 /** Pausa entre as partes, como alguém digitando em blocos. */
 const PAUSA_ENTRE_PARTES_MS = 1500;
 
-/** Backoff entre tentativas de uma mensagem que falhou no envio. */
-const RETENTATIVA_MS = 2 * 60 * 1000;
+/** Backoff exponencial entre tentativas: 2, 8 e 32 min (mais jitter). */
+const BACKOFF_BASE_MS = 2 * 60 * 1000;
 
 /** Instância caída não é falha da mensagem: espera mais um pouco e tenta de novo. */
 const SEM_INSTANCIA_MS = 5 * 60 * 1000;
@@ -68,6 +68,7 @@ interface MensagemAgendada {
   telefone: string;
   partes: string[];
   tentativas: number;
+  partes_enviadas?: number | null;
 }
 
 interface Instancia {
@@ -77,21 +78,142 @@ interface Instancia {
   instance_name: string;
 }
 
-/** Devolve a mensagem para 'pendente' no futuro, ou desiste depois de N falhas. */
-async function marcarFalha(m: MensagemAgendada, motivo: string, adiarMs: number) {
+type ClasseErro = "transitorio" | "permanente" | "instancia";
+
+/**
+ * Classifica a falha de envio. Instância caída não é culpa da mensagem (não
+ * conta tentativa); 4xx da Evolution (número inexistente, payload inválido)
+ * não melhora com retry; o resto (timeout, 5xx, rede) é transitório.
+ */
+function classificarErro(motivo: string): ClasseErro {
+  if (/connection closed|not connected|instance.*(not found|closed)|desconect/i.test(motivo)) {
+    return "instancia";
+  }
+  const status = Number(/error: (\d{3})/.exec(motivo)?.[1] ?? 0);
+  if (status >= 400 && status < 500 && status !== 408 && status !== 429) return "permanente";
+  return "transitorio";
+}
+
+/** Devolve a mensagem para 'pendente' no futuro, ou desiste (dead-letter). */
+async function marcarFalha(m: MensagemAgendada, motivo: string) {
+  const classe = classificarErro(motivo);
+  const agora = new Date().toISOString();
+
+  if (classe === "instancia") {
+    await supabase
+      .from("mensagens_agendadas")
+      .update({
+        status: "pendente",
+        erro: motivo.slice(0, 2000),
+        agendado_para: new Date(Date.now() + SEM_INSTANCIA_MS).toISOString(),
+        atualizado_em: agora,
+      })
+      .eq("id", m.id);
+    return;
+  }
+
   const tentativas = m.tentativas + 1;
-  const desistir = tentativas >= MAX_TENTATIVAS;
+  const desistir = classe === "permanente" || tentativas >= MAX_TENTATIVAS;
+  const base = BACKOFF_BASE_MS * 4 ** (tentativas - 1);
+  const espera = base + Math.floor(Math.random() * (base / 2));
 
   await supabase
     .from("mensagens_agendadas")
     .update({
       status: desistir ? "erro" : "pendente",
       tentativas,
-      erro: motivo.slice(0, 2000),
-      agendado_para: new Date(Date.now() + adiarMs).toISOString(),
+      erro: `[${classe}] ${motivo}`.slice(0, 2000),
+      agendado_para: new Date(Date.now() + espera).toISOString(),
+      atualizado_em: agora,
+    })
+    .eq("id", m.id);
+
+  // Dead-letter não pode ser silencioso: a gestão é avisada no painel.
+  if (desistir) {
+    const { data: gestao } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("role", ["admin", "gestor"])
+      .eq("ativo", true)
+      .is("deletado_em", null);
+    if (gestao?.length) {
+      await supabase.from("notifications").insert(
+        gestao.map((p) => ({
+          user_id: p.id,
+          type: "fila_erro",
+          title: "Mensagem automática não enviada",
+          body: `A mensagem "${m.tipo}" desistiu depois de ${tentativas} tentativa(s): ${motivo.slice(0, 200)}`,
+          link: `/dashboard/crm?lead=${m.lead_id}`,
+        })),
+      );
+    }
+  }
+}
+
+/** Reagenda sem contar tentativa (ex.: fora da janela de envio). */
+async function reagendar(m: MensagemAgendada, quando: string, motivo: string) {
+  await supabase
+    .from("mensagens_agendadas")
+    .update({
+      status: "pendente",
+      agendado_para: quando,
+      erro: motivo,
       atualizado_em: new Date().toISOString(),
     })
     .eq("id", m.id);
+}
+
+async function cancelar(m: MensagemAgendada, motivo: string) {
+  await supabase
+    .from("mensagens_agendadas")
+    .update({ status: "cancelado", erro: motivo, atualizado_em: new Date().toISOString() })
+    .eq("id", m.id);
+}
+
+/** Pergunta ao banco (pode_enviar) se este envio ativo pode sair agora. */
+async function checarEnvio(m: MensagemAgendada): Promise<{ ok: boolean; motivo: string | null }> {
+  const { data, error } = await supabase.rpc("pode_enviar", {
+    p_lead_id: m.lead_id,
+    p_tipo: m.tipo,
+  });
+  // Falha fechada: sem resposta do banco, não envia agora.
+  if (error) {
+    console.error("[fila] pode_enviar falhou:", error.message);
+    return { ok: false, motivo: "verificacao_indisponivel" };
+  }
+  const linha = Array.isArray(data) ? data[0] : data;
+  return { ok: linha?.ok === true, motivo: linha?.motivo ?? null };
+}
+
+/** Motivos que encerram a mensagem; os demais só adiam. */
+const MOTIVOS_DEFINITIVOS = new Set([
+  "lead_inexistente",
+  "opt_out",
+  "sem_interesse",
+  "convertido",
+  "sem_base_legal",
+  "takeover",
+]);
+
+async function aplicarRecusa(m: MensagemAgendada, motivo: string | null) {
+  if (motivo && MOTIVOS_DEFINITIVOS.has(motivo)) {
+    await cancelar(m, `pode_enviar: ${motivo}`);
+    return;
+  }
+  if (motivo === "fora_da_janela") {
+    const { data: quando } = await supabase.rpc("proximo_horario_util");
+    await reagendar(
+      m,
+      (quando as string) ?? new Date(Date.now() + 3600_000).toISOString(),
+      "fora da janela de envio",
+    );
+    return;
+  }
+  await reagendar(
+    m,
+    new Date(Date.now() + 5 * 60_000).toISOString(),
+    `pode_enviar: ${motivo ?? "?"}`,
+  );
 }
 
 /** Envia as partes e registra tudo no histórico do CRM. */
@@ -103,17 +225,24 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
     .maybeSingle();
 
   const partes = Array.isArray(m.partes) ? m.partes : [];
+  // Retoma de onde parou: uma falha na parte 3 não reenvia as partes 1 e 2.
+  const inicio = Math.min(Math.max(m.partes_enviadas ?? 0, 0), partes.length);
 
-  for (const [i, texto] of partes.entries()) {
-    if (i > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
+  for (let i = inicio; i < partes.length; i++) {
+    const texto = partes[i];
+    if (i > inicio) {
+      await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
+      // O lead pode ter pedido para parar (ou um humano assumido) entre as
+      // partes: a checagem vale antes de CADA parte, não só da primeira.
+      const checagem = await checarEnvio(m);
+      if (!checagem.ok) {
+        await aplicarRecusa(m, checagem.motivo);
+        return false;
+      }
+    }
 
     if (!(await agenteAtivo(instancia.id))) {
-      // Preserve only unsent parts so resuming never duplicates the opening.
-      const { error } = await supabase
-        .from("mensagens_agendadas")
-        .update({ partes: partes.slice(i) })
-        .eq("id", m.id);
-      if (error) throw error;
+      // partes_enviadas já guarda até onde foi: ao retomar, nada se repete.
       await adiarPorPausa(m);
       return false;
     }
@@ -142,6 +271,12 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
       await descartarEnvio(supabase, rowId);
       throw error;
     }
+
+    m.partes_enviadas = i + 1;
+    await supabase
+      .from("mensagens_agendadas")
+      .update({ partes_enviadas: i + 1, atualizado_em: new Date().toISOString() })
+      .eq("id", m.id);
   }
 
   await supabase.from("interacoes").insert({
@@ -178,12 +313,20 @@ Deno.serve(async (req) => {
     }
 
     // Uma busca por lote, não por mensagem.
-    const { data: instancia } = await supabase
+    // Instância escolhida de forma determinística: a do agente ativo, se
+    // estiver conectada; senão a conectada mais antiga (auditoria R-34).
+    const { data: conectadas } = await supabase
       .from("whatsapp_instances")
       .select("id, api_url, api_key, instance_name")
       .in("status", ["connected", "open"])
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
+    const { data: agentesAtivos } = await supabase
+      .from("ai_agents")
+      .select("instance_id")
+      .eq("is_active", true);
+    const idsComAgente = new Set((agentesAtivos ?? []).map((a) => a.instance_id));
+    const instancia =
+      (conectadas ?? []).find((i) => idsComAgente.has(i.id)) ?? (conectadas ?? [])[0] ?? null;
 
     // Sem instância nada é consumido: as linhas voltam para pendente. A
     // tentativa não conta, porque a mensagem não tem culpa de a instância
@@ -215,21 +358,29 @@ Deno.serve(async (req) => {
 
     for (const m of mensagens) {
       try {
-        // Entre o enfileiramento e agora o lead pode ter pedido para parar.
-        // Este é o caso mais provável de todos: a mensagem foi enfileirada,
-        // demorou os minutos da fila, e nesse meio-tempo a conversa terminou em
-        // recusa. Sem esta checagem, a Sophia despede-se educadamente e volta a
-        // escrever cinco minutos depois.
-        if (await leadBloqueado(supabase, m.lead_id)) {
-          await supabase
-            .from("mensagens_agendadas")
-            .update({
-              status: "cancelado",
-              erro: "lead pediu para não ser mais procurado",
-              atualizado_em: new Date().toISOString(),
-            })
-            .eq("id", m.id);
-          canceladas++;
+        // Resposta da Sophia que o caminho rápido do webhook não concluiu
+        // (isolate recolhido no debounce, por exemplo). Não passa por
+        // pode_enviar: é resposta a quem escreveu, não envio ativo.
+        if (m.tipo === "resposta_ia") {
+          const resultado = await responderLead(
+            supabase,
+            instancia as InstanciaWhatsapp,
+            m.lead_id,
+            {
+              filaId: m.id,
+            },
+          );
+          if (resultado === "enviado") enviadas++;
+          continue;
+        }
+
+        // Regras de envio num só lugar (pode_enviar, no banco): opt-out, sem
+        // interesse, takeover humano, convertido, base legal e janela de
+        // horário. Entre o enfileiramento e agora qualquer uma pode ter mudado.
+        const checagem = await checarEnvio(m);
+        if (!checagem.ok) {
+          await aplicarRecusa(m, checagem.motivo);
+          if (checagem.motivo && MOTIVOS_DEFINITIVOS.has(checagem.motivo)) canceladas++;
           continue;
         }
 
@@ -269,7 +420,7 @@ Deno.serve(async (req) => {
         // Falha de uma mensagem não derruba o lote.
         const motivo = (e as Error)?.message ?? String(e);
         console.error("[fila] envio falhou", { id: m.id, leadId: m.lead_id, motivo });
-        await marcarFalha(m, motivo, RETENTATIVA_MS);
+        await marcarFalha(m, motivo);
         falhas++;
       }
     }

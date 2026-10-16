@@ -178,7 +178,7 @@ notify pgrst, 'reload schema';
 -- Início e o selo do Kanban liam a tabela direto e ficavam sempre vazios. Esta
 -- RPC devolve os atendimentos humanos em aberto que o usuário pode ver:
 -- gestão vê todos; vendedor, os da própria carteira (casando o telefone da
--- conversa com o do lead pelos 10 últimos dígitos).
+-- conversa com o do lead pela chave canônica).
 create or replace function public.takeovers_abertos()
 returns table (session_id text, desde timestamptz)
 language sql
@@ -196,8 +196,7 @@ as $$
          select 1 from public.leads l
           where l.vendedor_id = public.meu_vendedor_id()
             and l.telefone is not null
-            and right(regexp_replace(l.telefone, '\D', '', 'g'), 10)
-              = right(regexp_replace(c.session_id, '\D', '', 'g'), 10)
+            and l.telefone_chave = public.telefone_chave(c.session_id)
        )
      )
    group by c.session_id

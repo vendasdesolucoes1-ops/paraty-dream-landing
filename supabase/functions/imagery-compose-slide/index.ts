@@ -40,8 +40,8 @@ const FONT_URLS = {
   impact: "https://cdn.jsdelivr.net/fontsource/fonts/anton@latest/latin-400-normal.ttf",
 };
 
-let fontCache: Array<{ name: string; data: ArrayBuffer; weight: number; style: "normal" }> | null =
-  null;
+type Fonte = { name: string; data: ArrayBuffer; weight: 400 | 500 | 600; style: "normal" };
+let fontCache: Fonte[] | null = null;
 let wasmReady = false;
 
 async function loadFonts() {
@@ -49,14 +49,15 @@ async function loadFonts() {
   const [dr, db, b, bm, im] = await Promise.all(
     Object.values(FONT_URLS).map((u) => fetch(u).then((r) => r.arrayBuffer())),
   );
-  fontCache = [
+  const fontes: Fonte[] = [
     { name: "Display", data: dr, weight: 400, style: "normal" },
     { name: "Display", data: db, weight: 600, style: "normal" },
     { name: "Body", data: b, weight: 400, style: "normal" },
     { name: "Body", data: bm, weight: 500, style: "normal" },
     { name: "Impact", data: im, weight: 400, style: "normal" },
   ];
-  return fontCache;
+  fontCache = fontes;
+  return fontes;
 }
 
 async function toDataUrl(url: string): Promise<string> {
