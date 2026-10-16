@@ -12,6 +12,13 @@ import { temTexto } from "../_shared/mensagem-entrada.ts";
 import { fetchComRetry } from "../_shared/http.ts";
 import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { proximosDias } from "../_shared/data-br.ts";
+import {
+  CHAVE_JANELAS_VISITA,
+  MENSAGEM_VISITA_A_CONFIRMAR,
+  descreverJanelas,
+  lerJanelasVisita,
+  type JanelasVisita,
+} from "../_shared/janela-visita.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
 import { registrarChamadaIA } from "../_shared/telemetria.ts";
 import {
@@ -434,6 +441,22 @@ ${tabela}
 - Visita marcada no dia errado faz alguém viajar à toa.`;
 }
 
+/**
+ * Janelas de visita configuradas no painel (issue #56). Sem isto a Sophia
+ * confirmava domingo às 20h; o horário fora da janela continua sendo pego
+ * depois, na criação da visita, mas o ideal é ela nem propor.
+ */
+function blocoHorariosVisita(janelas: JanelasVisita): string {
+  return `---
+HORÁRIOS DE VISITA
+
+Horários de visita disponíveis: ${descreverJanelas(janelas)}. Cada visita dura cerca de ${janelas.duracao_min} minutos.
+
+- Só proponha dias e horários dentro destas janelas.
+- Se o lead pedir um dia ou horário fora delas, NÃO confirme: diga que vai checar a agenda com o consultor e ofereça uma opção dentro da janela.
+- O horário só fica confirmado depois de conferido com a agenda do consultor; não prometa que está garantido.`;
+}
+
 /** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
 /**
  * A recusa, dita de volta ao modelo a cada mensagem.
@@ -610,6 +633,7 @@ function montarPromptFinal(
   mensagemBoasVindas: string | null,
   lead: LeadConhecido | null,
   agora: Date,
+  janelas: JanelasVisita,
 ): string {
   const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
   // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
@@ -619,6 +643,7 @@ function montarPromptFinal(
   return [
     basePrompt,
     blocoDataDeHoje(agora),
+    blocoHorariosVisita(janelas),
     blocoLeadConhecido(lead),
     // Depois do bloco de dados e antes dos lotes: a recusa precisa vir tarde no
     // prompt, porque é ela que revoga as regras de "puxe a visita" que vieram
@@ -773,7 +798,7 @@ Deno.serve(async (req) => {
     const { data: configRag } = await supabase
       .from("configuracoes")
       .select("chave, valor")
-      .in("chave", ["rag_conhecimento", "rag_modo"]);
+      .in("chave", ["rag_conhecimento", "rag_modo", CHAVE_JANELAS_VISITA]);
     const configPorChave = new Map((configRag ?? []).map((c) => [c.chave, c.valor as string]));
     const knowledgeBase =
       configPorChave.get("rag_conhecimento") ?? "Nenhuma informação cadastrada ainda.";
@@ -868,6 +893,7 @@ Deno.serve(async (req) => {
       agent.mensagem_boas_vindas ?? null,
       leadConhecido,
       new Date(),
+      lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null),
     );
 
     if (apenasPreview) {
@@ -1006,7 +1032,7 @@ Deno.serve(async (req) => {
       .replace(LEAD_SEM_INTERESSE_TAG, "")
       .trim();
 
-    const messages = cleanedText
+    let messages = cleanedText
       .split("||")
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
@@ -1051,7 +1077,12 @@ Deno.serve(async (req) => {
 
         if (leadVisita?.is_teste) {
           try {
-            await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
+            const visita = await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
+            // Mesmo comportamento do fluxo real (resposta-ia): fora da janela
+            // ou em conflito, a confirmação do modelo não sai.
+            if (visita.aConfirmar) {
+              messages = MENSAGEM_VISITA_A_CONFIRMAR.split("||").map((m) => m.trim());
+            }
           } catch (e) {
             // A conversa não pode cair por causa da agenda.
             console.error("[ai-agent-chat] criação da visita de teste falhou:", e);

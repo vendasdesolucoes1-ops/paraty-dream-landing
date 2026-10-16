@@ -10,6 +10,7 @@ import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-car
 import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
 import { TeamPanel } from "@/components/dashboard/team-panel";
+import { JanelasVisitaCard } from "@/components/dashboard/janelas-visita-card";
 import { Button } from "@/components/ui/button";
 import { Bloco } from "@/components/ds/bloco";
 import { SkeletonRows } from "@/components/ds/query-state";
@@ -104,6 +105,14 @@ function ConfiguracoesPage() {
           </div>
         </Bloco>
       ) : null}
+
+      <Bloco
+        titulo="Horários de visita"
+        descricao="Dias e horários em que a Sophia pode marcar visita sem confirmação humana."
+        divisor
+      >
+        <JanelasVisitaCard />
+      </Bloco>
     </div>
   );
 

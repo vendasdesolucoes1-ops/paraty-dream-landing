@@ -261,7 +261,13 @@ export const LOTE_STATUS_OPTIONS: { value: LoteStatus; label: string }[] = [
   { value: "vendido", label: "Vendido" },
 ];
 
-export type VisitaStatus = "agendada" | "confirmada" | "realizada" | "cancelada" | "no_show";
+export type VisitaStatus =
+  | "agendada"
+  | "a_confirmar"
+  | "confirmada"
+  | "realizada"
+  | "cancelada"
+  | "no_show";
 
 export interface Visita {
   id: string;
@@ -281,6 +287,7 @@ export interface VisitaWithRelations extends Visita {
 
 export const VISITA_STATUS_OPTIONS: { value: VisitaStatus; label: string }[] = [
   { value: "agendada", label: "Agendada" },
+  { value: "a_confirmar", label: "A confirmar" },
   { value: "confirmada", label: "Confirmada" },
   { value: "realizada", label: "Realizada" },
   { value: "no_show", label: "No-show" },

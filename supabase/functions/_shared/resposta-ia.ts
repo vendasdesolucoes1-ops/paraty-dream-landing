@@ -24,6 +24,7 @@ import { enviarTextoRegistrado, jidDoTelefone } from "./envio-registrado.ts";
 import { fetchComRetry } from "./http.ts";
 import { handleLeadQualification } from "./lead-qualification.ts";
 import { handleVisitaAgendada } from "./lead-visita.ts";
+import { MENSAGEM_VISITA_A_CONFIRMAR } from "./janela-visita.ts";
 import { notificarResponsaveis } from "./notificar.ts";
 import { temTexto } from "./mensagem-entrada.ts";
 
@@ -250,7 +251,7 @@ export async function responderLead(
   }
 
   const resultado = await resposta.json();
-  const partes = ((resultado.messages ?? []) as string[])
+  let partes = ((resultado.messages ?? []) as string[])
     .map((m) => String(m).trim())
     .filter((m) => m.length > 0);
 
@@ -260,9 +261,18 @@ export async function responderLead(
     );
   }
   if (resultado.visita_agendada) {
-    await handleVisitaAgendada(supabase, lead, OPENAI_API_KEY).catch((e) =>
-      console.error("[resposta-ia] criação da visita falhou:", (e as Error)?.message),
+    const visita = await handleVisitaAgendada(supabase, lead, OPENAI_API_KEY, instancia).catch(
+      (e) => {
+        console.error("[resposta-ia] criação da visita falhou:", (e as Error)?.message);
+        return null;
+      },
     );
+    // Fora da janela ou em conflito na agenda do vendedor: a confirmação que o
+    // modelo escreveu não sai — o lead fica sabendo que o horário vai ser
+    // confirmado, e o vendedor já foi avisado.
+    if (visita?.aConfirmar) {
+      partes = MENSAGEM_VISITA_A_CONFIRMAR.split("||").map((m) => m.trim());
+    }
   }
 
   if (partes.length === 0) {
