@@ -18,7 +18,14 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — Moradas de Paraty" }] }),
+  head: () => ({ meta: [
+      { title: "Configurações — Moradas de Paraty" },
+      { name: "description", content: "Controle o WhatsApp, a IA e a equipe do Moradas de Paraty." },
+      { property: "og:title", content: "Configurações — Moradas de Paraty" },
+      { property: "og:description", content: "Controle o WhatsApp, a IA e a equipe do Moradas de Paraty." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ] }),
   component: ConfiguracoesPage,
 });
 

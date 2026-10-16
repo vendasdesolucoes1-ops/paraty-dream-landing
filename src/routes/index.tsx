@@ -20,7 +20,6 @@ import {
   TreePine,
 } from "lucide-react";
 import { foto } from "@/lib/landing-images";
-import ogImg from "@/assets/landing/og-moradas.jpg";
 import "@/components/landing/landing.css";
 
 /** Atraso da animação de abertura do hero (ver landing.css). */
@@ -48,8 +47,8 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:title", content: "Moradas de Paraty" },
       { property: "og:description", content: "Viva e invista em Paraty com tranquilidade." },
-      { property: "og:image", content: ogImg },
-      { name: "twitter:image", content: ogImg },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     // A foto do hero é o maior elemento da primeira tela: o pedido sai junto
     // com o HTML, com prioridade alta, já na largura certa para a tela.

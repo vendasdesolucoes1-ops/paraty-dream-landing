@@ -60,7 +60,14 @@ const VIEW_STORAGE_KEY = "lotes-view";
 type LotesView = "tabela" | "planta" | "3d";
 
 export const Route = createFileRoute("/dashboard/lotes")({
-  head: () => ({ meta: [{ title: "Lotes — Moradas de Paraty" }] }),
+  head: () => ({ meta: [
+      { title: "Lotes — Moradas de Paraty" },
+      { name: "description", content: "Consulte a disponibilidade dos lotes do Moradas de Paraty." },
+      { property: "og:title", content: "Lotes — Moradas de Paraty" },
+      { property: "og:description", content: "Consulte a disponibilidade dos lotes do Moradas de Paraty." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ] }),
   component: LotesPage,
 });
 

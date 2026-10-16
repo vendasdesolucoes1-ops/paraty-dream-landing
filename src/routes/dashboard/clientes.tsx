@@ -19,7 +19,14 @@ import { formatNumero, formatTelefone, linkWhatsapp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/clientes")({
-  head: () => ({ meta: [{ title: "Clientes — Moradas de Paraty" }] }),
+  head: () => ({ meta: [
+      { title: "Clientes — Moradas de Paraty" },
+      { name: "description", content: "Consulte os clientes e suas compras no Moradas de Paraty." },
+      { property: "og:title", content: "Clientes — Moradas de Paraty" },
+      { property: "og:description", content: "Consulte os clientes e suas compras no Moradas de Paraty." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ] }),
   component: ClientesPage,
 });
 

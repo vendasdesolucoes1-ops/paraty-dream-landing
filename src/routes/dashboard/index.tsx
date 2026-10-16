@@ -23,7 +23,14 @@ import { Indicadores } from "@/components/dashboard/inicio/indicadores";
 import { Recentes } from "@/components/dashboard/inicio/recentes";
 
 export const Route = createFileRoute("/dashboard/")({
-  head: () => ({ meta: [{ title: "Início — Moradas de Paraty" }] }),
+  head: () => ({ meta: [
+      { title: "Início — Moradas de Paraty" },
+      { name: "description", content: "Resumo de vendas e atendimentos do Moradas de Paraty." },
+      { property: "og:title", content: "Início — Moradas de Paraty" },
+      { property: "og:description", content: "Resumo de vendas e atendimentos do Moradas de Paraty." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ] }),
   component: DashboardHome,
 });
 

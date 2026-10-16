@@ -13,7 +13,6 @@ import { Pill } from "@/components/ds/pill";
 import { PontoVivo } from "@/components/ajustes/ponto-vivo";
 import { Campo, LinhaAjuste, SeloIcone } from "@/components/ajustes/campos";
 import { SkeletonRows } from "@/components/ds/query-state";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
