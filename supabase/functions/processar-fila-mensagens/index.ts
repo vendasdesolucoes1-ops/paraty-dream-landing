@@ -13,7 +13,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { exigirChamador } from "../_shared/auth.ts";
-import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import {
+  sendWhatsAppAudio,
+  sendWhatsAppMedia,
+  sendWhatsAppText,
+  type EvolutionMediaType,
+} from "../_shared/evolution-send.ts";
 import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 import { podeAbordar } from "../_shared/primeiro-contato.ts";
 import { responderLead, type InstanciaWhatsapp } from "../_shared/resposta-ia.ts";
@@ -71,6 +76,8 @@ interface MensagemAgendada {
   partes_enviadas?: number | null;
   instance_id?: string | null;
   inscricao_id?: string | null;
+  /** Mídia da campanha, enviada depois do texto (conta como a última parte). */
+  midia?: { url: string; tipo: EvolutionMediaType | "audio"; nome?: string } | null;
 }
 
 /** Envios ativos de follow-up: cadência e campanha. */
@@ -315,6 +322,43 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
     await supabase
       .from("mensagens_agendadas")
       .update({ partes_enviadas: i + 1, atualizado_em: new Date().toISOString() })
+      .eq("id", m.id);
+  }
+
+  // Mídia por último, como no disparo antigo: texto e arquivo em duas
+  // mensagens. Retomada não reenvia (partes_enviadas passa do texto).
+  if (m.midia?.url && (m.partes_enviadas ?? 0) <= partes.length) {
+    if (partes.length > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
+    const checagem = await checarEnvio(m, instancia.id);
+    if (!checagem.ok) {
+      await aplicarRecusa(m, checagem.motivo);
+      return false;
+    }
+    if (m.midia.tipo === "audio") {
+      await sendWhatsAppAudio(
+        instancia.api_url,
+        instancia.api_key,
+        instancia.instance_name,
+        m.telefone,
+        m.midia.url,
+      );
+    } else {
+      await sendWhatsAppMedia(
+        instancia.api_url,
+        instancia.api_key,
+        instancia.instance_name,
+        m.telefone,
+        {
+          url: m.midia.url,
+          tipo: m.midia.tipo,
+          nomeArquivo: m.midia.nome,
+        },
+      );
+    }
+    m.partes_enviadas = partes.length + 1;
+    await supabase
+      .from("mensagens_agendadas")
+      .update({ partes_enviadas: m.partes_enviadas, atualizado_em: new Date().toISOString() })
       .eq("id", m.id);
   }
 
