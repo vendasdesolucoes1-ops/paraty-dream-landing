@@ -30,6 +30,7 @@ import { QueryState } from "@/components/ds/query-state";
 import { Reveal, atraso } from "@/components/ds/reveal";
 import { EtapaDot } from "@/components/crm/etapa-pill";
 import { ETAPA_COR } from "@/components/crm/etapas";
+import { ExportarLeads } from "@/components/crm/exportar-leads";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { useContagem } from "@/hooks/use-contagem";
 import { useMontado } from "@/hooks/use-montado";
@@ -518,7 +519,12 @@ function CrmPage() {
           eyebrow="Relacionamento"
           title="CRM"
           description="Arraste os cartões entre as etapas do funil ou clique para abrir a ficha do lead."
-          action={<LeadFormDialog />}
+          action={
+            <>
+              <ExportarLeads filtros={{ busca, origem: origemAtiva, mostrarTestes }} />
+              <LeadFormDialog />
+            </>
+          }
         />
       </Reveal>
 
