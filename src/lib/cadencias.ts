@@ -309,17 +309,16 @@ export function useContagemInscricoes(cadenciaId: string) {
     queryKey: [...chaveFollowup, "contagem", cadenciaId],
     ...TENTATIVAS,
     queryFn: async (): Promise<Record<StatusInscricao, number>> => {
-      const pares = await Promise.all(
-        STATUS_INSCRICAO.map(async (s) => {
-          const { count, error } = await tabela("inscricoes")
-            .select("id", { count: "exact", head: true })
-            .eq("cadencia_id", cadenciaId)
-            .eq("status", s.value);
-          if (error) throw error;
-          return [s.value, count ?? 0] as const;
-        }),
+      const linhas = await rpc<{ status: StatusInscricao; total: number }[]>(
+        "contagem_inscricoes",
+        { p_cadencia_id: cadenciaId },
       );
-      return Object.fromEntries(pares) as Record<StatusInscricao, number>;
+      const contagem = Object.fromEntries(STATUS_INSCRICAO.map((s) => [s.value, 0])) as Record<
+        StatusInscricao,
+        number
+      >;
+      for (const l of linhas ?? []) contagem[l.status] = Number(l.total);
+      return contagem;
     },
   });
 }
@@ -348,86 +347,40 @@ export interface CadenciaForm {
   etapas: EtapaForm[];
 }
 
-// Acima de qualquer ordem real: renumerar passa por aqui para não esbarrar no
-// unique (cadencia_id, ordem) enquanto as etapas trocam de lugar.
-const ORDEM_TEMPORARIA = 10_000;
-
 /**
- * Grava a cadência e as etapas. Sem RPC própria: a RLS deixa a gestão
- * escrever nas duas tabelas. As etapas mantêm o id (as métricas e as
- * inscrições se apoiam na ordem, não no id); só quando a ordem muda as
- * etapas passam por uma ordem temporária antes da final.
+ * Grava a cadência e as etapas numa transação só (RPC salvar_cadencia): a
+ * ordem final é a da lista; etapas que saíram da lista são removidas; ids
+ * existentes são mantidos.
  */
-export async function salvarCadencia(form: CadenciaForm, anteriores: Etapa[]): Promise<string> {
-  const dados = {
-    nome: form.nome.trim(),
-    descricao: form.descricao?.trim() || null,
-    gatilho: form.gatilho,
-    ativa: form.ativa,
-    pausa_ao_responder: form.pausa_ao_responder,
-    status_crm_validos:
-      form.status_crm_validos && form.status_crm_validos.length > 0
-        ? form.status_crm_validos
-        : null,
-    instance_id: form.instance_id,
-    atualizado_em: new Date().toISOString(),
-  };
-
-  let cadenciaId = form.id;
-  if (cadenciaId) {
-    const { error } = await tabela("cadencias").update(dados).eq("id", cadenciaId);
-    if (error) throw error;
-  } else {
-    const { data, error } = await tabela("cadencias").insert(dados).select("id").single();
-    if (error) throw error;
-    cadenciaId = (data as { id: string }).id;
-  }
-
-  const ficam = new Set(form.etapas.map((e) => e.id));
-  const removidas = anteriores.filter((e) => !ficam.has(e.id)).map((e) => e.id);
-  if (removidas.length > 0) {
-    const { error } = await tabela("cadencia_etapas").delete().in("id", removidas);
-    if (error) throw error;
-  }
-
-  const ordemAnterior = new Map(anteriores.map((e) => [e.id, e.ordem]));
-  const reordenou = form.etapas.some((e, i) => {
-    const antes = ordemAnterior.get(e.id);
-    return antes !== undefined && antes !== i + 1;
+export async function salvarCadencia(form: CadenciaForm): Promise<string> {
+  return rpc<string>("salvar_cadencia", {
+    p_cadencia: {
+      id: form.id,
+      nome: form.nome.trim(),
+      descricao: form.descricao?.trim() || null,
+      gatilho: form.gatilho,
+      ativa: form.ativa,
+      pausa_ao_responder: form.pausa_ao_responder,
+      status_crm_validos: form.status_crm_validos ?? [],
+      instance_id: form.instance_id,
+    },
+    p_etapas: form.etapas.map((e) => ({
+      id: e.id,
+      referencia: e.referencia,
+      deslocamento: e.deslocamento,
+      hora_fixa: e.hora_fixa || null,
+      modo: e.modo,
+      template: e.template,
+      midia: e.midia,
+      ativa: e.ativa,
+    })),
   });
-
-  const linhas = form.etapas.map((e, i) => ({
-    id: e.id,
-    cadencia_id: cadenciaId,
-    ordem: (reordenou ? ORDEM_TEMPORARIA : 0) + i + 1,
-    referencia: e.referencia,
-    deslocamento: e.deslocamento,
-    hora_fixa: e.hora_fixa || null,
-    modo: e.modo,
-    template: e.template,
-    midia: e.midia,
-    ativa: e.ativa,
-  }));
-  if (linhas.length > 0) {
-    const { error } = await tabela("cadencia_etapas").upsert(linhas, { onConflict: "id" });
-    if (error) throw error;
-  }
-  if (reordenou) {
-    for (let i = 0; i < form.etapas.length; i++) {
-      const { error } = await tabela("cadencia_etapas")
-        .update({ ordem: i + 1 })
-        .eq("id", form.etapas[i].id);
-      if (error) throw error;
-    }
-  }
-  return cadenciaId as string;
 }
 
 export function useSalvarCadencia() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ form, anteriores }: { form: CadenciaForm; anteriores: Etapa[] }) =>
-      salvarCadencia(form, anteriores),
+    mutationFn: ({ form }: { form: CadenciaForm; anteriores?: Etapa[] }) => salvarCadencia(form),
     onSettled: () => queryClient.invalidateQueries({ queryKey: chaveFollowup }),
   });
 }
