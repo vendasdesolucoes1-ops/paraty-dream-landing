@@ -358,6 +358,7 @@ export type Database = {
           total_contatos: number
           total_enviado: number
           total_falhou: number
+          total_pulado: number
         }
         Insert: {
           disparado_por?: string | null
@@ -379,6 +380,7 @@ export type Database = {
           total_contatos: number
           total_enviado?: number
           total_falhou?: number
+          total_pulado?: number
         }
         Update: {
           disparado_por?: string | null
@@ -400,6 +402,7 @@ export type Database = {
           total_contatos?: number
           total_enviado?: number
           total_falhou?: number
+          total_pulado?: number
         }
         Relationships: [
           {

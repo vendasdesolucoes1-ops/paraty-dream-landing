@@ -170,3 +170,40 @@ create policy "ai_agents_write_gestao" on public.ai_agents
   using (public.sou_gestao()) with check (public.sou_gestao());
 
 notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- Takeovers abertos visíveis no painel (auditoria R-06)
+-- ---------------------------------------------------------------------------
+-- ai_agent_human_takeover só tem política de service_role: o contador do
+-- Início e o selo do Kanban liam a tabela direto e ficavam sempre vazios. Esta
+-- RPC devolve os atendimentos humanos em aberto que o usuário pode ver:
+-- gestão vê todos; vendedor, os da própria carteira (casando o telefone da
+-- conversa com o do lead pelos 10 últimos dígitos).
+create or replace function public.takeovers_abertos()
+returns table (session_id text, desde timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select c.session_id, min(t.human_takeover_at) as desde
+    from public.ai_agent_human_takeover t
+    join public.ai_agent_conversations c on c.id = t.conversation_id
+   where t.resolved_at is null
+     and (
+       public.sou_gestao()
+       or exists (
+         select 1 from public.leads l
+          where l.vendedor_id = public.meu_vendedor_id()
+            and l.telefone is not null
+            and right(regexp_replace(l.telefone, '\D', '', 'g'), 10)
+              = right(regexp_replace(c.session_id, '\D', '', 'g'), 10)
+       )
+     )
+   group by c.session_id
+$$;
+
+revoke all on function public.takeovers_abertos() from public, anon;
+grant execute on function public.takeovers_abertos() to authenticated;
+
+notify pgrst, 'reload schema';

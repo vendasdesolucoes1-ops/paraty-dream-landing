@@ -291,15 +291,15 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           .order("updated_at", { ascending: true })
           .limit(6),
         visitasQ,
-        // Atendimento humano em aberto é visão de gestão; a tabela é do agente
-        // de IA e pode não estar liberada para todos os perfis — na falta,
-        // simplesmente não entra na fila.
-        papel === "vendedor"
-          ? Promise.resolve({ count: 0, error: null })
-          : supabase
-              .from("ai_agent_human_takeover")
-              .select("id", { count: "exact", head: true })
-              .is("resolved_at", null),
+        // Atendimento humano em aberto: a RPC já recorta pelo papel (gestão
+        // vê todos; vendedor, os da carteira).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.rpc as any)("takeovers_abertos").then(
+          ({ data, error }: { data: unknown[] | null; error: unknown }) => ({
+            count: (data ?? []).length,
+            error,
+          }),
+        ),
       ]);
 
       if (qualificados.error) throw qualificados.error;

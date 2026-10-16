@@ -142,3 +142,63 @@ export async function reconciliarEco(
 
   return true;
 }
+
+export interface InstanciaEnvio {
+  id?: string | null;
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+}
+
+/** JID do WhatsApp a partir do telefone, como a Evolution devolve no eco. */
+export function jidDoTelefone(telefone: string): string {
+  return `${String(telefone).replace(/\D/g, "")}@s.whatsapp.net`;
+}
+
+/**
+ * Envia texto registrando ANTES (e confirmando ou descartando depois).
+ *
+ * Todo envio de saída precisa passar por aqui ou fazer o mesmo à mão: um envio
+ * sem registro volta como eco, o webhook o trata como intervenção humana,
+ * pausa a IA daquele contato e pode criar um lead fantasma.
+ */
+export async function enviarTextoRegistrado(
+  supabase: SupabaseClient,
+  enviar: (instancia: InstanciaEnvio, telefone: string, texto: string) => Promise<unknown>,
+  instancia: InstanciaEnvio,
+  telefone: string,
+  texto: string,
+  extra: { lead_id?: string | null; contact_id?: string | null } = {},
+): Promise<unknown> {
+  let instanceId = instancia.id ?? null;
+  if (!instanceId) {
+    const { data } = await supabase
+      .from("whatsapp_instances")
+      .select("id")
+      .eq("instance_name", instancia.instance_name)
+      .maybeSingle();
+    instanceId = (data?.id as string | undefined) ?? null;
+  }
+
+  const rowId = instanceId
+    ? await registrarEnvio(supabase, {
+        instance_id: instanceId,
+        lead_id: extra.lead_id ?? null,
+        contact_id: extra.contact_id ?? null,
+        remote_jid: jidDoTelefone(telefone),
+        content: texto,
+      })
+    : null;
+
+  try {
+    const resultado = (await enviar(instancia, telefone, texto)) as
+      | { key?: { id?: string } }
+      | null
+      | undefined;
+    await confirmarEnvio(supabase, rowId, resultado?.key?.id);
+    return resultado;
+  } catch (erro) {
+    await descartarEnvio(supabase, rowId);
+    throw erro;
+  }
+}

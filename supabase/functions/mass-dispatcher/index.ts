@@ -19,7 +19,7 @@ import {
   type EvolutionMediaType,
 } from "../_shared/evolution-send.ts";
 import { telefoneBloqueado } from "../_shared/contato-bloqueado.ts";
-
+import { enviarTextoRegistrado } from "../_shared/envio-registrado.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -84,12 +84,26 @@ Deno.serve(async (req) => {
 
     // Texto primeiro, quando houver: quem recebe vê o contexto antes do anexo.
     if (text.trim()) {
-      await sendWhatsAppText(instance.api_url, instance.api_key, instance_name, phone, text);
+      // Registrado antes de enviar: sem isso o eco volta ao webhook como se um
+      // vendedor tivesse escrito, e a IA daquele contato fica pausada.
+      await enviarTextoRegistrado(
+        supabase,
+        (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+        instance,
+        phone,
+        text,
+      );
     }
 
     if (midia_url) {
       if (midia_tipo === "audio") {
-        await sendWhatsAppAudio(instance.api_url, instance.api_key, instance_name, phone, midia_url);
+        await sendWhatsAppAudio(
+          instance.api_url,
+          instance.api_key,
+          instance_name,
+          phone,
+          midia_url,
+        );
       } else {
         await sendWhatsAppMedia(instance.api_url, instance.api_key, instance_name, phone, {
           url: midia_url,

@@ -7,6 +7,9 @@ import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
+import { ehPedidoDeParada } from "../_shared/contato-bloqueado.ts";
+import { fetchComRetry } from "../_shared/http.ts";
+import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { proximosDias } from "../_shared/data-br.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
 import {
@@ -25,6 +28,7 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const OPENAI_MODEL = "gpt-4o-mini";
+const OPENAI_FALLBACK_MODEL = (Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "").trim();
 const VISITA_AGENDADA_TAG = "[VISITA_AGENDADA]";
 const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // Mesma marca que whatsapp-webhook.ts procura para disparar a atribuição por
@@ -69,6 +73,14 @@ const LINHAS_DE_HISTORICO = 80;
 
 // Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
 // de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
+// Etapas em que a IA pode mexer. Daqui em diante (visitou, proposta, fechado)
+// só uma pessoa move o card.
+const ETAPAS_ANTES_DA_VISITA = new Set(["novo", "qualificado", "perdido", "agendado"]);
+const ETAPAS_QUE_A_IA_PODE_REBAIXAR = new Set(["novo", "qualificado", "agendado"]);
+
+const MENSAGEM_OPT_OUT =
+  "Tudo bem, não vou mais te mandar mensagens. || Se um dia quiser saber do Moradas de Paraty, é só escrever aqui.";
+
 const MENSAGEM_HANDOFF =
   "Claro! Já estou chamando alguém da equipe pra falar com você por aqui.||Só um instantinho.";
 
@@ -491,9 +503,16 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
   }
   if (!atual) return;
 
-  // Já estava bloqueado: nada a fazer. Sem esta saída, cada nova mensagem numa
-  // conversa encerrada empilharia outra linha idêntica no histórico.
-  if (atual.sem_interesse_em) return;
+  // Já estava sem interesse: não empilha outra linha no histórico, mas garante
+  // o bloqueio — um "pare" depois de um desbloqueio manual precisa valer de novo.
+  if (atual.sem_interesse_em) {
+    await supabase
+      .from("leads")
+      .update({ contato_bloqueado: true })
+      .eq("id", leadId)
+      .eq("contato_bloqueado", false);
+    return;
+  }
 
   const recusas = (atual.recusas_visita ?? 0) + (confirmouSemInteresse ? 0 : 1);
   const viraSemInteresse = confirmouSemInteresse || recusas >= RECUSAS_ATE_SEM_INTERESSE;
@@ -509,7 +528,11 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
     patch.contato_bloqueado = true;
     // Não rebaixa quem já comprou: 'fechado' é desfecho, não etapa. Mesmo
     // cuidado que a qualificação já toma ao promover status.
-    if (atual.status_crm !== "fechado") patch.status_crm = "perdido";
+    // Só rebaixa quem ainda está no começo do funil: visita feita, proposta e
+    // venda são fatos que uma recusa no chat não desfaz (auditoria R-09).
+    if (ETAPAS_QUE_A_IA_PODE_REBAIXAR.has(atual.status_crm ?? "novo")) {
+      patch.status_crm = "perdido";
+    }
   }
 
   const { error: erroUpdate } = await supabase.from("leads").update(patch).eq("id", leadId);
@@ -533,6 +556,43 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
         : `Lead recusou a visita ${recusas} vezes. Movido para perdido e bloqueado para contato ativo.`
       : "Lead recusou o convite de visita. A Sophia não vai convidar de novo nesta conversa.",
   });
+}
+
+/**
+ * O lead pediu uma pessoa: fica no histórico e alguém é avisado de verdade.
+ * Antes só a pausa acontecia — a Sophia prometia "já estou chamando alguém" e
+ * ninguém ficava sabendo.
+ */
+async function registrarHandoff(
+  leadId: string,
+  instanceId: string | null,
+  origem: string,
+): Promise<void> {
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "handoff",
+    conteudo: `Lead pediu atendimento humano (${origem}). A IA foi pausada para esta conversa.`,
+  });
+
+  const { data: instancia } = instanceId
+    ? await supabase
+        .from("whatsapp_instances")
+        .select("id, api_url, api_key, instance_name")
+        .eq("id", instanceId)
+        .maybeSingle()
+    : { data: null };
+
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "handoff",
+      titulo: "Lead pediu atendimento humano",
+      corpo: "A IA foi pausada. Responda pelo CRM o quanto antes.",
+    },
+    instancia,
+  );
 }
 
 function montarPromptFinal(
@@ -647,6 +707,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Pedido explícito de parar ("pare", "me tira da lista"...): determinístico,
+    // antes do modelo. O modelo às vezes ignora e segue a conversa; um opt-out
+    // não pode depender disso. Bloqueia o envio ativo e se despede uma vez.
+    if (lead_id && !apenasPreview && ehPedidoDeParada(message)) {
+      await registrarRecusa(lead_id, true);
+      return new Response(
+        JSON.stringify({
+          messages: MENSAGEM_OPT_OUT.split("||").map((m) => m.trim()),
+          session_id,
+          lead_qualificado: false,
+          opt_out: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Palavras-chave de transferência: checagem determinística, ANTES de chamar
     // o modelo. Se o lead pediu humano, não faz sentido gastar uma chamada de
     // IA nem deixar o modelo decidir se atende ao pedido — ele às vezes ignora
@@ -661,15 +737,8 @@ Deno.serve(async (req) => {
 
     if (pediuHumano) {
       await pauseAI(supabase, session_id, agent.id);
-      if (lead_id) {
-        await supabase.from("interacoes").insert({
-          lead_id,
-          tipo: "sistema",
-          canal: "sistema",
-          conteudo:
-            "Lead pediu atendimento humano (palavra-chave de transferência). A IA foi pausada para esta conversa.",
-        });
-      }
+      if (lead_id)
+        await registrarHandoff(lead_id, agent.instance_id, "palavra-chave de transferência");
       return new Response(
         JSON.stringify({
           messages: MENSAGEM_HANDOFF.split("||").map((m) => m.trim()),
@@ -807,26 +876,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: new Headers([
-        ["Content-Type", "application/json"],
-        ["Authorization", `Bearer ${OPENAI_API_KEY}`],
-      ]),
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        max_tokens: 1000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...history,
-          { role: "user", content: message },
-        ],
-      }),
-    });
+    // Timeout e uma nova tentativa no modelo principal; se ainda falhar e
+    // houver OPENAI_FALLBACK_MODEL configurado, uma tentativa nele. Quem chama
+    // (whatsapp-webhook) trata a falha final com uma resposta segura.
+    const chamarModelo = (modelo: string) =>
+      fetchComRetry(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: new Headers([
+            ["Content-Type", "application/json"],
+            ["Authorization", `Bearer ${OPENAI_API_KEY}`],
+          ]),
+          body: JSON.stringify({
+            model: modelo,
+            max_tokens: 1000,
+            temperature: 0.4,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...history,
+              { role: "user", content: message },
+            ],
+          }),
+        },
+        { timeoutMs: 20_000, retries: 1 },
+      );
 
+    let modeloUsado = OPENAI_MODEL;
+    let openaiResponse = await chamarModelo(OPENAI_MODEL).catch((e) => e as Error);
+    if (
+      (openaiResponse instanceof Error || !openaiResponse.ok) &&
+      OPENAI_FALLBACK_MODEL &&
+      OPENAI_FALLBACK_MODEL !== OPENAI_MODEL
+    ) {
+      console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
+        erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,
+      });
+      modeloUsado = OPENAI_FALLBACK_MODEL;
+      openaiResponse = await chamarModelo(OPENAI_FALLBACK_MODEL).catch((e) => e as Error);
+    }
+    if (openaiResponse instanceof Error) throw openaiResponse;
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errText}`);
+      throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
     }
 
     const openaiResult = await openaiResponse.json();
@@ -859,7 +951,7 @@ Deno.serve(async (req) => {
         transferir_humano: hasTransferirHumano,
         recusou_visita: hasRecusouVisita,
         sem_interesse: hasSemInteresse,
-        raw_inicio: rawText.slice(0, 160),
+        raw_tamanho: rawText.length,
       }),
     );
 
@@ -899,7 +991,13 @@ Deno.serve(async (req) => {
     }
 
     if (hasVisitaAgendada) {
-      await supabase.from("leads").update({ status_crm: "agendado" }).eq("id", lead_id);
+      // Só avança: quem já visitou, está em proposta ou fechou não volta para
+      // "agendado" porque marcou outra visita (auditoria R-09).
+      await supabase
+        .from("leads")
+        .update({ status_crm: "agendado" })
+        .eq("id", lead_id)
+        .in("status_crm", [...ETAPAS_ANTES_DA_VISITA]);
 
       // Criação da visita AQUI só para lead de teste. Para lead real quem
       // dispara é a whatsapp-webhook, ao ver `visita_agendada` na resposta —
@@ -929,6 +1027,8 @@ Deno.serve(async (req) => {
     // uma — mesmo bug já corrigido na whatsapp-webhook.
     if (hasTransferirHumano) {
       await pauseAI(supabase, session_id, agent.id);
+      if (lead_id)
+        await registrarHandoff(lead_id, agent.instance_id, "a Sophia identificou o pedido");
     }
 
     if ((hasRecusouVisita || hasSemInteresse) && lead_id) {

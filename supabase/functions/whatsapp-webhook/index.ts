@@ -12,12 +12,15 @@ import { sendWhatsAppText } from "../_shared/evolution-send.ts";
 import {
   confirmarEnvio,
   descartarEnvio,
+  enviarTextoRegistrado,
   reconciliarEco,
   registrarEnvio,
 } from "../_shared/envio-registrado.ts";
+import { fetchComRetry } from "../_shared/http.ts";
+import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
-import { desbloquearContato } from "../_shared/contato-bloqueado.ts";
 import { handleVisitaAgendada as criarVisita } from "../_shared/lead-visita.ts";
+import { chaveTelefone } from "../_shared/contato-bloqueado.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -188,15 +191,21 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   const pushName: string | null = data.pushName ?? null;
   const text = extractMessageText(data.message);
 
+  // Sem telefone nem texto no log (LGPD): só o tipo e o tamanho.
   console.log(
     "=== MESSAGE DATA ===",
     JSON.stringify({
-      fromMe: data.key?.fromMe,
       messageType: data.messageType,
-      remoteJid,
-      content: text?.substring(0, 100),
+      tamanho: text?.length ?? 0,
     }),
   );
+
+  // Vendedor respondendo um resumo de lead não é lead: sem isso a Sophia
+  // abria conversa de venda com a própria equipe.
+  if (await ehTelefoneDeVendedor(phone)) {
+    console.log("=== MENSAGEM DE VENDEDOR IGNORADA ===");
+    return;
+  }
 
   // 4. Find or create lead (round robin)
   const lead = await findOrCreateLead(phone, pushName);
@@ -207,13 +216,9 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     await supabase.from("whatsapp_contacts").update({ lead_id: lead.id }).eq("id", contact.id);
   }
 
-  // A pessoa escreveu: o bloqueio de envio ATIVO cai. Foi ela quem procurou a
-  // gente, então responder não é insistir — insistir seria escrever primeiro.
-  //
-  // O histórico da recusa (sem_interesse_em, recusas_visita) NÃO é limpo: é ele
-  // que faz o blocoRecusaAnterior seguir proibindo o convite de visita nesta
-  // conversa. Voltar a conversar não é voltar a poder convidar.
-  await desbloquearContato(supabase, lead.id);
+  // O lead escrever NÃO desfaz um opt-out: a Sophia responde quem escreveu,
+  // mas o envio ativo (fila, campanhas) continua barrado até um desbloqueio
+  // manual no painel. Antes o bloqueio caía sozinho a cada mensagem.
 
   // 5. Save incoming message
   await supabase.from("whatsapp_messages").insert({
@@ -249,25 +254,41 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   console.log("=== CALLING AI AGENT ===", { agentId: agent.id, leadId: lead.id, sessionId });
 
   // 7. Call ai-agent-chat
-  const aiResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-agent-chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+  const aiResponse = await fetchComRetry(
+    `${SUPABASE_URL}/functions/v1/ai-agent-chat`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        agent_id: agent.id,
+        message: text,
+        contact_phone: phone,
+        contact_name: pushName,
+        lead_id: lead.id,
+        session_id: sessionId,
+      }),
     },
-    body: JSON.stringify({
-      agent_id: agent.id,
-      message: text,
-      contact_phone: phone,
-      contact_name: pushName,
-      lead_id: lead.id,
-      session_id: sessionId,
-    }),
-  });
+    { timeoutMs: 60_000 },
+  ).catch((e) => e as Error);
 
-  if (!aiResponse.ok) return;
+  // A IA falhou (timeout, OpenAI fora, erro interno): o lead não pode ficar
+  // falando sozinho. Resposta segura, IA pausada e um humano avisado.
+  if (aiResponse instanceof Error || !aiResponse.ok) {
+    const motivo = aiResponse instanceof Error ? aiResponse.message : `HTTP ${aiResponse.status}`;
+    console.error("=== IA FALHOU ===", { leadId: lead.id, motivo });
+    await responderFalhaDaIA(instance, lead.id, phone, sessionId, agent.id);
+    return;
+  }
   const aiResult = await aiResponse.json();
-  console.log("=== AI RESPONSE ===", JSON.stringify(aiResult).substring(0, 300));
+  console.log("=== AI RESPONSE ===", {
+    partes: (aiResult.messages ?? []).length,
+    lead_qualificado: aiResult.lead_qualificado ?? false,
+    visita_agendada: aiResult.visita_agendada ?? false,
+    transferido_para_humano: aiResult.transferido_para_humano ?? false,
+  });
 
   const messages: string[] = aiResult.messages ?? [];
   if (messages.length === 0) return;
@@ -329,7 +350,7 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   if (newerMessages && newerMessages.length > 0) return;
 
-  console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: cleanMessages.length });
+  console.log("=== SENDING TO EVOLUTION ===", { messageCount: cleanMessages.length });
 
   // 10 & 11. Send response(s) and persist them
   for (const [index, messageText] of cleanMessages.entries()) {
@@ -369,6 +390,56 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   }
 }
 
+const MENSAGEM_FALHA_IA =
+  "Opa, tive um probleminha aqui pra te responder. Já chamei alguém da equipe pra continuar com você.";
+
+async function responderFalhaDaIA(
+  instance: Record<string, any>,
+  leadId: string,
+  phone: string,
+  sessionId: string,
+  agentId: string,
+) {
+  await pauseAIForHumanTakeover(agentId, sessionId);
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "sistema",
+    conteudo:
+      "A IA não conseguiu responder (falha técnica). O lead recebeu uma mensagem de espera e a IA foi pausada até alguém assumir.",
+  });
+  await enviarTextoRegistrado(
+    supabase,
+    (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+    instance as { id: string; api_url: string; api_key: string; instance_name: string },
+    phone,
+    MENSAGEM_FALHA_IA,
+    { lead_id: leadId },
+  ).catch((e) => console.error("=== RESPOSTA DE FALHA NÃO ENVIADA ===", (e as Error).message));
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "ia_falhou",
+      titulo: "Lead esperando atendimento",
+      corpo: "A IA falhou ao responder e foi pausada. Assuma a conversa pelo CRM.",
+    },
+    instance as { id: string; api_url: string; api_key: string; instance_name: string },
+  );
+}
+
+/** O telefone é de alguém da equipe de vendas (mesma chave de 10 dígitos)? */
+async function ehTelefoneDeVendedor(phone: string): Promise<boolean> {
+  const chave = chaveTelefone(phone);
+  if (!chave) return false;
+  const { data } = await supabase
+    .from("vendedores")
+    .select("telefone")
+    .not("telefone", "is", null)
+    .ilike("telefone", `%${chave.slice(-4)}`);
+  return (data ?? []).some((v) => chaveTelefone(v.telefone) === chave);
+}
+
 async function handleOutgoingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
   const remoteJid: string = data.key?.remoteJid;
@@ -398,7 +469,14 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
   // antes do envio e adota o id real. Sem isso, cada parte de uma resposta
   // quebrada com || virava um takeover e a IA emudecia para sempre.
   if (await reconciliarEco(supabase, { remoteJid, content: text, messageIdReal: messageId })) {
-    console.log("=== ECO RECONCILIADO ===", { messageId, phone });
+    console.log("=== ECO RECONCILIADO ===", { messageId });
+    return;
+  }
+
+  // Mensagem do número da empresa para um VENDEDOR (resumo de lead, aviso) não
+  // é atendimento: não abre takeover nem cria lead com o telefone do vendedor.
+  if (await ehTelefoneDeVendedor(phone)) {
+    console.log("=== ECO PARA VENDEDOR IGNORADO ===", { messageId });
     return;
   }
 

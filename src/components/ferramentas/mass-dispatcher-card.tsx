@@ -59,7 +59,7 @@ interface Contact {
 
 interface LogEntry {
   telefone: string;
-  status: "Enviado" | "Erro";
+  status: "Enviado" | "Pulado" | "Erro";
   horario: string;
 }
 
@@ -306,6 +306,7 @@ export function MassDispatcherCard() {
 
     let totalEnviado = 0;
     let totalFalhou = 0;
+    let totalPulado = 0;
     // Somatório dos intervalos realmente aplicados, para gravar a média no fim.
     // Com faixa, o valor nominal (o meio) não descreve a campanha: uma parada
     // no meio do caminho pode ter sorteado só valores baixos.
@@ -337,12 +338,23 @@ export function MassDispatcherCard() {
           },
         });
         if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "erro");
-        setLog((l) => [...l, { telefone: contact.telefone, status: "Enviado", horario }]);
-        totalEnviado++;
-        await supabase
-          .from("disparos_itens")
-          .update({ status: "enviado", enviado_em: agora })
-          .eq("id", itemIds[i]);
+        // O servidor recusou de propósito (opt-out, sem interesse): não é
+        // envio nem falha, e não pode inflar o "Enviado" da campanha.
+        if (data?.pulado) {
+          setLog((l) => [...l, { telefone: contact.telefone, status: "Pulado", horario }]);
+          totalPulado++;
+          await supabase
+            .from("disparos_itens")
+            .update({ status: "pulado", erro: String(data.pulado), enviado_em: agora })
+            .eq("id", itemIds[i]);
+        } else {
+          setLog((l) => [...l, { telefone: contact.telefone, status: "Enviado", horario }]);
+          totalEnviado++;
+          await supabase
+            .from("disparos_itens")
+            .update({ status: "enviado", enviado_em: agora })
+            .eq("id", itemIds[i]);
+        }
       } catch (err) {
         setLog((l) => [...l, { telefone: contact.telefone, status: "Erro", horario }]);
         totalFalhou++;
@@ -386,6 +398,7 @@ export function MassDispatcherCard() {
       .update({
         total_enviado: totalEnviado,
         total_falhou: totalFalhou,
+        total_pulado: totalPulado,
         intervalo_segundos: intervaloEfetivo,
         status: stopRef.current ? "interrompido" : "concluido",
         finalizado_em: new Date().toISOString(),
@@ -709,7 +722,15 @@ export function MassDispatcherCard() {
                         <TableRow key={i}>
                           <TableCell>{entry.telefone}</TableCell>
                           <TableCell>
-                            <Pill tone={entry.status === "Enviado" ? "success" : "danger"}>
+                            <Pill
+                              tone={
+                                entry.status === "Enviado"
+                                  ? "success"
+                                  : entry.status === "Pulado"
+                                    ? "neutral"
+                                    : "danger"
+                              }
+                            >
                               {entry.status}
                             </Pill>
                           </TableCell>

@@ -243,21 +243,12 @@ function CrmPage() {
   const { data: activeTakeoverPhones } = useQuery({
     queryKey: ["active-takeover-phones"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ai_agent_human_takeover")
-        .select("conversation_id, ai_agent_conversations(session_id)")
-        .is("resolved_at", null);
+      // RPC em vez da tabela: ai_agent_human_takeover não é legível pelo
+      // painel (só service_role), e a leitura direta voltava sempre vazia.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.rpc as any)("takeovers_abertos");
       if (error) throw error;
-      const phones = (data ?? []).flatMap((row) => {
-        const conversations = row.ai_agent_conversations as
-          | { session_id: string }
-          | { session_id: string }[]
-          | null;
-        if (!conversations) return [];
-        return Array.isArray(conversations)
-          ? conversations.map((c) => c.session_id)
-          : [conversations.session_id];
-      });
+      const phones = ((data ?? []) as { session_id: string }[]).map((row) => row.session_id);
       return new Set(phones);
     },
   });

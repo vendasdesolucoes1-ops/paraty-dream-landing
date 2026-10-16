@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diaSemanaEmSaoPaulo, hojeEmSaoPaulo, normalizarDiaSemana } from "./data-br.ts";
+import { fetchComRetry } from "./http.ts";
 
 const EXTRACTION_MODEL = "gpt-4o-mini";
 
@@ -91,32 +92,36 @@ async function extrairDataVisita(
 
     const { data: hoje, diaSemana } = hojeEmSaoPaulo(agora);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
-      body: JSON.stringify({
-        model: EXTRACTION_MODEL,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              `Hoje é ${hoje} (${diaSemana}), no fuso de São Paulo (UTC-3). ` +
-              "Leia a conversa e extraia a data e hora combinadas para a visita ao terreno. " +
-              'Responda APENAS com JSON: {"data_hora": "YYYY-MM-DDTHH:mm:ss-03:00", "dia_semana_mencionado": "sábado"} ' +
-              'onde data_hora usa a data absoluta ' +
-              'correspondente ao que foi combinado ("sábado", "semana que vem", "dia 12"), sempre no futuro em relação a hoje. ' +
-              "Se só houver o dia sem horário, use 10:00. " +
-              'Em "dia_semana_mencionado" copie o dia da semana que o LEAD escreveu ("sábado", "terça"), ou null se ele ' +
-              "só citou a data. NÃO deduza o dia da semana a partir da data — só preencha se a palavra apareceu na conversa. " +
-              'Se nada tiver sido combinado de fato, ou se houver dúvida, responda {"data_hora": null}. ' +
-              "Nunca invente uma data que o lead não aceitou.",
-          },
-          { role: "user", content: transcricao },
-        ],
-      }),
-    });
+    const response = await fetchComRetry(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: EXTRACTION_MODEL,
+          temperature: 0,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                `Hoje é ${hoje} (${diaSemana}), no fuso de São Paulo (UTC-3). ` +
+                "Leia a conversa e extraia a data e hora combinadas para a visita ao terreno. " +
+                'Responda APENAS com JSON: {"data_hora": "YYYY-MM-DDTHH:mm:ss-03:00", "dia_semana_mencionado": "sábado"} ' +
+                "onde data_hora usa a data absoluta " +
+                'correspondente ao que foi combinado ("sábado", "semana que vem", "dia 12"), sempre no futuro em relação a hoje. ' +
+                "Se só houver o dia sem horário, use 10:00. " +
+                'Em "dia_semana_mencionado" copie o dia da semana que o LEAD escreveu ("sábado", "terça"), ou null se ele ' +
+                "só citou a data. NÃO deduza o dia da semana a partir da data — só preencha se a palavra apareceu na conversa. " +
+                'Se nada tiver sido combinado de fato, ou se houver dúvida, responda {"data_hora": null}. ' +
+                "Nunca invente uma data que o lead não aceitou.",
+            },
+            { role: "user", content: transcricao },
+          ],
+        }),
+      },
+      { timeoutMs: 20_000, retries: 1 },
+    );
 
     if (!response.ok) {
       console.error("=== EXTRACAO DE DATA FALHOU ===", response.status);
@@ -178,8 +183,7 @@ export async function handleVisitaAgendada(
     diaReal !== null &&
     normalizarDiaSemana(diaDito) !== normalizarDiaSemana(diaReal);
 
-  const confiavel =
-    extraida !== null && dataPlausivel(extraida.quando, agora) && !conflitoDeDia;
+  const confiavel = extraida !== null && dataPlausivel(extraida.quando, agora) && !conflitoDeDia;
   const dataHora = confiavel ? extraida!.quando : proximoDiaUtil(agora);
 
   const observacoes = confiavel

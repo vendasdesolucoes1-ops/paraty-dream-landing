@@ -6,8 +6,9 @@
 // não é um opt-out: é uma chance em quatro de mandar mensagem para quem pediu
 // para parar, que é exatamente o que vira denúncia e derruba o número.
 //
-// O bloqueio vale só para envio ATIVO. Se a pessoa escrever primeiro, a
-// conversa volta (ver desbloquearContato, chamado pela whatsapp-webhook).
+// O bloqueio vale só para envio ATIVO: se a pessoa escrever, a Sophia responde.
+// Mas escrever não desfaz o bloqueio — só um desbloqueio manual no painel
+// (desbloquearContato). Falha fechada: na dúvida, não envia.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -23,8 +24,8 @@ function ehColunaInexistente(error: { code?: string; message?: string } | null):
 /**
  * Últimos 10 dígitos — DDD + número, sem o 55 do país e sem o nono dígito
  * quando ele varia. É a mesma chave que o frontend usa em chaveTelefone(),
- * pelo mesmo motivo: o CRM guarda "(12) 99151-9515", a Evolution devolve
- * "5512991519515", e comparar as duas formas cruas nunca casa.
+ * pelo mesmo motivo: o CRM guarda "(DD) 9XXXX-XXXX", a Evolution devolve
+ * "55DD9XXXXXXXX", e comparar as duas formas cruas nunca casa.
  */
 export function chaveTelefone(bruto: string | null | undefined): string | null {
   const digitos = String(bruto ?? "").replace(/\D/g, "");
@@ -32,13 +33,11 @@ export function chaveTelefone(bruto: string | null | undefined): string | null {
 }
 
 /**
- * O telefone pertence a alguém que bloqueou contato?
+ * O telefone pertence a alguém que bloqueou contato ou disse não ter interesse?
  *
- * Na dúvida devolve `false` (deixa enviar). É a escolha menos ruim das duas:
- * um erro transitório de banco não pode paralisar uma campanha inteira, e o
- * bloqueio ainda é checado no momento da seleção dos leads na interface. O
- * contrário — barrar tudo quando o banco pisca — pararia o disparo sem que
- * ninguém entendesse por quê.
+ * Na dúvida devolve `true` (NÃO envia). Mandar mensagem ativa a quem pediu
+ * para parar é o erro que gera denúncia e banimento do número; um envio
+ * adiado por um erro transitório de banco é só um envio adiado.
  */
 export async function telefoneBloqueado(
   supabase: SupabaseClient,
@@ -56,16 +55,16 @@ export async function telefoneBloqueado(
   const { data, error } = await supabase
     .from("leads")
     .select("telefone")
-    .eq("contato_bloqueado", true)
+    .or("contato_bloqueado.eq.true,sem_interesse_em.not.is.null")
     .ilike("telefone", `%${chave.slice(-4)}`);
 
   if (error) {
     if (ehColunaInexistente(error)) {
-      console.error("[contato-bloqueado] MIGRATION 20260815000000 PENDENTE — envio liberado");
+      console.error("[contato-bloqueado] MIGRATION 20260815000000 PENDENTE — envio barrado");
     } else {
-      console.error("[contato-bloqueado] consulta falhou, envio liberado:", error.message);
+      console.error("[contato-bloqueado] consulta falhou, envio barrado:", error.message);
     }
-    return false;
+    return true;
   }
 
   return (data ?? []).some((l) => chaveTelefone(l.telefone) === chave);
@@ -75,32 +74,33 @@ export async function telefoneBloqueado(
 export async function leadBloqueado(supabase: SupabaseClient, leadId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("leads")
-    .select("contato_bloqueado")
+    .select("contato_bloqueado, sem_interesse_em")
     .eq("id", leadId)
     .maybeSingle();
 
   if (error) {
     if (ehColunaInexistente(error)) {
-      console.error("[contato-bloqueado] MIGRATION 20260815000000 PENDENTE — envio liberado");
+      console.error("[contato-bloqueado] MIGRATION 20260815000000 PENDENTE — envio barrado");
     } else {
-      console.error("[contato-bloqueado] consulta falhou, envio liberado:", error.message);
+      console.error("[contato-bloqueado] consulta falhou, envio barrado:", error.message);
     }
-    return false;
+    return true;
   }
-  return data?.contato_bloqueado === true;
+  return data?.contato_bloqueado === true || Boolean(data?.sem_interesse_em);
 }
 
 /**
- * A pessoa escreveu de novo: o bloqueio de envio ativo cai.
+ * Desbloqueio MANUAL, por admin/gestor no painel (com registro em interacoes).
  *
- * `sem_interesse_em` e `recusas_visita` NÃO são limpos de propósito. Eles são o
- * histórico de que já houve recusa, e é o que faz blocoRecusaAnterior() seguir
- * proibindo o convite de visita — voltar a conversar não é voltar a insistir.
+ * Não é mais chamado quando o lead escreve: antes, qualquer mensagem do lead
+ * apagava o opt-out e ele voltava a receber campanha e fila sem ter pedido.
+ * Responder a quem escreveu continua permitido (a Sophia responde), mas isso
+ * não reabre o envio ATIVO.
+ *
+ * `sem_interesse_em` e `recusas_visita` NÃO são limpos: são o histórico de que
+ * já houve recusa.
  */
-export async function desbloquearContato(
-  supabase: SupabaseClient,
-  leadId: string,
-): Promise<void> {
+export async function desbloquearContato(supabase: SupabaseClient, leadId: string): Promise<void> {
   const { error } = await supabase
     .from("leads")
     .update({ contato_bloqueado: false })
@@ -110,4 +110,39 @@ export async function desbloquearContato(
   if (error && !ehColunaInexistente(error)) {
     console.error("[contato-bloqueado] desbloqueio falhou:", error.message);
   }
+}
+
+// Pedidos de parada reconhecidos sem chamar o modelo. Frases curtas e
+// inequívocas: a mensagem inteira precisa ser só o pedido (com pontuação),
+// para "pode parar de me mandar o preço e manda a planta" não virar opt-out.
+const PEDIDOS_DE_PARADA = [
+  "pare",
+  "parar",
+  "pare de me mandar mensagem",
+  "para de me mandar mensagem",
+  "pare de mandar mensagem",
+  "nao quero mais",
+  "nao quero mais receber",
+  "nao quero receber mensagens",
+  "nao me mande mais mensagem",
+  "nao me mande mais mensagens",
+  "me tira da lista",
+  "me tire da lista",
+  "sair",
+  "sair da lista",
+  "descadastrar",
+  "stop",
+];
+
+/** A mensagem é um pedido explícito de parar de receber contato? */
+export function ehPedidoDeParada(texto: string | null | undefined): boolean {
+  const normalizado = String(texto ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalizado || normalizado.length > 60) return false;
+  return PEDIDOS_DE_PARADA.includes(normalizado);
 }
