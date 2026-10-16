@@ -37,6 +37,29 @@ const SEM_INSTANCIA_MS = 5 * 60 * 1000;
 
 const MAX_TENTATIVAS = 3;
 
+async function agenteAtivo(instanceId: string) {
+  const { data, error } = await supabase
+    .from("ai_agents")
+    .select("is_active")
+    .eq("instance_id", instanceId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.is_active === true;
+}
+
+async function adiarPorPausa(m: MensagemAgendada) {
+  const { error } = await supabase
+    .from("mensagens_agendadas")
+    .update({
+      status: "pendente",
+      agendado_para: new Date(Date.now() + 60_000).toISOString(),
+      erro: "IA desativada",
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", m.id);
+  if (error) throw error;
+}
+
 interface MensagemAgendada {
   id: string;
   lead_id: string;
@@ -83,6 +106,17 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
   for (const [i, texto] of partes.entries()) {
     if (i > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
 
+    if (!(await agenteAtivo(instancia.id))) {
+      // Preserve only unsent parts so resuming never duplicates the opening.
+      const { error } = await supabase
+        .from("mensagens_agendadas")
+        .update({ partes: partes.slice(i) })
+        .eq("id", m.id);
+      if (error) throw error;
+      await adiarPorPausa(m);
+      return false;
+    }
+
     // Gravado ANTES do envio, para o eco da Evolution encontrar a linha. Aqui
     // isso pesa mais que em qualquer outro lugar: são 4 partes em sequência,
     // ou seja, 4 ecos concorrendo com 4 inserts.
@@ -116,6 +150,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
     conteudo:
       "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
   });
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -207,7 +242,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        await enviar(m, instancia as Instancia);
+        if (!(await agenteAtivo(instancia.id))) {
+          await adiarPorPausa(m);
+          continue;
+        }
+
+        if (!(await enviar(m, instancia as Instancia))) continue;
 
         await supabase
           .from("mensagens_agendadas")
