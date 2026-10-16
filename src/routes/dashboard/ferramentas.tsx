@@ -7,14 +7,22 @@ import { ContactExtractorCard } from "@/components/ferramentas/contact-extractor
 import { GooglePlacesCard } from "@/components/ferramentas/google-places-card";
 
 export const Route = createFileRoute("/dashboard/ferramentas")({
-  head: () => ({ meta: [
+  head: () => ({
+    meta: [
       { title: "Ferramentas — Moradas de Paraty" },
-      { name: "description", content: "Gerencie as ferramentas de atendimento do Moradas de Paraty." },
+      {
+        name: "description",
+        content: "Gerencie as ferramentas de atendimento do Moradas de Paraty.",
+      },
       { property: "og:title", content: "Ferramentas — Moradas de Paraty" },
-      { property: "og:description", content: "Gerencie as ferramentas de atendimento do Moradas de Paraty." },
+      {
+        property: "og:description",
+        content: "Gerencie as ferramentas de atendimento do Moradas de Paraty.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-    ] }),
+    ],
+  }),
   component: FerramentasPage,
 });
 

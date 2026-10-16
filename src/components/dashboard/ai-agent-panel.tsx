@@ -129,24 +129,35 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
         </div>
         {agent ? (
           <div className="flex flex-wrap items-center gap-3">
-          <Pill tone={agent.is_active ? "success" : "warning"} className="gap-2 px-3 py-1 text-xs">
-            <PontoVivo
-              tom={agent.is_active ? "success" : "warning"}
-              vivo={agent.is_active}
-              className="h-2 w-2"
-            />
-            {agent.is_active ? "Ativo" : "Pausado"}
-          </Pill>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={toggleMutation.isPending}
-            aria-pressed={agent.is_active}
-            onClick={() => toggleMutation.mutate(!agent.is_active)}
-          >
-            {toggleMutation.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Power aria-hidden />}
-            {toggleMutation.isPending ? "Salvando..." : agent.is_active ? "Desativar IA" : "Ativar IA"}
-          </Button>
+            <Pill
+              tone={agent.is_active ? "success" : "warning"}
+              className="gap-2 px-3 py-1 text-xs"
+            >
+              <PontoVivo
+                tom={agent.is_active ? "success" : "warning"}
+                vivo={agent.is_active}
+                className="h-2 w-2"
+              />
+              {agent.is_active ? "Ativo" : "Pausado"}
+            </Pill>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={toggleMutation.isPending}
+              aria-pressed={agent.is_active}
+              onClick={() => toggleMutation.mutate(!agent.is_active)}
+            >
+              {toggleMutation.isPending ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : (
+                <Power aria-hidden />
+              )}
+              {toggleMutation.isPending
+                ? "Salvando..."
+                : agent.is_active
+                  ? "Desativar IA"
+                  : "Ativar IA"}
+            </Button>
           </div>
         ) : null}
       </CardHeader>

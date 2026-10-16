@@ -42,14 +42,19 @@ import {
 } from "@/components/documentos/processo-edit-dialog";
 
 export const Route = createFileRoute("/dashboard/documentos")({
-  head: () => ({ meta: [
+  head: () => ({
+    meta: [
       { title: "Documentos — Moradas de Paraty" },
       { name: "description", content: "Organize documentos e processos do Moradas de Paraty." },
       { property: "og:title", content: "Documentos — Moradas de Paraty" },
-      { property: "og:description", content: "Organize documentos e processos do Moradas de Paraty." },
+      {
+        property: "og:description",
+        content: "Organize documentos e processos do Moradas de Paraty.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-    ] }),
+    ],
+  }),
   component: DocumentosPage,
 });
 

@@ -33,14 +33,22 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/dashboard/crm")({
-  head: () => ({ meta: [
+  head: () => ({
+    meta: [
       { title: "CRM — Moradas de Paraty" },
-      { name: "description", content: "Gerencie os leads e o funil de vendas do Moradas de Paraty." },
+      {
+        name: "description",
+        content: "Gerencie os leads e o funil de vendas do Moradas de Paraty.",
+      },
       { property: "og:title", content: "CRM — Moradas de Paraty" },
-      { property: "og:description", content: "Gerencie os leads e o funil de vendas do Moradas de Paraty." },
+      {
+        property: "og:description",
+        content: "Gerencie os leads e o funil de vendas do Moradas de Paraty.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-    ] }),
+    ],
+  }),
   // ?lead=<id> abre a ficha daquele lead. É o que permite ir da tela inicial,
   // da busca (⌘K) e das notificações direto para a pessoa certa.
   validateSearch: (search: Record<string, unknown>): { lead?: string } => ({

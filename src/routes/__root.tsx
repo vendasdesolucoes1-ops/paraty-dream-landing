@@ -79,13 +79,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Moradas de Paraty — Loteamento Residencial Sophia Saíde" },
-      { name: "description", content: "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro." },
+      {
+        name: "description",
+        content:
+          "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro.",
+      },
       { property: "og:title", content: "Moradas de Paraty — Loteamento Residencial Sophia Saíde" },
-      { property: "og:description", content: "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro." },
+      {
+        property: "og:description",
+        content:
+          "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Moradas de Paraty — Loteamento Residencial Sophia Saíde" },
-      { name: "twitter:description", content: "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro." },
+      {
+        name: "twitter:description",
+        content:
+          "Lotes de alto padrão a 9 minutos do Centro Histórico de Paraty. Natureza, exclusividade e investimento seguro.",
+      },
     ],
     links: [
       // Só o emblema circular: em 16px o texto da marca vira borrão.
