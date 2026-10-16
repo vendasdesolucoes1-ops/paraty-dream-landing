@@ -31,3 +31,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Worktrees e estado local do Claude Code
+.claude/
+deno.lock

@@ -18,6 +18,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diaSemanaEmSaoPaulo, hojeEmSaoPaulo, normalizarDiaSemana } from "./data-br.ts";
 import { fetchComRetry } from "./http.ts";
+import { registrarChamadaIA } from "./telemetria.ts";
 
 const EXTRACTION_MODEL = "gpt-4o-mini";
 
@@ -92,6 +93,7 @@ async function extrairDataVisita(
 
     const { data: hoje, diaSemana } = hojeEmSaoPaulo(agora);
 
+    const inicioIA = Date.now();
     const response = await fetchComRetry(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -129,6 +131,13 @@ async function extrairDataVisita(
     }
 
     const resultado = await response.json();
+    await registrarChamadaIA(supabase, {
+      funcao: "extracao_visita",
+      modelo: "gpt-4o-mini",
+      leadId,
+      usage: resultado.usage,
+      latenciaMs: Date.now() - inicioIA,
+    });
     const conteudo = resultado?.choices?.[0]?.message?.content;
     if (!conteudo) return null;
 

@@ -17,6 +17,7 @@ import { carregarLead } from "./lead-record.ts";
 import { leadBloqueado } from "./contato-bloqueado.ts";
 import { fetchComRetry } from "./http.ts";
 import { enviarTextoRegistrado } from "./envio-registrado.ts";
+import { registrarChamadaIA } from "./telemetria.ts";
 
 // Extração é tarefa curta e mecânica — o modelo pequeno basta e mantém o custo
 // por lead qualificado irrelevante.
@@ -86,6 +87,7 @@ async function extrairDadosQualificacao(
 
     if (!transcricao.trim()) return null;
 
+    const inicioIA = Date.now();
     const response = await fetchComRetry(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -117,6 +119,13 @@ async function extrairDadosQualificacao(
     }
 
     const result = await response.json();
+    await registrarChamadaIA(supabase, {
+      funcao: "extracao_qualificacao",
+      modelo: "gpt-4o-mini",
+      leadId,
+      usage: result.usage,
+      latenciaMs: Date.now() - inicioIA,
+    });
     const conteudo = result?.choices?.[0]?.message?.content;
     if (!conteudo) return null;
     return JSON.parse(conteudo);

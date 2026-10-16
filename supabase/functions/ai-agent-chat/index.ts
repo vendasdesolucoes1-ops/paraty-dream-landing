@@ -12,6 +12,7 @@ import { fetchComRetry } from "../_shared/http.ts";
 import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { proximosDias } from "../_shared/data-br.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
+import { registrarChamadaIA } from "../_shared/telemetria.ts";
 import {
   registrarConsultaRag,
   resolverConhecimento,
@@ -902,6 +903,7 @@ Deno.serve(async (req) => {
         { timeoutMs: 20_000, retries: 1 },
       );
 
+    const inicioModelo = Date.now();
     let modeloUsado = OPENAI_MODEL;
     let openaiResponse = await chamarModelo(OPENAI_MODEL).catch((e) => e as Error);
     if (
@@ -918,10 +920,24 @@ Deno.serve(async (req) => {
     if (openaiResponse instanceof Error) throw openaiResponse;
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text();
+      await registrarChamadaIA(supabase, {
+        funcao: "sophia",
+        modelo: modeloUsado,
+        leadId: lead_id,
+        latenciaMs: Date.now() - inicioModelo,
+        erro: `HTTP ${openaiResponse.status}: ${errText.slice(0, 200)}`,
+      });
       throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
     }
 
     const openaiResult = await openaiResponse.json();
+    await registrarChamadaIA(supabase, {
+      funcao: "sophia",
+      modelo: modeloUsado,
+      leadId: lead_id,
+      usage: openaiResult.usage,
+      latenciaMs: Date.now() - inicioModelo,
+    });
     const rawText: string = openaiResult.choices?.[0]?.message?.content ?? "";
 
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
