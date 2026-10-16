@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Map,
   Megaphone,
+  Repeat,
   Settings,
   UserCheck,
   Wrench,
@@ -24,6 +25,7 @@ export interface NavItem {
     | "/dashboard/ferramentas"
     | "/dashboard/marketing"
     | "/dashboard/relatorios"
+    | "/dashboard/cadencias"
     | "/dashboard/configuracoes";
   label: string;
   icon: LucideIcon;
@@ -74,6 +76,14 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: BarChart3,
         hideFor: ["vendedor"],
         palavras: "metas conversão funil desempenho vendedores",
+      },
+      // Cadências, aprovação dos rascunhos da IA e regras de envio: gestão.
+      {
+        to: "/dashboard/cadencias",
+        label: "Follow-up",
+        icon: Repeat,
+        hideFor: ["vendedor"],
+        palavras: "cadências follow-up aprovação regras de envio fila lembretes",
       },
     ],
   },

@@ -1,24 +1,32 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Paperclip, Send, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { parseContactsCsv, parseManualContacts } from "@/lib/csv";
 import { buscarEmLotes, buscarPorIds } from "@/lib/buscar-em-lotes";
 import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
 import { COLUNAS_INSTANCIA_PAINEL } from "@/lib/types";
 import { LEAD_STATUS_COLUMNS } from "@/lib/types";
+import {
+  LIMITE_LEADS_CAMPANHA,
+  chaveFollowup,
+  criarCampanha,
+  mensagemDeErro,
+  type TipoMidia,
+} from "@/lib/cadencias";
+import { formatNumero } from "@/lib/format";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { DispatchHistoryPanel } from "@/components/ferramentas/dispatch-history-panel";
 import { LeadSelectionList } from "@/components/ferramentas/lead-selection-list";
+import {
+  AvisoCampanhaServidor,
+  CampanhaProgresso,
+  CampanhasLista,
+} from "@/components/ferramentas/campanha-progresso";
+import { TemplateEditor } from "@/components/dashboard/cadencias/template-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -26,14 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,36 +45,30 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Pill } from "@/components/ds/pill";
-import { PontoVivo } from "@/components/ajustes/ponto-vivo";
 import { Campo, Secao } from "@/components/ajustes/campos";
 
-type ContactSource = "crm" | "selecao" | "csv" | "manual";
-type DispatchState = "idle" | "running" | "paused" | "done";
+// Campanha só vai para leads do CRM: a fila envia por inscrição de lead, e é
+// o lead que carrega opt-out, base legal e takeover. CSV e lista manual saíram
+// junto com o laço do navegador.
+type ContactSource = "crm" | "selecao";
 
 interface Contact {
   nome: string;
   telefone: string;
-  leadId?: string;
-}
-
-interface LogEntry {
-  telefone: string;
-  status: "Enviado" | "Pulado" | "Erro";
-  horario: string;
+  leadId: string;
 }
 
 const BUCKET_MIDIA = "disparos-midia";
 
 /**
- * Validade da URL assinada do anexo. Precisa cobrir a campanha inteira: 300
- * contatos a 30s passam de 2h30. Seis horas dão folga sem deixar o link vivo
- * indefinidamente.
+ * Validade da URL assinada do anexo. O worker usa a URL como veio, e uma
+ * campanha grande, presa ao limite diário e à janela de envio, pode levar
+ * dias: 30 dias cobrem com folga sem deixar o link vivo para sempre.
  */
-const TTL_URL_MIDIA = 6 * 60 * 60;
+const TTL_URL_MIDIA = 30 * 24 * 60 * 60;
 
 /** O que a Evolution precisa saber sobre o anexo, deduzido do MIME do arquivo. */
-function tipoDeMidia(file: File): "image" | "video" | "audio" | "document" {
+function tipoDeMidia(file: File): TipoMidia {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("video/")) return "video";
   if (file.type.startsWith("audio/")) return "audio";
@@ -87,41 +81,31 @@ function tamanhoLegivel(bytes: number): string {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Inteiro entre min e max, inclusive nas duas pontas. */
-function sortearSegundos(min: number, max: number): number {
-  return min + Math.floor(Math.random() * (max - min + 1));
+function nomePadrao(): string {
+  const agora = new Date();
+  return `Campanha ${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 export function MassDispatcherCard() {
   const queryClient = useQueryClient();
   const [instanceId, setInstanceId] = useState<string>("");
+  const [nomeCampanha, setNomeCampanha] = useState("");
   const [message, setMessage] = useState("");
   const [source, setSource] = useState<ContactSource>("crm");
   const [crmStatusFilter, setCrmStatusFilter] = useState<LeadStatus | "todos">("todos");
-  const [csvContacts, setCsvContacts] = useState<Contact[]>([]);
-  const [manualText, setManualText] = useState("");
   // Seleção manual de leads (fonte "selecao"): ids escolhidos a dedo, em vez de
   // aceitar todo mundo que casa com um filtro de status.
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   // Anexo da campanha: um arquivo só, enviado a todos os contatos. Sobe uma
-  // vez antes do laço e a URL assinada é reaproveitada em cada envio.
+  // vez na criação e a URL assinada vai junto na etapa da campanha.
   const [midia, setMidia] = useState<File | null>(null);
-  const [interval, setIntervalValue] = useState(15);
-  // Intervalo aleatório: 15s exatos entre cada envio, centenas de vezes, é a
-  // assinatura que a detecção de automação procura. Sorteando dentro de uma
-  // faixa o ritmo deixa de ser previsível.
-  const [randomInterval, setRandomInterval] = useState(false);
-  const [intervalRange, setIntervalRange] = useState<[number, number]>([10, 30]);
-  const [dispatchState, setDispatchState] = useState<DispatchState>("idle");
-  const [sentCount, setSentCount] = useState(0);
-  const [log, setLog] = useState<LogEntry[]>([]);
-
-  const stopRef = useRef(false);
-  const pauseRef = useRef(false);
+  const [criando, setCriando] = useState(false);
+  // Campanha recém-criada (aba Disparar) e a aberta na lista (aba Campanhas).
+  const [criada, setCriada] = useState<{ id: string; nome: string } | null>(null);
+  const [abertaId, setAbertaId] = useState<string | null>(null);
 
   const { data: instances } = useQuery({
     queryKey: ["whatsapp-instances"],
@@ -163,8 +147,6 @@ export function MassDispatcherCard() {
     enabled: source === "crm",
   });
 
-  const manualContacts = useMemo(() => parseManualContacts(manualText), [manualText]);
-
   // Os leads escolhidos vêm de outra consulta que não a do filtro por status:
   // a seleção é por id e ignora status, então reaproveitar `crmLeads` traria
   // só os que casam com o filtro atual da outra fonte.
@@ -182,35 +164,16 @@ export function MassDispatcherCard() {
   });
 
   const contacts: Contact[] = useMemo(() => {
-    if (source === "crm") {
-      return (crmLeads ?? [])
-        .filter((l) => l.telefone)
-        .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
-    }
-    if (source === "selecao") {
-      return (leadsSelecionados ?? [])
-        .filter((l) => l.telefone)
-        .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
-    }
-    if (source === "csv") return csvContacts;
-    return manualContacts;
-  }, [source, crmLeads, leadsSelecionados, csvContacts, manualContacts]);
+    const origem = source === "crm" ? crmLeads : leadsSelecionados;
+    return (origem ?? [])
+      .filter((l) => l.telefone)
+      .map((l) => ({ nome: l.nome, telefone: l.telefone as string, leadId: l.id }));
+  }, [source, crmLeads, leadsSelecionados]);
 
   const selectedInstance = instances?.find((i) => i.id === instanceId);
+  const acimaDoLimite = contacts.length > LIMITE_LEADS_CAMPANHA;
 
-  function handleCsvUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const parsed = parseContactsCsv(String(reader.result ?? ""));
-      setCsvContacts(parsed);
-      toast.success(`${parsed.length} contatos carregados do CSV.`);
-    };
-    reader.readAsText(file);
-  }
-
-  async function runDispatch() {
+  async function criar() {
     if (!selectedInstance) {
       toast.error("Selecione uma instância.");
       return;
@@ -223,251 +186,76 @@ export function MassDispatcherCard() {
       toast.error("Nenhum contato para disparar.");
       return;
     }
-
-    stopRef.current = false;
-    pauseRef.current = false;
-    setDispatchState("running");
-    setSentCount(0);
-    setLog([]);
-
-    // Sobe o anexo UMA vez e reaproveita a URL assinada em todos os envios.
-    // Subir por contato seria pagar o upload N vezes pelo mesmo arquivo.
-    let midiaUrl: string | null = null;
-    let midiaPath: string | null = null;
-    if (midia) {
-      const caminho = `${crypto.randomUUID()}-${midia.name.replace(/[^\w.-]/g, "_")}`;
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_MIDIA)
-        .upload(caminho, midia, { contentType: midia.type || "application/octet-stream" });
-      if (uploadError) {
-        toast.error(`Não foi possível subir o anexo: ${uploadError.message}`);
-        setDispatchState("idle");
-        return;
-      }
-      const { data: assinada, error: urlError } = await supabase.storage
-        .from(BUCKET_MIDIA)
-        .createSignedUrl(caminho, TTL_URL_MIDIA);
-      if (urlError || !assinada?.signedUrl) {
-        toast.error("Anexo subiu, mas não foi possível gerar o link de envio.");
-        setDispatchState("idle");
-        return;
-      }
-      midiaUrl = assinada.signedUrl;
-      midiaPath = caminho;
-    }
-
-    // Snapshot da instância e do filtro no momento do início: se o usuário
-    // mudar a fonte/filtro na tela enquanto a campanha corre, o registro já
-    // gravado não deve mudar de baixo dela.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const { data: campanha, error: campanhaError } = await supabase
-      .from("disparos_campanha")
-      // Cast: os tipos gerados em integrations/supabase/types.ts ainda não
-      // conhecem intervalo_min/max_segundos — a migration é aplicada à mão e o
-      // arquivo é regerado depois. Sem isto o insert inteiro vira `never`.
-      .insert({
-        instancia_id: selectedInstance.id,
-        instancia_nome: selectedInstance.instance_name,
-        mensagem_template: message,
-        // O CHECK da tabela só aceita crm/csv/manual, e a seleção manual é,
-        // na origem, leads do CRM — só que escolhidos a dedo em vez de por
-        // filtro. Gravar como 'crm' mantém o histórico coerente sem migration.
-        fonte_contatos: source === "selecao" ? "crm" : source,
-        filtro_status: source === "crm" && crmStatusFilter !== "todos" ? crmStatusFilter : null,
-        // Valor nominal no insert; no fim da campanha é sobrescrito pela média
-        // dos sorteios que de fato aconteceram (ver `intervaloEfetivo` abaixo).
-        intervalo_segundos: randomInterval
-          ? Math.round((intervalRange[0] + intervalRange[1]) / 2)
-          : interval,
-        intervalo_min_segundos: randomInterval ? intervalRange[0] : null,
-        intervalo_max_segundos: randomInterval ? intervalRange[1] : null,
-        total_contatos: contacts.length,
-        disparado_por: user?.id ?? null,
-        midia_url: midiaPath,
-        midia_tipo: midia ? tipoDeMidia(midia) : null,
-        midia_nome: midia?.name ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any)
-      .select()
-      .single();
-
-    if (campanhaError || !campanha) {
-      toast.error("Não foi possível registrar a campanha de disparo.");
-      setDispatchState("idle");
+    if (acimaDoLimite) {
+      toast.error(
+        `Uma campanha vai para no máximo ${formatNumero(LIMITE_LEADS_CAMPANHA)} leads. Filtre mais a lista.`,
+      );
       return;
     }
 
-    // IDs gerados no cliente: o update por item depois do envio precisa saber
-    // qual linha é qual sem depender da ordem de retorno do insert em lote.
-    const itemIds = contacts.map(() => crypto.randomUUID());
-    const { error: itensError } = await supabase.from("disparos_itens").insert(
-      contacts.map((contact, i) => ({
-        id: itemIds[i],
-        campanha_id: campanha.id,
-        lead_id: contact.leadId ?? null,
-        nome: contact.nome,
-        telefone: contact.telefone,
-      })),
-    );
-    if (itensError) {
-      toast.error("Não foi possível registrar os contatos da campanha.");
-    }
-    queryClient.invalidateQueries({ queryKey: ["disparos-campanhas"] });
-
-    let totalEnviado = 0;
-    let totalFalhou = 0;
-    let totalPulado = 0;
-    // Somatório dos intervalos realmente aplicados, para gravar a média no fim.
-    // Com faixa, o valor nominal (o meio) não descreve a campanha: uma parada
-    // no meio do caminho pode ter sorteado só valores baixos.
-    let somaIntervalos = 0;
-    let esperasAplicadas = 0;
-
-    for (let i = 0; i < contacts.length; i++) {
-      if (stopRef.current) break;
-
-      while (pauseRef.current && !stopRef.current) {
-        await sleep(300);
-      }
-      if (stopRef.current) break;
-
-      const contact = contacts[i];
-      const horario = new Date().toLocaleTimeString("pt-BR");
-      const agora = new Date().toISOString();
-
-      try {
-        const { data, error } = await supabase.functions.invoke("mass-dispatcher", {
-          body: {
-            instance_name: selectedInstance.instance_name,
-            phone: contact.telefone,
-            nome: contact.nome,
-            message,
-            midia_url: midiaUrl,
-            midia_tipo: midia ? tipoDeMidia(midia) : undefined,
-            midia_nome: midia?.name,
-          },
-        });
-        if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "erro");
-        // O servidor recusou de propósito (opt-out, sem interesse): não é
-        // envio nem falha, e não pode inflar o "Enviado" da campanha.
-        if (data?.pulado) {
-          setLog((l) => [...l, { telefone: contact.telefone, status: "Pulado", horario }]);
-          totalPulado++;
-          await supabase
-            .from("disparos_itens")
-            .update({ status: "pulado", erro: String(data.pulado), enviado_em: agora })
-            .eq("id", itemIds[i]);
-        } else {
-          setLog((l) => [...l, { telefone: contact.telefone, status: "Enviado", horario }]);
-          totalEnviado++;
-          await supabase
-            .from("disparos_itens")
-            .update({ status: "enviado", enviado_em: agora })
-            .eq("id", itemIds[i]);
+    setCriando(true);
+    try {
+      let midiaCampanha: { url: string; tipo: TipoMidia; nome: string } | null = null;
+      if (midia) {
+        const caminho = `${crypto.randomUUID()}-${midia.name.replace(/[^\w.-]/g, "_")}`;
+        const { error: uploadError } = await supabase.storage
+          .from(BUCKET_MIDIA)
+          .upload(caminho, midia, { contentType: midia.type || "application/octet-stream" });
+        if (uploadError) {
+          toast.error(`Não foi possível subir o anexo: ${uploadError.message}`);
+          return;
         }
-      } catch (err) {
-        setLog((l) => [...l, { telefone: contact.telefone, status: "Erro", horario }]);
-        totalFalhou++;
-        await supabase
-          .from("disparos_itens")
-          .update({
-            status: "falhou",
-            erro: err instanceof Error ? err.message : String(err),
-            enviado_em: agora,
-          })
-          .eq("id", itemIds[i]);
-      }
-
-      setSentCount(i + 1);
-
-      if (i < contacts.length - 1) {
-        // Sorteia por envio, não uma vez por campanha: um valor único sorteado
-        // no início seria só outro intervalo fixo.
-        const esperaSegundos = randomInterval
-          ? sortearSegundos(intervalRange[0], intervalRange[1])
-          : interval;
-        somaIntervalos += esperaSegundos;
-        esperasAplicadas++;
-
-        for (let waited = 0; waited < esperaSegundos * 1000; waited += 250) {
-          if (stopRef.current) break;
-          await sleep(250);
+        const { data: assinada, error: urlError } = await supabase.storage
+          .from(BUCKET_MIDIA)
+          .createSignedUrl(caminho, TTL_URL_MIDIA);
+        if (urlError || !assinada?.signedUrl) {
+          toast.error("Anexo subiu, mas não foi possível gerar o link de envio.");
+          return;
         }
+        midiaCampanha = { url: assinada.signedUrl, tipo: tipoDeMidia(midia), nome: midia.name };
       }
+
+      const nome = nomeCampanha.trim() || nomePadrao();
+      const id = await criarCampanha({
+        nome,
+        template: message,
+        leadIds: [...new Set(contacts.map((c) => c.leadId))],
+        instanceId: selectedInstance.id,
+        midia: midiaCampanha,
+      });
+      setCriada({ id, nome });
+      setNomeCampanha("");
+      queryClient.invalidateQueries({ queryKey: chaveFollowup });
+      toast.success("Campanha criada. Os envios começam em instantes.");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Não foi possível criar a campanha."));
+    } finally {
+      setCriando(false);
     }
-
-    const intervaloEfetivo =
-      esperasAplicadas > 0
-        ? Math.round(somaIntervalos / esperasAplicadas)
-        : randomInterval
-          ? Math.round((intervalRange[0] + intervalRange[1]) / 2)
-          : interval;
-
-    await supabase
-      .from("disparos_campanha")
-      .update({
-        total_enviado: totalEnviado,
-        total_falhou: totalFalhou,
-        total_pulado: totalPulado,
-        intervalo_segundos: intervaloEfetivo,
-        status: stopRef.current ? "interrompido" : "concluido",
-        finalizado_em: new Date().toISOString(),
-      })
-      .eq("id", campanha.id);
-    queryClient.invalidateQueries({ queryKey: ["disparos-campanhas"] });
-
-    setDispatchState("done");
   }
-
-  function handlePauseResume() {
-    pauseRef.current = !pauseRef.current;
-    setDispatchState(pauseRef.current ? "paused" : "running");
-  }
-
-  function handleStop() {
-    stopRef.current = true;
-    pauseRef.current = false;
-    setDispatchState("done");
-  }
-
-  const isRunning = dispatchState === "running" || dispatchState === "paused";
 
   return (
     <ToolCard
       icon={Send}
       title="Disparador em massa"
-      subtitle="Envie mensagens de WhatsApp para leads, um CSV ou uma lista manual"
-      status={
-        isRunning ? (
-          <Pill tone={dispatchState === "paused" ? "warning" : "success"}>
-            <PontoVivo
-              tom={dispatchState === "paused" ? "warning" : "success"}
-              vivo={dispatchState === "running"}
-              className="h-1.5 w-1.5"
-            />
-            {dispatchState === "paused" ? "Pausado" : "Disparando"}
-          </Pill>
-        ) : null
-      }
+      subtitle="Campanhas de WhatsApp para leads do CRM, enviadas pelo servidor"
     >
-      {/* O histórico virou aba deste card em vez de card próprio mais abaixo na
-          página: quem acaba de disparar quer conferir o resultado ali mesmo, e
-          antes precisava rolar até outro bloco. O disparo em andamento não é
-          afetado por trocar de aba — o laço roda num callback com refs, fora do
-          JSX, então continua mesmo com o conteúdo desmontado. */}
+      {/* A campanha roda no worker da fila, não neste componente: trocar de
+          aba, fechar a gaveta ou a página não interrompe nada. */}
       <Tabs defaultValue="disparar">
         <TabsList>
           <TabsTrigger value="disparar">Disparar</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="campanhas">Campanhas</TabsTrigger>
+          <TabsTrigger value="historico">Histórico antigo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="disparar" className="mt-6 space-y-8">
+          <AvisoCampanhaServidor />
+
           <Secao titulo="Origem">
             <div className="grid gap-4 md:grid-cols-2">
               <Campo label="Instância">
-                <Select value={instanceId} onValueChange={setInstanceId} disabled={isRunning}>
+                <Select value={instanceId} onValueChange={setInstanceId} disabled={criando}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a instância" />
                   </SelectTrigger>
@@ -485,7 +273,7 @@ export function MassDispatcherCard() {
                 <Select
                   value={source}
                   onValueChange={(v: ContactSource) => setSource(v)}
-                  disabled={isRunning}
+                  disabled={criando}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -493,8 +281,6 @@ export function MassDispatcherCard() {
                   <SelectContent>
                     <SelectItem value="crm">Leads do CRM (por status)</SelectItem>
                     <SelectItem value="selecao">Escolher leads</SelectItem>
-                    <SelectItem value="csv">Upload CSV</SelectItem>
-                    <SelectItem value="manual">Lista manual</SelectItem>
                   </SelectContent>
                 </Select>
               </Campo>
@@ -502,22 +288,34 @@ export function MassDispatcherCard() {
           </Secao>
 
           <Secao titulo="Mensagem">
+            <Campo id="campanha-nome" label="Nome da campanha" dica="Para achar depois na lista.">
+              <Input
+                id="campanha-nome"
+                maxLength={120}
+                placeholder={nomePadrao()}
+                value={nomeCampanha}
+                onChange={(e) => setNomeCampanha(e.target.value)}
+                disabled={criando}
+              />
+            </Campo>
+
             <Campo
               id="mass-message"
               label="Mensagem"
               dica={
                 <>
-                  Variáveis disponíveis: <code>{"{{nome}}"}</code> e <code>{"{{telefone}}"}</code>
+                  Variável disponível: <code>{"{{primeiro_nome}}"}</code>. Use <code>||</code> para
+                  quebrar em mais de uma mensagem.
                 </>
               }
             >
-              <Textarea
+              <TemplateEditor
                 id="mass-message"
-                placeholder="Olá {{nome}}, temos novidades sobre o Moradas de Paraty..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                disabled={isRunning}
-                rows={4}
+                onChange={setMessage}
+                disabled={criando}
+                variaveis={["primeiro_nome"]}
+                placeholder="Oi {{primeiro_nome}}, temos novidades sobre o Moradas de Paraty..."
               />
             </Campo>
 
@@ -546,7 +344,7 @@ export function MassDispatcherCard() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setMidia(null)}
-                    disabled={isRunning}
+                    disabled={criando}
                     aria-label="Remover anexo"
                   >
                     <X className="h-4 w-4" />
@@ -558,7 +356,7 @@ export function MassDispatcherCard() {
                   type="file"
                   accept="image/*,video/*,audio/*,.pdf"
                   onChange={(e) => setMidia(e.target.files?.[0] ?? null)}
-                  disabled={isRunning}
+                  disabled={criando}
                 />
               )}
             </Campo>
@@ -570,7 +368,7 @@ export function MassDispatcherCard() {
                 <Select
                   value={crmStatusFilter}
                   onValueChange={(v: LeadStatus | "todos") => setCrmStatusFilter(v)}
-                  disabled={isRunning}
+                  disabled={criando}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -585,33 +383,12 @@ export function MassDispatcherCard() {
                   </SelectContent>
                 </Select>
               </Campo>
-            ) : source === "selecao" ? (
+            ) : (
               <LeadSelectionList
                 selectedIds={selectedLeadIds}
                 onChange={setSelectedLeadIds}
-                disabled={isRunning}
+                disabled={criando}
               />
-            ) : source === "csv" ? (
-              <Campo id="csv-upload" label="Arquivo CSV (colunas: nome, telefone)">
-                <Input
-                  id="csv-upload"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleCsvUpload}
-                  disabled={isRunning}
-                />
-              </Campo>
-            ) : (
-              <Campo id="manual-contacts" label="Números (separados por vírgula ou linha)">
-                <Textarea
-                  id="manual-contacts"
-                  placeholder={"5511999999999\n5521988888888"}
-                  value={manualText}
-                  onChange={(e) => setManualText(e.target.value)}
-                  disabled={isRunning}
-                  rows={4}
-                />
-              </Campo>
             )}
 
             {source === "crm" && carregandoCrm ? (
@@ -623,156 +400,66 @@ export function MassDispatcherCard() {
                 <span className="num tabular-nums">{crmCarregados}</span>
               </p>
             ) : (
-              <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
-                <span className="num text-base font-semibold tabular-nums">{contacts.length}</span>
-                contatos serão impactados
+              <p
+                className={
+                  acimaDoLimite
+                    ? "flex flex-wrap items-center gap-2 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger"
+                    : "flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm"
+                }
+              >
+                <span className="num text-base font-semibold tabular-nums">
+                  {formatNumero(contacts.length)}
+                </span>
+                {acimaDoLimite
+                  ? `leads: acima do máximo de ${formatNumero(LIMITE_LEADS_CAMPANHA)} por campanha.`
+                  : "leads entram na campanha"}
               </p>
             )}
           </Secao>
 
-          {/* max-w-xl, não max-w-sm: com o toggle na mesma linha do rótulo, os
-              384px antigos não cabiam os dois e o switch quebrava para baixo. */}
-          <Secao titulo="Ritmo de envio">
-            <div className="max-w-xl space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Label>
-                  {randomInterval
-                    ? `Intervalo entre mensagens: ${intervalRange[0]}s a ${intervalRange[1]}s`
-                    : `Intervalo entre mensagens: ${interval}s`}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="intervalo-aleatorio"
-                    checked={randomInterval}
-                    onCheckedChange={setRandomInterval}
-                    disabled={isRunning}
-                  />
-                  <Label htmlFor="intervalo-aleatorio" className="text-sm font-normal">
-                    Intervalo aleatório
-                  </Label>
-                </div>
-              </div>
-
-              {randomInterval ? (
-                <Slider
-                  min={5}
-                  max={120}
-                  step={1}
-                  minStepsBetweenThumbs={1}
-                  value={intervalRange}
-                  onValueChange={([min, max]) => setIntervalRange([min, max])}
-                  disabled={isRunning}
-                />
-              ) : (
-                <Slider
-                  min={5}
-                  max={60}
-                  step={1}
-                  value={[interval]}
-                  onValueChange={([v]) => setIntervalValue(v)}
-                  disabled={isRunning}
-                />
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                {randomInterval
-                  ? "Cada envio sorteia um valor dentro da faixa — o ritmo deixa de ter padrão fixo, que é o que a detecção de automação procura."
-                  : "Todos os envios usam o mesmo intervalo. Em listas grandes, o padrão repetido é detectável."}
-              </p>
-            </div>
-          </Secao>
-
           <div className="space-y-5 border-t border-border pt-6">
-            <div className="flex flex-wrap items-center gap-2">
-              {!isRunning ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      disabled={
-                        contacts.length === 0 ||
-                        !message.trim() ||
-                        !instanceId ||
-                        (source === "crm" && carregandoCrm)
-                      }
-                    >
-                      Iniciar Disparo
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar disparo em massa</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Você está prestes a enviar {contacts.length} mensagens. Confirmar?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => runDispatch()}>Confirmar</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={handlePauseResume}>
-                    {dispatchState === "paused" ? "Retomar" : "Pausar"}
-                  </Button>
-                  <Button variant="destructive" onClick={handleStop}>
-                    Parar
-                  </Button>
-                </>
-              )}
-            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  disabled={
+                    criando ||
+                    contacts.length === 0 ||
+                    acimaDoLimite ||
+                    (!message.trim() && !midia) ||
+                    !instanceId ||
+                    (source === "crm" && carregandoCrm)
+                  }
+                >
+                  {criando ? "Criando campanha…" : "Criar campanha"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar campanha</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {formatNumero(contacts.length)} leads entram na campanha. O servidor envia aos
+                    poucos, dentro do horário de envio e do limite diário do número, mesmo com esta
+                    aba fechada. Confirmar?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => criar()}>Confirmar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-            {dispatchState !== "idle" ? (
-              <div className="animate-swap space-y-2">
-                <Progress value={contacts.length ? (sentCount / contacts.length) * 100 : 0} />
-                <p className="text-sm tabular-nums text-muted-foreground">
-                  {sentCount} de {contacts.length} enviadas
-                  {dispatchState === "paused" ? " — pausado" : ""}
-                </p>
-              </div>
-            ) : null}
-
-            {log.length > 0 ? (
-              <div className="animate-swap max-h-64 overflow-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Horário</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {log
-                      .slice()
-                      .reverse()
-                      .map((entry, i) => (
-                        <TableRow key={i}>
-                          <TableCell>{entry.telefone}</TableCell>
-                          <TableCell>
-                            <Pill
-                              tone={
-                                entry.status === "Enviado"
-                                  ? "success"
-                                  : entry.status === "Pulado"
-                                    ? "neutral"
-                                    : "danger"
-                              }
-                            >
-                              {entry.status}
-                            </Pill>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{entry.horario}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
+            {criada ? (
+              <CampanhaProgresso campanha={criada} onFechar={() => setCriada(null)} />
             ) : null}
           </div>
         </TabsContent>
 
+        <TabsContent value="campanhas" className="mt-6">
+          <CampanhasLista abertaId={abertaId} onAbrir={setAbertaId} />
+        </TabsContent>
+
+        {/* Disparos feitos pelo navegador antes das campanhas no servidor. */}
         <TabsContent value="historico" className="mt-6">
           <DispatchHistoryPanel />
         </TabsContent>

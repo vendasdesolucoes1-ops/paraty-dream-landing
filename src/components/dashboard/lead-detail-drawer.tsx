@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Phone,
   Plus,
+  Repeat,
   Send,
   StickyNote,
   Trash2,
@@ -96,6 +97,7 @@ import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
 import { LeadPropostasTab } from "@/components/propostas/lead-propostas-tab";
 import { LeadTarefasTab } from "@/components/dashboard/lead-tarefas-tab";
 import { LeadOptOutAviso } from "@/components/dashboard/lead-opt-out-aviso";
+import { LeadFollowupTab } from "@/components/dashboard/lead-followup-tab";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -1204,6 +1206,10 @@ export function LeadDetailDrawer({
                   <ListTodo className="h-3.5 w-3.5" aria-hidden />
                   Tarefas
                 </TabsTrigger>
+                <TabsTrigger value="followup" className={TAB}>
+                  <Repeat className="h-3.5 w-3.5" aria-hidden />
+                  Follow-up
+                </TabsTrigger>
                 <TabsTrigger value="whatsapp" className={TAB}>
                   <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                   Conversas WhatsApp
@@ -1236,6 +1242,9 @@ export function LeadDetailDrawer({
                 </TabsContent>
                 <TabsContent value="tarefas" className="mt-0">
                   <LeadTarefasTab leadId={lead.id} />
+                </TabsContent>
+                <TabsContent value="followup" className="mt-0">
+                  <LeadFollowupTab leadId={lead.id} />
                 </TabsContent>
                 <TabsContent value="whatsapp" className="mt-0">
                   <WhatsappTab leadId={lead.id} nome={lead.nome} telefone={lead.telefone} />

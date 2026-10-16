@@ -1,31 +1,3 @@
-export function parseContactsCsv(text: string): { nome: string; telefone: string }[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  if (lines.length === 0) return [];
-
-  const firstCols = lines[0].split(",").map((c) => c.trim().toLowerCase());
-  const hasHeader = firstCols.includes("nome") || firstCols.includes("telefone");
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  return dataLines
-    .map((line) => {
-      const [nome, telefone] = line.split(",").map((c) => c.trim());
-      return { nome: nome ?? "", telefone: (telefone ?? nome ?? "").replace(/\D/g, "") };
-    })
-    .filter((row) => row.telefone.length > 0);
-}
-
-export function parseManualContacts(text: string): { nome: string; telefone: string }[] {
-  return text
-    .split(/[\n,]/)
-    .map((raw) => raw.replace(/\D/g, ""))
-    .filter((phone) => phone.length > 0)
-    .map((telefone) => ({ nome: "", telefone }));
-}
-
 export function downloadCsv(
   filename: string,
   headers: string[],

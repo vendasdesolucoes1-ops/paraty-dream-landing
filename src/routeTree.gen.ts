@@ -14,6 +14,7 @@ import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardAgendaRouteImport } from './routes/dashboard/agenda'
+import { Route as DashboardCadenciasRouteImport } from './routes/dashboard/cadencias'
 import { Route as DashboardClientesRouteImport } from './routes/dashboard/clientes'
 import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
 import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
@@ -46,6 +47,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
 const DashboardAgendaRoute = DashboardAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardCadenciasRoute = DashboardCadenciasRouteImport.update({
+  id: '/cadencias',
+  path: '/cadencias',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardClientesRoute = DashboardClientesRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
+  '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
   '/dashboard/configuracoes': typeof DashboardConfiguracoesRoute
   '/dashboard/crm': typeof DashboardCrmRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/cadencias'
     | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/cadencias'
     | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/agenda'
+    | '/dashboard/cadencias'
     | '/dashboard/clientes'
     | '/dashboard/configuracoes'
     | '/dashboard/crm'
@@ -222,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/dashboard/agenda'
       preLoaderRoute: typeof DashboardAgendaRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/cadencias': {
+      id: '/dashboard/cadencias'
+      path: '/cadencias'
+      fullPath: '/dashboard/cadencias'
+      preLoaderRoute: typeof DashboardCadenciasRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/clientes': {
@@ -285,6 +304,7 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteRouteChildren {
   DashboardAgendaRoute: typeof DashboardAgendaRoute
+  DashboardCadenciasRoute: typeof DashboardCadenciasRoute
   DashboardClientesRoute: typeof DashboardClientesRoute
   DashboardConfiguracoesRoute: typeof DashboardConfiguracoesRoute
   DashboardCrmRoute: typeof DashboardCrmRoute
@@ -298,6 +318,7 @@ interface DashboardRouteRouteChildren {
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAgendaRoute: DashboardAgendaRoute,
+  DashboardCadenciasRoute: DashboardCadenciasRoute,
   DashboardClientesRoute: DashboardClientesRoute,
   DashboardConfiguracoesRoute: DashboardConfiguracoesRoute,
   DashboardCrmRoute: DashboardCrmRoute,
