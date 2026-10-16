@@ -1,0 +1,335 @@
+{
+ "duracoes": [
+  19.19,
+  23.68,
+  36.87,
+  26.71,
+  24.73,
+  40.56,
+  23.84,
+  24.88
+ ],
+ "legendas": {
+  "1": [
+   {
+    "inicio": 1.0,
+    "fim": 3.7,
+    "texto": "Este é o novo sistema do Moradas de Paraty."
+   },
+   {
+    "inicio": 3.7,
+    "fim": 7.28,
+    "texto": "Ele junta o site, o atendimento no WhatsApp com a Sophia,"
+   },
+   {
+    "inicio": 7.28,
+    "fim": 11.18,
+    "texto": "o CRM da equipe e o acompanhamento de cada lead, num lugar só."
+   },
+   {
+    "inicio": 11.18,
+    "fim": 14.89,
+    "texto": "Nos próximos minutos, você vai ver o caminho de um cliente…"
+   },
+   {
+    "inicio": 14.89,
+    "fim": 17.59,
+    "texto": "do primeiro clique até a visita ao terreno."
+   }
+  ],
+  "2": [
+   {
+    "inicio": 1.0,
+    "fim": 2.25,
+    "texto": "Tudo começa no site."
+   },
+   {
+    "inicio": 2.25,
+    "fim": 7.07,
+    "texto": "O visitante vê o loteamento, a infraestrutura e a condição comercial que está"
+   },
+   {
+    "inicio": 7.07,
+    "fim": 11.95,
+    "texto": "valendo, que agora é definida pelo próprio administrador, sem mexer em código."
+   },
+   {
+    "inicio": 11.95,
+    "fim": 15.7,
+    "texto": "Quando ele preenche o formulário e aceita receber o contato,"
+   },
+   {
+    "inicio": 15.7,
+    "fim": 19.83,
+    "texto": "o lead entra no CRM na mesma hora, com o consentimento registrado…"
+   },
+   {
+    "inicio": 19.83,
+    "fim": 22.08,
+    "texto": "e já é distribuído para um vendedor."
+   }
+  ],
+  "3": [
+   {
+    "inicio": 1.0,
+    "fim": 4.84,
+    "texto": "Em segundos, a Sophia manda a primeira mensagem no WhatsApp,"
+   },
+   {
+    "inicio": 4.84,
+    "fim": 7.09,
+    "texto": "sempre dentro do horário comercial."
+   },
+   {
+    "inicio": 7.09,
+    "fim": 12.08,
+    "texto": "Ela se apresenta pelo nome, entende o que o cliente procura e oferece os lotes"
+   },
+   {
+    "inicio": 12.08,
+    "fim": 14.13,
+    "texto": "que estão realmente disponíveis."
+   },
+   {
+    "inicio": 14.13,
+    "fim": 15.67,
+    "texto": "Ela nunca fala de preço:"
+   },
+   {
+    "inicio": 15.67,
+    "fim": 17.85,
+    "texto": "o objetivo dela é marcar a visita."
+   },
+   {
+    "inicio": 17.85,
+    "fim": 20.67,
+    "texto": "Se o cliente pede um horário fora da agenda,"
+   },
+   {
+    "inicio": 20.67,
+    "fim": 23.93,
+    "texto": "a visita fica \"a confirmar\" e o vendedor é avisado."
+   },
+   {
+    "inicio": 23.93,
+    "fim": 28.35,
+    "texto": "Se o cliente quer falar com uma pessoa, ela passa a conversa na hora."
+   },
+   {
+    "inicio": 28.35,
+    "fim": 31.62,
+    "texto": "E se o cliente pede para parar, o sistema respeita:"
+   },
+   {
+    "inicio": 31.62,
+    "fim": 35.27,
+    "texto": "nenhuma mensagem automática volta a ser enviada para ele."
+   }
+  ],
+  "4": [
+   {
+    "inicio": 1.0,
+    "fim": 6.18,
+    "texto": "Do lado da equipe, cada lead aparece no CRM, organizado por etapa:"
+   },
+   {
+    "inicio": 6.18,
+    "fim": 10.66,
+    "texto": "novo, qualificado, agendado, visitou, proposta e fechado."
+   },
+   {
+    "inicio": 10.66,
+    "fim": 13.49,
+    "texto": "O vendedor vê só a própria carteira;"
+   },
+   {
+    "inicio": 13.49,
+    "fim": 14.82,
+    "texto": "a gestão vê tudo."
+   },
+   {
+    "inicio": 14.82,
+    "fim": 17.34,
+    "texto": "Abrindo o lead, está tudo junto:"
+   },
+   {
+    "inicio": 17.34,
+    "fim": 22.68,
+    "texto": "dados, histórico, conversas do WhatsApp, tarefas com prazo, visitas…"
+   },
+   {
+    "inicio": 22.68,
+    "fim": 25.11,
+    "texto": "e propostas com valor e versão."
+   }
+  ],
+  "5": [
+   {
+    "inicio": 1.0,
+    "fim": 4.92,
+    "texto": "Ao abrir o sistema, cada pessoa vê o que precisa fazer hoje:"
+   },
+   {
+    "inicio": 4.92,
+    "fim": 9.81,
+    "texto": "tarefas, visitas, leads esperando resposta e o tempo de atendimento de cada"
+   },
+   {
+    "inicio": 9.81,
+    "fim": 10.4,
+    "texto": "vendedor."
+   },
+   {
+    "inicio": 10.4,
+    "fim": 13.66,
+    "texto": "Na agenda, as visitas aparecem com o status certo,"
+   },
+   {
+    "inicio": 13.66,
+    "fim": 16.4,
+    "texto": "e na véspera o cliente recebe um lembrete."
+   },
+   {
+    "inicio": 16.4,
+    "fim": 20.25,
+    "texto": "Se ele responde confirmando, a visita é confirmada sozinha."
+   },
+   {
+    "inicio": 20.25,
+    "fim": 23.13,
+    "texto": "Se pede para remarcar, o vendedor é avisado."
+   }
+  ],
+  "6": [
+   {
+    "inicio": 1.0,
+    "fim": 3.31,
+    "texto": "Quem não respondeu não é esquecido."
+   },
+   {
+    "inicio": 3.31,
+    "fim": 8.01,
+    "texto": "As cadências de follow-up mandam novas mensagens no tempo certo e param"
+   },
+   {
+    "inicio": 8.01,
+    "fim": 12.84,
+    "texto": "sozinhas quando o cliente responde, quando um vendedor assume a conversa,"
+   },
+   {
+    "inicio": 12.84,
+    "fim": 16.47,
+    "texto": "quando a visita é marcada ou quando ele pede para sair."
+   },
+   {
+    "inicio": 16.47,
+    "fim": 21.04,
+    "texto": "Como usamos o WhatsApp sem a API oficial, o sistema protege o número:"
+   },
+   {
+    "inicio": 21.04,
+    "fim": 24.87,
+    "texto": "há limite de envios por dia, aquecimento para número novo,"
+   },
+   {
+    "inicio": 24.87,
+    "fim": 27.45,
+    "texto": "no máximo duas tentativas sem resposta,"
+   },
+   {
+    "inicio": 27.45,
+    "fim": 31.29,
+    "texto": "e a cadência pausa sozinha se muita gente pedir para sair."
+   },
+   {
+    "inicio": 31.29,
+    "fim": 34.53,
+    "texto": "Quando a inteligência artificial sugere um texto,"
+   },
+   {
+    "inicio": 34.53,
+    "fim": 36.77,
+    "texto": "uma pessoa aprova antes de enviar…"
+   },
+   {
+    "inicio": 36.77,
+    "fim": 38.96,
+    "texto": "e nenhum texto com valores passa."
+   }
+  ],
+  "7": [
+   {
+    "inicio": 1.0,
+    "fim": 3.41,
+    "texto": "As campanhas agora rodam no servidor:"
+   },
+   {
+    "inicio": 3.41,
+    "fim": 8.36,
+    "texto": "podem ser criadas e acompanhadas, e continuam mesmo com o navegador fechado,"
+   },
+   {
+    "inicio": 8.36,
+    "fim": 10.97,
+    "texto": "sempre com as mesmas regras de proteção."
+   },
+   {
+    "inicio": 10.97,
+    "fim": 12.66,
+    "texto": "E a gestão acompanha tudo:"
+   },
+   {
+    "inicio": 12.66,
+    "fim": 16.24,
+    "texto": "quantas mensagens foram entregues, lidas e respondidas,"
+   },
+   {
+    "inicio": 16.24,
+    "fim": 19.5,
+    "texto": "a conversão por etapa e as metas de cada vendedor."
+   },
+   {
+    "inicio": 19.5,
+    "fim": 22.24,
+    "texto": "Se a fila de envio parar, o sistema avisa."
+   }
+  ],
+  "8": [
+   {
+    "inicio": 1.0,
+    "fim": 3.48,
+    "texto": "O administrador controla o essencial:"
+   },
+   {
+    "inicio": 3.48,
+    "fim": 6.57,
+    "texto": "o número do WhatsApp, o jeito da Sophia falar,"
+   },
+   {
+    "inicio": 6.57,
+    "fim": 11.2,
+    "texto": "os horários de visita e as condições comerciais que aparecem no site."
+   },
+   {
+    "inicio": 11.2,
+    "fim": 14.62,
+    "texto": "Tudo com histórico de alterações e respeito à LGPD."
+   },
+   {
+    "inicio": 14.62,
+    "fim": 18.92,
+    "texto": "O resultado é um atendimento mais rápido, nenhum lead esquecido…"
+   },
+   {
+    "inicio": 18.92,
+    "fim": 21.27,
+    "texto": "e uma equipe focada no que importa:"
+   },
+   {
+    "inicio": 21.27,
+    "fim": 23.28,
+    "texto": "levar o cliente até o terreno."
+   }
+  ]
+ }
+}

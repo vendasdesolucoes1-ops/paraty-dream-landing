@@ -35,3 +35,9 @@ dist-ssr
 # Worktrees e estado local do Claude Code
 .claude/
 deno.lock
+
+# Vídeo de apresentação: só fontes, áudios e legendas vão para o git
+docs/video/saida/*
+!docs/video/saida/audio/
+!docs/video/saida/tempos.json
+!docs/video/saida/legendas.srt

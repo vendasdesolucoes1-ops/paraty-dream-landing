@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Moradas de Paraty — vídeo de apresentação</title>
+<!--
+  Vídeo animado (1920×1080). Cada <section class="cena"> é uma cena do roteiro
+  (docs/video/roteiro.md). O tempo é controlado de fora por window.render(ms):
+  o render.mjs chama render() quadro a quadro e tira um print de cada um, então
+  toda animação aqui é determinística (CSS pausado + ganchos data-*).
+  Durações das cenas: tempos.json (gerado pela narração; sem ele, os padrões).
+-->
+<style>
+@font-face{font-family:"Cormorant Garamond";src:url("../../public/fonts/cormorant-garamond-latin-var.woff2") format("woff2");font-weight:300 700}
+@font-face{font-family:"Inter";src:url("../../public/fonts/inter-latin-var.woff2") format("woff2");font-weight:100 900}
+@font-face{font-family:"Playfair Display";src:url("../../public/fonts/playfair-display-latin-var.woff") format("woff");font-weight:400 900}
+@font-face{font-family:"Nunito Sans";src:url("../../public/fonts/nunito-sans-latin-var.woff") format("woff");font-weight:200 1000}
+:root{
+  --navy:#00234c;--navy2:#123e6a;--gold:#cd9a50;--sand:#c7b49c;--sandl:#efe7d9;--ivory:#f9f6f1;--canvas:#eeebe5;
+  --fg:#101c28;--muted:#555f69;--border:#e7e2da;--ok:#1e7546;--oks:#ddf6e4;--warn:#a76100;--warns:#ffeccd;
+  --info:#286193;--infos:#e2f0ff;--bad:#cc2827;--bads:#ffe7e4;--wa:#e7ddd3;--wab:#d9fdd3;
+  --e:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--navy)}
+body{font-family:"Inter",sans-serif;color:var(--fg);-webkit-font-smoothing:antialiased}
+#palco{position:relative;width:1920px;height:1080px;overflow:hidden}
+.cena{position:absolute;inset:0;opacity:0;overflow:hidden}
+.serif{font-family:"Cormorant Garamond",serif;font-weight:600}
+/* Utilitários de animação: --d = atraso (s) dentro da cena, --t = duração */
+.a{animation-duration:var(--t,.8s);animation-delay:calc(var(--d,0)*1s);animation-fill-mode:both;animation-timing-function:var(--e)}
+.fade-up{animation-name:fadeUp}.fade{animation-name:fade}.pop{animation-name:pop}
+.slide-l{animation-name:slideL}.slide-r{animation-name:slideR}.grow-x{animation-name:growX;transform-origin:left}
+.grow-y{animation-name:growY;transform-origin:bottom}.draw{animation-name:draw}
+.out{animation-name:out}
+@keyframes fadeUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes out{from{opacity:1}to{opacity:0}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-120px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(160px)}to{opacity:1;transform:none}}
+@keyframes growX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes growY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes draw{from{stroke-dashoffset:var(--len,1000)}to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(205,154,80,.5)}50%{transform:scale(1.04);box-shadow:0 0 0 18px rgba(205,154,80,0)}}
+/* Peças comuns */
+.card{background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:0 2px 4px rgba(16,28,40,.05),0 24px 60px -30px rgba(16,28,40,.35)}
+.pill{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 16px;border-radius:999px;font-size:18px;font-weight:600;background:#f3eee6}
+.pill.ok{background:var(--oks);color:var(--ok)}.pill.warn{background:var(--warns);color:var(--warn)}
+.pill.info{background:var(--infos);color:var(--info)}.pill.bad{background:var(--bads);color:var(--bad)}
+.pill.gold{background:#f6ead6;color:#8a5d17}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:56px;padding:0 28px;border-radius:14px;font-weight:700;font-size:20px;background:var(--navy);color:var(--ivory)}
+.titulo-cena{position:absolute;left:96px;top:72px}
+.titulo-cena .k{font-size:20px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.titulo-cena h2{font-family:"Cormorant Garamond",serif;font-size:76px;line-height:1;color:var(--navy);font-weight:600;margin-top:10px}
+.claro .titulo-cena h2{color:var(--ivory)}
+.cursor{position:absolute;width:34px;height:34px;z-index:50;pointer-events:none}
+.legenda{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);max-width:1400px;padding:10px 22px;border-radius:12px;background:rgba(0,20,44,.85);color:#fff;font-size:26px;line-height:1.35;text-align:center;z-index:100;display:none}
+body.com-legenda .legenda{display:block}
+</style>
+</head>
+<body>
+<div id="palco">
+
+<!-- ===================== CENA 1 — Abertura ===================== -->
+<section class="cena claro" data-cena="1" style="background:radial-gradient(1200px 700px at 70% 30%,#123e6a 0%,#00234c 60%,#001733 100%)">
+  <svg width="1920" height="1080" style="position:absolute;inset:0">
+    <path d="M120 1010 C 520 900, 760 1060, 1120 960 S 1700 880, 1840 940" fill="none" stroke="#cd9a50" stroke-width="3" stroke-dasharray="1600" class="a draw" style="--len:1600;--d:.3;--t:3"/>
+  </svg>
+  <div class="a pop" style="--d:.4;position:absolute;left:96px;top:150px;width:120px;height:120px;border-radius:30px;background:#cd9a50;color:#00234c;display:flex;align-items:center;justify-content:center" ><span class="serif" style="font-size:78px;font-weight:700">M</span></div>
+  <div class="a fade-up" style="--d:1;position:absolute;left:96px;top:320px;color:var(--gold);font-size:24px;letter-spacing:.2em;text-transform:uppercase;font-weight:700">Loteamento Residencial Sophia Saíde · Paraty</div>
+  <h1 class="a fade-up serif" style="--d:1.3;position:absolute;left:96px;top:370px;font-size:150px;line-height:.95;color:var(--ivory)">Moradas de Paraty</h1>
+  <div class="a fade-up serif" style="--d:1.8;position:absolute;left:96px;top:540px;font-size:72px;color:var(--gold)">vendas, inteligência artificial e follow-up</div>
+  <div style="position:absolute;left:96px;top:700px;display:flex;gap:36px">
+    <div class="a pop card" style="--d:3;width:300px;padding:28px;background:rgba(255,255,255,.07);border-color:rgba(205,154,80,.5);color:var(--ivory)"><div style="font-size:46px">🌐</div><div class="serif" style="font-size:40px;margin-top:8px">Site</div><div style="font-size:20px;opacity:.8">o cliente chega</div></div>
+    <div class="a pop card" style="--d:3.5;width:300px;padding:28px;background:rgba(255,255,255,.07);border-color:rgba(205,154,80,.5);color:var(--ivory)"><div style="font-size:46px">💬</div><div class="serif" style="font-size:40px;margin-top:8px">Sophia</div><div style="font-size:20px;opacity:.8">atende no WhatsApp</div></div>
+    <div class="a pop card" style="--d:4;width:300px;padding:28px;background:rgba(255,255,255,.07);border-color:rgba(205,154,80,.5);color:var(--ivory)"><div style="font-size:46px">📋</div><div class="serif" style="font-size:40px;margin-top:8px">CRM</div><div style="font-size:20px;opacity:.8">a equipe vende</div></div>
+    <div class="a pop card" style="--d:4.5;width:300px;padding:28px;background:rgba(255,255,255,.07);border-color:rgba(205,154,80,.5);color:var(--ivory)"><div style="font-size:46px">🔁</div><div class="serif" style="font-size:40px;margin-top:8px">Follow-up</div><div style="font-size:20px;opacity:.8">ninguém é esquecido</div></div>
+  </div>
+</section>
+
+<!-- ===================== CENA 2 — Site e formulário ===================== -->
+<section class="cena" data-cena="2" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">1 · O site</div><h2 class="a fade-up" style="--d:.4">O cliente chega pelo site</h2></div>
+  <!-- navegador -->
+  <div class="card a slide-l" style="--d:.6;position:absolute;left:96px;top:250px;width:1060px;height:760px;overflow:hidden">
+    <div style="height:48px;background:#f3eee6;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid var(--border)"><i style="width:14px;height:14px;border-radius:50%;background:#e98b80"></i><i style="width:14px;height:14px;border-radius:50%;background:#e9c780"></i><i style="width:14px;height:14px;border-radius:50%;background:#9cc98d"></i><div style="margin-left:20px;height:28px;flex:1;border-radius:8px;background:#fff;font-size:15px;color:var(--muted);display:flex;align-items:center;padding:0 12px">moradasdeparaty.com.br</div></div>
+    <div style="position:relative;height:712px;overflow:hidden">
+      <div class="rolagem" style="position:absolute;inset:0;animation:rolar 3s var(--e) 1.6s both">
+        <div style="height:440px;background:linear-gradient(160deg,#2f5a3e,#7a9a6b 45%,#d8c7a4);position:relative">
+          <div style="position:absolute;left:56px;bottom:60px;color:#fff"><div style="font-family:'Nunito Sans';letter-spacing:.2em;font-size:15px;text-transform:uppercase">9 minutos do Centro Histórico</div><div style="font-family:'Playfair Display';font-size:64px;line-height:1.02;margin-top:8px">Viva Paraty<br>todos os dias</div></div>
+        </div>
+        <div style="background:#efe7d9;padding:44px 56px;display:flex;gap:40px;align-items:center">
+          <div style="flex:1"><div class="pill gold">Condições especiais</div><div style="font-family:'Playfair Display';font-size:40px;color:var(--navy);margin-top:16px">Seu terreno. Sua casa.</div></div>
+          <div id="oferta" style="background:var(--navy);border-radius:22px;padding:30px 40px;color:var(--ivory);display:flex;gap:36px;text-align:center;outline:4px solid transparent">
+            <div><div style="font-size:14px;letter-spacing:.15em;opacity:.8">A PARTIR DE</div><div style="font-family:'Playfair Display';font-size:84px;color:var(--gold);line-height:1">10%</div><div style="font-family:'Playfair Display';font-size:22px">de entrada</div></div>
+            <div style="width:1px;background:rgba(205,154,80,.7)"></div>
+            <div><div style="font-size:14px;letter-spacing:.15em;opacity:.8">SALDO EM ATÉ</div><div style="font-family:'Playfair Display';font-size:84px;color:var(--gold);line-height:1">240x</div><div style="font-size:14px;letter-spacing:.12em;opacity:.8">DIRETO COM A LOTEADORA</div></div>
+          </div>
+        </div>
+        <div style="background:#fff;padding:40px 56px">
+          <div style="font-family:'Playfair Display';font-size:36px;color:var(--navy)">Agende sua visita</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px;font-size:20px">
+            <div class="campo"><div style="font-size:14px;font-weight:700;margin-bottom:6px">Nome</div><div style="height:52px;border:1px solid var(--border);border-radius:12px;padding:0 16px;display:flex;align-items:center"><span data-digita="5.2,14" data-texto="Mariana Alves"></span></div></div>
+            <div class="campo"><div style="font-size:14px;font-weight:700;margin-bottom:6px">WhatsApp</div><div style="height:52px;border:1px solid var(--border);border-radius:12px;padding:0 16px;display:flex;align-items:center"><span data-digita="6.4,14" data-texto="(24) 99812-3456"></span></div></div>
+            <div class="campo"><div style="font-size:14px;font-weight:700;margin-bottom:6px">Cidade</div><div style="height:52px;border:1px solid var(--border);border-radius:12px;padding:0 16px;display:flex;align-items:center"><span data-digita="7.6,14" data-texto="Angra dos Reis"></span></div></div>
+            <div class="campo"><div style="font-size:14px;font-weight:700;margin-bottom:6px">Interesse</div><div style="height:52px;border:1px solid var(--border);border-radius:12px;padding:0 16px;display:flex;align-items:center"><span data-digita="8.6,14" data-texto="Lote de 360 m²"></span></div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:20px;font-size:17px;color:var(--muted)"><div style="width:28px;height:28px;border-radius:8px;border:2px solid var(--navy);position:relative"><div class="a pop" style="--d:9.8;--t:.4s;position:absolute;inset:3px;border-radius:5px;background:var(--navy)"></div></div>Aceito receber contato da equipe pelo WhatsApp e e-mail.</div>
+          <div class="btn" style="margin-top:20px;animation:clique .5s ease 10.6s both">Quero conhecer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- cursor -->
+  <svg class="cursor" viewBox="0 0 24 24" style="animation:cursor2 9s var(--e) 2s both"><path d="M3 2l7 19 2.6-8.1L21 10z" fill="#101c28" stroke="#fff" stroke-width="1.5"/></svg>
+  <!-- CRM recebendo -->
+  <div class="card a slide-r" style="--d:1;position:absolute;left:1230px;top:250px;width:600px;height:760px;padding:30px;background:#f9f6f1">
+    <div class="serif" style="font-size:40px;color:var(--navy)">CRM · Novo</div>
+    <div style="font-size:18px;color:var(--muted)">leads chegando agora</div>
+    <div class="card" style="margin-top:24px;padding:20px 22px;opacity:.55"><b style="font-size:21px">Paulo Ribeiro</b><div style="font-size:16px;color:var(--muted)">Ubatuba · há 2 h</div></div>
+    <div class="card" style="margin-top:16px;padding:20px 22px;opacity:.55"><b style="font-size:21px">Lúcia Fernandes</b><div style="font-size:16px;color:var(--muted)">São Paulo · ontem</div></div>
+    <div class="card voa" style="position:absolute;left:30px;top:150px;width:540px;padding:20px 22px;border:2px solid var(--gold);animation:voar 1.4s var(--e) 11.2s both">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:23px">Mariana Alves</b><span class="pill ok" style="font-size:15px;height:28px">Novo</span></div>
+      <div style="font-size:16px;color:var(--muted);margin-top:4px">Angra dos Reis · Lote de 360 m² · agora</div>
+      <div style="display:flex;gap:10px;margin-top:12px"><span class="pill info" style="font-size:14px;height:26px">✓ Consentimento registrado</span><span class="pill gold" style="font-size:14px;height:26px">Vendedor: Rafael</span></div>
+    </div>
+  </div>
+  <div class="legenda"></div>
+  <style>
+    @keyframes rolar{from{transform:translateY(0)}to{transform:translateY(-420px)}}
+    @keyframes clique{0%{transform:scale(1)}40%{transform:scale(.94);background:#123e6a}100%{transform:scale(1)}}
+    @keyframes voar{0%{opacity:0;transform:translate(-700px,330px) scale(.8)}60%{opacity:1}100%{opacity:1;transform:none}}
+    @keyframes cursor2{
+      0%{left:900px;top:900px;opacity:0}5%{opacity:1}
+      20%{left:860px;top:560px}            /* oferta */
+      40%{left:330px;top:676px}            /* nome */
+      52%{left:820px;top:676px}            /* whatsapp */
+      64%{left:330px;top:746px}            /* cidade */
+      74%{left:820px;top:746px}            /* interesse */
+      86%{left:200px;top:812px}            /* consentimento */
+      100%{left:270px;top:876px;opacity:1} /* botão */
+    }
+  </style>
+</section>
+
+<!-- ===================== CENA 3 — Sophia no WhatsApp ===================== -->
+<section class="cena" data-cena="3" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">2 · Atendimento</div><h2 class="a fade-up" style="--d:.4">A Sophia responde no WhatsApp</h2></div>
+  <div class="a fade-up" style="--d:.8;position:absolute;left:96px;top:250px;width:520px;font-size:26px;line-height:1.5;color:#333c46">Em segundos, dentro do horário comercial. Ela entende o que o cliente procura, oferece só lotes disponíveis e tem um objetivo: <b style="color:var(--navy)">marcar a visita.</b></div>
+  <!-- celular -->
+  <div class="a pop" style="--d:.6;position:absolute;left:720px;top:215px;width:430px;height:760px;border-radius:52px;background:#101c28;padding:16px">
+    <div style="width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--wa);position:relative">
+      <div style="height:96px;background:#00234c;color:#fff;display:flex;align-items:flex-end;gap:14px;padding:0 22px 14px"><div style="width:48px;height:48px;border-radius:50%;background:#cd9a50;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00234c">S</div><div><div style="font-weight:700;font-size:20px">Moradas de Paraty</div><div style="font-size:14px;opacity:.75">online</div></div></div>
+      <div id="chat" style="padding:18px 16px;display:flex;flex-direction:column;gap:10px;font-size:18px;line-height:1.38">
+        <div class="a pop msg s" style="--d:1.4">Oi, Mariana! Aqui é a Sophia, do Moradas de Paraty 😊 Vi seu interesse num lote de 360 m². Você pensa em construir para morar ou investir?</div>
+        <div class="a pop msg c" style="--d:4.2">Pra morar</div>
+        <div class="a pop msg c" style="--d:4.8">e quanto custa?</div>
+        <div class="a pop msg c" style="--d:5.4">tem perto da praia?</div>
+        <div class="a fade espera" style="--d:5.8;--t:.3s"><span class="relogio">aguardando o cliente terminar…</span></div>
+        <div class="a pop msg s" style="--d:9">Que bom! Temos lotes de 360 m² na quadra C, a 4 minutos da praia. Os valores e condições a gente apresenta na visita, com a tabela atualizada. Que tal conhecer no sábado?</div>
+        <div class="a pop msg c" style="--d:13">Sábado às 10h pode ser</div>
+        <div class="a pop msg s" style="--d:14.4">Combinado: sábado às 10h. Te espero lá! 🌿</div>
+      </div>
+    </div>
+  </div>
+  <!-- visita indo para a agenda -->
+  <div class="card a pop" style="--d:15.2;position:absolute;left:1230px;top:250px;width:560px;padding:26px;border:2px solid var(--gold)">
+    <div style="display:flex;justify-content:space-between"><div class="serif" style="font-size:34px;color:var(--navy)">Visita agendada</div><span class="pill ok">Agenda</span></div>
+    <div style="font-size:21px;margin-top:6px">Mariana Alves · sábado, 10h · Quadra C</div>
+    <div style="font-size:16px;color:var(--muted);margin-top:4px">Dentro do horário de visitas configurado</div>
+  </div>
+  <div style="position:absolute;left:1230px;top:440px;width:560px;display:flex;flex-direction:column;gap:18px">
+    <div class="card a slide-r" style="--d:19;padding:22px 24px;display:flex;gap:18px;align-items:center"><div style="font-size:40px">🙋</div><div><b style="font-size:22px">"Quero falar com uma pessoa"</b><div style="font-size:18px;color:var(--muted)">a conversa passa para o consultor, que é avisado na hora</div></div></div>
+    <div class="card a slide-r" style="--d:23;padding:22px 24px;display:flex;gap:18px;align-items:center"><div style="font-size:40px">🎙️</div><div><b style="font-size:22px">Mensagem de áudio</b><div style="font-size:18px;color:var(--muted)">é transcrita; se não der, ela pede o texto</div></div></div>
+    <div class="card a slide-r" style="--d:27;padding:22px 24px;display:flex;gap:18px;align-items:center"><div style="font-size:40px">🕒</div><div><b style="font-size:22px">Horário fora da agenda</b><div style="font-size:18px;color:var(--muted)">a visita fica "a confirmar" e o vendedor decide</div></div></div>
+    <div class="card a slide-r" style="--d:32;padding:22px 24px;display:flex;gap:18px;align-items:center;border:2px solid var(--bad)"><div style="font-size:40px">✋</div><div><b style="font-size:22px">"SAIR"</b><div style="font-size:18px;color:var(--muted)">nenhuma mensagem automática volta a ser enviada</div></div></div>
+  </div>
+  <div class="legenda"></div>
+  <style>
+    .msg{max-width:84%;padding:12px 15px;border-radius:16px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+    .msg.s{background:#fff;align-self:flex-start;border-top-left-radius:4px}
+    .msg.c{background:var(--wab);align-self:flex-end;border-top-right-radius:4px}
+    .espera{align-self:center;font-size:14px;color:#555f69;background:rgba(255,255,255,.7);border-radius:999px;padding:6px 14px;animation:fade .3s 5.8s both, out .3s 8.6s forwards !important}
+  </style>
+</section>
+
+<!-- ===================== CENA 4 — CRM ===================== -->
+<section class="cena" data-cena="4" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">3 · Equipe</div><h2 class="a fade-up" style="--d:.4">Cada lead no seu lugar</h2></div>
+  <div style="position:absolute;left:96px;top:240px;width:1728px;height:290px;display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+    <div class="col a fade-up" style="--d:.8"><div class="cab">Novo <span>12</span></div><div class="lc a pop" style="--d:1.2"><b>Mariana Alves</b><i>Angra · agora</i></div><div class="lc a pop" style="--d:1.4"><b>Paulo Ribeiro</b><i>Ubatuba</i></div></div>
+    <div class="col a fade-up" style="--d:1"><div class="cab">Qualificado <span>8</span></div><div class="lc a pop" style="--d:1.6" id="arrasta"><b>João Conceição</b><i>Rio de Janeiro</i></div><div class="lc a pop" style="--d:1.8"><b>Ana Costa</b><i>Paraty</i></div></div>
+    <div class="col a fade-up" style="--d:1.2"><div class="cab">Agendado <span>5</span></div><div class="lc a pop" style="--d:2"><b>Lúcia Fernandes</b><i>sáb 10h</i></div></div>
+    <div class="col a fade-up" style="--d:1.4"><div class="cab">Visitou <span>4</span></div><div class="lc a pop" style="--d:2.2"><b>Bruno Lima</b><i>gostou da quadra C</i></div></div>
+    <div class="col a fade-up" style="--d:1.6"><div class="cab">Proposta <span>3</span></div><div class="lc a pop" style="--d:2.4"><b>Carla Mendes</b><i>v2 enviada</i></div></div>
+    <div class="col a fade-up" style="--d:1.8"><div class="cab">Fechado <span>2</span></div><div class="lc a pop" style="--d:2.6"><b>Diego Santos</b><i>contrato assinado</i></div></div>
+  </div>
+  <!-- cartão arrastado -->
+  <div class="lc" style="position:absolute;width:270px;z-index:5;border:2px solid var(--gold);animation:arrastar 2.2s var(--e) 4s both"><b>João Conceição</b><i>Rio de Janeiro</i></div>
+  <!-- busca -->
+  <div class="card a fade-up" style="--d:7;position:absolute;left:96px;top:580px;width:560px;height:70px;display:flex;align-items:center;gap:12px;padding:0 22px;font-size:24px">🔎 <span data-digita="7.6,6" data-texto="joao"></span><span class="pill ok a pop" style="--d:8.8;margin-left:auto;font-size:15px;height:28px">acha "João"</span></div>
+  <div class="a fade-up" style="--d:9.2;position:absolute;left:96px;top:690px;width:560px;font-size:24px;line-height:1.5;color:#333c46">O vendedor vê <b>só a própria carteira</b>. A gestão vê a equipe toda.</div>
+  <!-- detalhe do lead -->
+  <div class="card a slide-r" style="--d:11;position:absolute;left:760px;top:570px;width:1064px;height:470px;padding:30px 34px">
+    <div style="display:flex;align-items:center;gap:16px"><div style="width:62px;height:62px;border-radius:50%;background:var(--sandl);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--navy);font-size:22px">JC</div><div><div class="serif" style="font-size:40px;color:var(--navy)">João Conceição</div><div style="font-size:17px;color:var(--muted)">Agendado · vendedor Rafael · origem: site</div></div></div>
+    <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
+      <span class="pill aba a pop" style="--d:12">Dados</span><span class="pill aba a pop" style="--d:12.5">Histórico</span><span class="pill aba a pop" style="--d:13">WhatsApp</span><span class="pill aba a pop" style="--d:13.5">Tarefas</span><span class="pill aba a pop" style="--d:14">Visitas</span><span class="pill aba a pop" style="--d:14.5">Propostas</span><span class="pill aba a pop" style="--d:15">Follow-up</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px">
+      <div class="card a fade-up" style="--d:16;padding:18px"><div style="font-size:15px;color:var(--muted)">Tarefa</div><b style="font-size:20px">Ligar amanhã, 9h</b><div class="pill warn" style="margin-top:8px;font-size:14px;height:26px">vence em 18 h</div></div>
+      <div class="card a fade-up" style="--d:16.5;padding:18px"><div style="font-size:15px;color:var(--muted)">Visita</div><b style="font-size:20px">Sáb, 10h · Quadra C</b><div class="pill ok" style="margin-top:8px;font-size:14px;height:26px">confirmada</div></div>
+      <div class="card a fade-up" style="--d:17;padding:18px"><div style="font-size:15px;color:var(--muted)">Proposta</div><b style="font-size:20px">Versão 2 · Lote C-14</b><div class="pill info" style="margin-top:8px;font-size:14px;height:26px">aguardando aceite</div></div>
+    </div>
+  </div>
+  <div class="legenda"></div>
+  <style>
+    .col{background:#f3eee6;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+    .cab{font-weight:700;font-size:19px;display:flex;justify-content:space-between;color:var(--navy)}.cab span{color:var(--muted);font-weight:600}
+    .lc{background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,28,40,.06);border:1px solid var(--border)}
+    .lc b{display:block;font-size:18px}.lc i{font-style:normal;font-size:14px;color:var(--muted)}
+    .aba{font-size:17px;height:36px;background:#fff;border:1px solid var(--border)}
+    #arrasta{animation:pop .8s var(--e) 1.6s both, sumir .1s 4s forwards !important}
+    @keyframes sumir{to{opacity:0}}
+    @keyframes arrastar{0%{opacity:0;left:398px;top:338px;transform:none}5%{opacity:1}35%{transform:rotate(-4deg) scale(1.05);box-shadow:0 30px 50px -20px rgba(0,0,0,.4)}90%{left:688px;top:392px;transform:rotate(-2deg) scale(1.05)}100%{opacity:1;left:688px;top:392px;transform:none}}
+  </style>
+</section>
+
+<!-- ===================== CENA 5 — Início e agenda ===================== -->
+<section class="cena" data-cena="5" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">4 · O dia</div><h2 class="a fade-up" style="--d:.4">Tudo o que importa hoje</h2></div>
+  <div style="position:absolute;left:96px;top:250px;display:grid;grid-template-columns:repeat(4,300px);gap:20px">
+    <div class="card a pop" style="--d:.8;padding:24px"><div style="font-size:17px;color:var(--muted)">Leads novos hoje</div><div class="serif" style="font-size:72px;color:var(--navy)" data-conta="0,14,1,1.5"></div></div>
+    <div class="card a pop" style="--d:1;padding:24px"><div style="font-size:17px;color:var(--muted)">Visitas na semana</div><div class="serif" style="font-size:72px;color:var(--navy)" data-conta="0,9,1.2,1.5"></div></div>
+    <div class="card a pop" style="--d:1.2;padding:24px"><div style="font-size:17px;color:var(--muted)">Esperando resposta</div><div class="serif" style="font-size:72px;color:var(--warn)" data-conta="0,3,1.4,1.2"></div></div>
+    <div class="card a pop" style="--d:1.4;padding:24px"><div style="font-size:17px;color:var(--muted)">Tempo de resposta</div><div class="serif" style="font-size:72px;color:var(--ok)"><span data-conta="0,6,1.6,1.4"></span> min</div></div>
+  </div>
+  <div class="card a fade-up" style="--d:2.4;position:absolute;left:96px;top:480px;width:620px;padding:28px">
+    <div class="serif" style="font-size:36px;color:var(--navy)">Minhas tarefas de hoje</div>
+    <div class="tarefa"><i class="chk"><b class="a pop" style="--d:4"></b></i>Ligar para João Conceição</div>
+    <div class="tarefa"><i class="chk"><b class="a pop" style="--d:5"></b></i>Enviar proposta v2 para Carla</div>
+    <div class="tarefa"><i class="chk"></i>Confirmar visita de sábado</div>
+  </div>
+  <div class="card a slide-r" style="--d:6;position:absolute;left:780px;top:480px;width:1044px;padding:28px">
+    <div class="serif" style="font-size:36px;color:var(--navy)">Agenda</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px">
+      <div class="vis a fade-up" style="--d:6.6;border-left:6px solid var(--ok)"><b>Sáb 10h · Mariana</b><span class="pill ok">Confirmada</span></div>
+      <div class="vis a fade-up" style="--d:7;border-left:6px solid var(--info)"><b>Sáb 14h · Lúcia</b><span class="pill info">Agendada</span></div>
+      <div class="vis a fade-up" style="--d:7.4;border-left:6px solid var(--warn)"><b>Dom 9h · Bruno</b><span class="pill warn">A confirmar</span></div>
+    </div>
+    <div class="card a fade-up" style="--d:9;margin-top:22px;padding:20px;display:flex;gap:16px;align-items:center;background:#f9f6f1"><div style="font-size:34px">⏰</div><div style="font-size:20px"><b>Lembrete na véspera:</b> "Oi Mariana! Passando para lembrar da sua visita amanhã, às 10h."</div></div>
+    <div style="display:flex;gap:16px;margin-top:16px">
+      <div class="pill ok a pop" style="--d:12;font-size:18px">"Confirmo!" → visita confirmada sozinha</div>
+      <div class="pill warn a pop" style="--d:15;font-size:18px">"Posso remarcar?" → vendedor avisado</div>
+    </div>
+  </div>
+  <!-- notificação -->
+  <div class="card a slide-r" style="--d:16.5;position:absolute;right:60px;top:60px;width:520px;padding:20px 22px;display:flex;gap:14px;border:2px solid var(--gold)"><div style="font-size:30px">🔔</div><div><b style="font-size:20px">Lead quer reagendar a visita</b><div style="font-size:16px;color:var(--muted)">Bruno Lima pediu outro dia ou horário.</div></div></div>
+  <div class="legenda"></div>
+  <style>
+    .tarefa{display:flex;align-items:center;gap:14px;font-size:21px;margin-top:16px}
+    .chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--navy);display:inline-block;position:relative}
+    .chk b{position:absolute;inset:3px;border-radius:4px;background:var(--navy)}
+    .vis{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;font-size:19px}
+    .vis .pill{align-self:flex-start;font-size:15px;height:28px}
+  </style>
+</section>
+
+<!-- ===================== CENA 6 — Follow-up com segurança ===================== -->
+<section class="cena" data-cena="6" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">5 · Follow-up</div><h2 class="a fade-up" style="--d:.4">Ninguém é esquecido</h2></div>
+  <!-- linha do tempo -->
+  <div class="card a fade-up" style="--d:.8;position:absolute;left:96px;top:250px;width:1728px;height:230px;padding:30px 40px">
+    <div style="position:absolute;left:80px;right:80px;top:120px;height:6px;background:#efeae2;border-radius:6px"><div class="a grow-x" style="--d:1.4;--t:5s;height:100%;background:var(--navy);border-radius:6px"></div></div>
+    <div class="marco a pop" style="--d:1.6;left:80px"><b>Formulário</b><span>dia 0</span></div>
+    <div class="marco a pop" style="--d:3;left:520px"><b>Lembrete 1</b><span>dia 1</span></div>
+    <div class="marco a pop" style="--d:4.4;left:960px"><b>Lembrete 2</b><span>dia 4</span></div>
+    <div class="marco a pop" style="--d:6;left:1400px;--c:var(--ok)"><b>Respondeu!</b><span>pausa sozinha</span></div>
+  </div>
+  <div style="position:absolute;left:96px;top:520px;display:flex;gap:14px;flex-wrap:wrap;width:1728px">
+    <span class="pill info a pop" style="--d:8;font-size:20px;height:42px">para quando o cliente responde</span>
+    <span class="pill info a pop" style="--d:8.6;font-size:20px;height:42px">quando um vendedor assume</span>
+    <span class="pill info a pop" style="--d:9.2;font-size:20px;height:42px">quando a visita é marcada</span>
+    <span class="pill bad a pop" style="--d:9.8;font-size:20px;height:42px">quando ele pede para sair</span>
+  </div>
+  <!-- escudo -->
+  <div class="card a fade-up" style="--d:12;position:absolute;left:96px;top:610px;width:820px;height:420px;padding:30px;background:var(--navy);color:var(--ivory);border:none">
+    <div class="serif" style="font-size:40px;color:var(--gold)">🛡️ Proteção do número</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px">
+      <div class="regra a pop" style="--d:14">Limite de envios por dia</div>
+      <div class="regra a pop" style="--d:15.5">Aquecimento de número novo</div>
+      <div class="regra a pop" style="--d:17">No máximo 2 tentativas sem resposta</div>
+      <div class="regra a pop" style="--d:18.5">Pausa automática se muitos pedirem para sair</div>
+    </div>
+  </div>
+  <!-- aprovação -->
+  <div class="card a slide-r" style="--d:22;position:absolute;left:960px;top:610px;width:864px;height:420px;padding:30px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="serif" style="font-size:36px;color:var(--navy)">Aprovação</div><span class="pill gold">IA sugere, pessoa aprova</span></div>
+    <div style="margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:18px;font-size:21px;line-height:1.45;position:relative;height:150px">
+      <div class="a out" style="--d:25;--t:.4s;position:absolute;inset:18px">Oi Ana! Ficou alguma dúvida sobre os lotes?</div>
+      <div class="a fade" style="--d:25.4;--t:.6s;position:absolute;inset:18px">Oi Ana, tudo bem? Vi que você olhou os lotes perto da praia. Quer que eu reserve um horário para conhecer? <span class="riscado a fade" style="--d:27;--t:.3s"> Lotes a partir de R$ 150 mil.</span></div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:18px;align-items:center">
+      <div class="btn" style="background:#fff;color:var(--fg);border:1px solid var(--border);animation:clique .5s ease 24.4s both">✨ Sugerir com IA</div>
+      <span class="pill bad a pop" style="--d:28.6;font-size:16px">valor bloqueado pelo filtro</span>
+      <div class="btn" style="margin-left:auto;animation:clique .5s ease 31s both">Aprovar</div>
+    </div>
+  </div>
+  <div class="legenda"></div>
+  <style>
+    .marco{position:absolute;top:96px;width:240px;margin-left:-14px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding-top:58px}
+    .marco::before{content:"";position:absolute;left:0;top:14px;width:30px;height:30px;border-radius:50%;background:var(--c,var(--gold));border:5px solid #fff;box-shadow:0 0 0 2px var(--c,var(--gold))}
+    .marco b{font-size:22px}.marco span{font-size:16px;color:var(--muted)}
+    .regra{background:rgba(255,255,255,.08);border:1px solid rgba(205,154,80,.5);border-radius:14px;padding:20px;font-size:22px;line-height:1.35}
+    .riscado{color:var(--bad);text-decoration:line-through;text-decoration-thickness:3px}
+    @keyframes clique{0%{transform:scale(1)}40%{transform:scale(.94)}100%{transform:scale(1)}}
+  </style>
+</section>
+
+<!-- ===================== CENA 7 — Campanhas e métricas ===================== -->
+<section class="cena" data-cena="7" style="background:var(--canvas)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">6 · Gestão</div><h2 class="a fade-up" style="--d:.4">Campanhas e resultados</h2></div>
+  <div class="card a fade-up" style="--d:.8;position:absolute;left:96px;top:250px;width:820px;padding:30px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="serif" style="font-size:36px;color:var(--navy)">Campanha · Feirão de dezembro</div><span class="pill ok">rodando no servidor</span></div>
+    <div style="font-size:18px;color:var(--muted);margin-top:4px">continua com o navegador fechado · respeita horário e limite diário</div>
+    <div style="height:22px;border-radius:999px;background:#efeae2;margin-top:24px;overflow:hidden"><div class="a grow-x" style="--d:1.6;--t:6s;height:100%;width:72%;background:var(--navy);border-radius:999px"></div></div>
+    <div style="display:flex;gap:30px;margin-top:20px;font-size:20px">
+      <div><b class="serif" style="font-size:48px;color:var(--navy)" data-conta="0,216,1.6,6"></b><div style="color:var(--muted)">enviados</div></div>
+      <div><b class="serif" style="font-size:48px;color:var(--warn)" data-conta="0,31,1.6,6"></b><div style="color:var(--muted)">pulados (com motivo)</div></div>
+      <div><b class="serif" style="font-size:48px;color:var(--muted)" data-conta="300,53,1.6,6"></b><div style="color:var(--muted)">na fila</div></div>
+    </div>
+  </div>
+  <div class="card a fade-up" style="--d:2;position:absolute;left:96px;top:620px;width:820px;padding:30px">
+    <div class="serif" style="font-size:36px;color:var(--navy)">Follow-up por etapa</div>
+    <div class="met"><span>Entregues</span><div class="b"><i class="a grow-x" style="--d:3;width:96%"></i></div><b>96%</b></div>
+    <div class="met"><span>Lidos</span><div class="b"><i class="a grow-x" style="--d:3.4;width:78%"></i></div><b>78%</b></div>
+    <div class="met"><span>Responderam em 72 h</span><div class="b"><i class="a grow-x" style="--d:3.8;width:31%;background:var(--ok)"></i></div><b>31%</b></div>
+    <div class="met"><span>Pediram para sair</span><div class="b"><i class="a grow-x" style="--d:4.2;width:2%;background:var(--bad)"></i></div><b>2%</b></div>
+  </div>
+  <div class="card a slide-r" style="--d:5;position:absolute;left:960px;top:250px;width:864px;height:500px;padding:30px">
+    <div class="serif" style="font-size:36px;color:var(--navy)">Funil de conversão</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px;align-items:center">
+      <div class="fun a grow-x" style="--d:5.6;width:100%">Leads · 240</div>
+      <div class="fun a grow-x" style="--d:6;width:78%">Qualificados · 142</div>
+      <div class="fun a grow-x" style="--d:6.4;width:56%">Visitas · 64</div>
+      <div class="fun a grow-x" style="--d:6.8;width:36%">Propostas · 28</div>
+      <div class="fun a grow-x" style="--d:7.2;width:22%;background:var(--gold);color:var(--navy)">Vendas · 11</div>
+    </div>
+  </div>
+  <div class="card a slide-r" style="--d:9;position:absolute;left:960px;top:790px;width:864px;padding:24px 30px">
+    <div style="display:flex;justify-content:space-between;font-size:20px"><b>Meta de Rafael · 5 vendas</b><span class="pill ok" style="font-size:15px;height:28px">no ritmo</span></div>
+    <div style="height:16px;border-radius:999px;background:#efeae2;margin-top:12px;overflow:hidden"><div class="a grow-x" style="--d:9.6;--t:2s;height:100%;width:80%;background:var(--ok)"></div></div>
+  </div>
+  <div class="card a pop" style="--d:12;position:absolute;right:60px;top:60px;width:560px;padding:20px 22px;display:flex;gap:14px;border:2px solid var(--bad);animation-name:pop,pulse;animation-duration:.8s,1.6s;animation-delay:12s,12.8s;animation-iteration-count:1,3"><div style="font-size:30px">🚨</div><div><b style="font-size:20px">Fila de mensagens parada há 12 min</b><div style="font-size:16px;color:var(--muted)">aviso no painel e no canal externo da gestão</div></div></div>
+  <div class="legenda"></div>
+  <style>
+    .met{display:grid;grid-template-columns:260px 1fr 70px;gap:16px;align-items:center;margin-top:16px;font-size:19px}
+    .met .b{height:14px;border-radius:999px;background:#efeae2;overflow:hidden}.met i{display:block;height:100%;background:var(--navy);border-radius:999px}
+    .met b{text-align:right}
+    .fun{height:58px;border-radius:12px;background:var(--navy);color:var(--ivory);display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;transform-origin:center}
+  </style>
+</section>
+
+<!-- ===================== CENA 8 — Configurações e encerramento ===================== -->
+<section class="cena claro" data-cena="8" style="background:radial-gradient(1200px 700px at 30% 30%,#123e6a 0%,#00234c 60%,#001733 100%)">
+  <div class="titulo-cena"><div class="k a fade-up" style="--d:.2">7 · Controle</div><h2 class="a fade-up" style="--d:.4">O administrador no comando</h2></div>
+  <div style="position:absolute;left:96px;top:260px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;width:1728px">
+    <div class="cfg a pop" style="--d:1"><div>📱</div><b>WhatsApp</b><span>número e conexão</span></div>
+    <div class="cfg a pop" style="--d:1.6"><div>🗣️</div><b>Sophia</b><span>tom de voz e estilo</span></div>
+    <div class="cfg a pop" style="--d:2.2"><div>🗓️</div><b>Horários de visita</b><span>quando ela pode marcar</span></div>
+    <div class="cfg a pop" style="--d:2.8"><div>💰</div><b>Condições comerciais</b><span>o que o site mostra</span></div>
+  </div>
+  <div class="a fade-up" style="--d:4;position:absolute;left:96px;top:560px;display:flex;gap:16px">
+    <span class="pill" style="background:rgba(255,255,255,.1);color:var(--ivory);font-size:22px;height:46px">🔒 só admin</span>
+    <span class="pill" style="background:rgba(255,255,255,.1);color:var(--ivory);font-size:22px;height:46px">📜 histórico de alterações</span>
+    <span class="pill" style="background:rgba(255,255,255,.1);color:var(--ivory);font-size:22px;height:46px">⚖️ LGPD</span>
+  </div>
+  <!-- fluxo completo -->
+  <div class="a fade" style="--d:8;position:absolute;left:96px;top:690px;width:1728px;display:flex;align-items:center;justify-content:space-between">
+    <div class="no a pop" style="--d:8.2">Site</div><div class="seta a grow-x" style="--d:8.6"></div>
+    <div class="no a pop" style="--d:9">Sophia</div><div class="seta a grow-x" style="--d:9.4"></div>
+    <div class="no a pop" style="--d:9.8">CRM</div><div class="seta a grow-x" style="--d:10.2"></div>
+    <div class="no a pop" style="--d:10.6">Agenda</div><div class="seta a grow-x" style="--d:11"></div>
+    <div class="no a pop" style="--d:11.4">Follow-up</div><div class="seta a grow-x" style="--d:11.8"></div>
+    <div class="no a pop" style="--d:12.2;background:var(--gold);color:var(--navy)">Visita ao terreno</div>
+  </div>
+  <div class="a fade-up serif" style="--d:16;position:absolute;left:96px;top:860px;font-size:58px;color:var(--ivory)">Mais rapidez. Nenhum lead esquecido. <span style="color:var(--gold)">Foco na visita.</span></div>
+  <div class="legenda"></div>
+  <style>
+    .cfg{background:rgba(255,255,255,.07);border:1px solid rgba(205,154,80,.5);border-radius:22px;padding:30px;color:var(--ivory);display:flex;flex-direction:column;gap:6px}
+    .cfg div{font-size:50px}.cfg b{font-family:"Cormorant Garamond",serif;font-size:40px;font-weight:600}.cfg span{font-size:19px;opacity:.8}
+    .no{height:70px;padding:0 28px;border-radius:18px;background:rgba(255,255,255,.1);border:1px solid rgba(205,154,80,.6);color:var(--ivory);display:flex;align-items:center;font-size:24px;font-weight:600;white-space:nowrap}
+    .seta{flex:1;height:3px;background:var(--gold);margin:0 12px}
+  </style>
+</section>
+
+</div>
+
+<script>
+// Durações padrão (s) de cada cena; tempos.json (da narração) substitui.
+window.TEMPOS = window.TEMPOS || { duracoes: [20, 30, 50, 40, 30, 50, 30, 30], legendas: {} };
+const TRANSICAO = 600; // ms de fade entre cenas
+// Até quando (s) vai a coreografia de cada cena. Com a narração, o tempo da
+// animação é esticado/encolhido para a coreografia terminar junto com a fala
+// (null = sem ajuste). SAIDA_CENA = respiro depois da fala (sincronizar.py).
+const COREOGRAFIA = [null, 12.6, 33, 17.5, 17, 31.5, 12.8, 16.5];
+const SAIDA_CENA = 1.6;
+
+function cenas() { return [...document.querySelectorAll(".cena")]; }
+
+function inicios() {
+  let t = 0;
+  return TEMPOS.duracoes.map((d) => { const i = t; t += d * 1000; return i; });
+}
+
+window.duracaoTotal = () => TEMPOS.duracoes.reduce((a, b) => a + b, 0) * 1000;
+
+// Ganchos: contadores e texto sendo digitado, calculados pelo tempo local.
+function ganchos(cena, local) {
+  cena.querySelectorAll("[data-conta]").forEach((el) => {
+    const [de, ate, ini, dur] = el.dataset.conta.split(",").map(Number);
+    const p = Math.min(Math.max((local / 1000 - ini) / dur, 0), 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(de + (ate - de) * e).toLocaleString("pt-BR");
+  });
+  cena.querySelectorAll("[data-digita]").forEach((el) => {
+    const [ini, cps] = el.dataset.digita.split(",").map(Number);
+    const n = Math.max(0, Math.floor((local / 1000 - ini) * cps));
+    el.textContent = el.dataset.texto.slice(0, n);
+  });
+}
+
+function legenda(cena, indice, local) {
+  const caixa = cena.querySelector(".legenda");
+  if (!caixa) return;
+  const linhas = (TEMPOS.legendas || {})[indice + 1] || [];
+  const s = local / 1000;
+  const atual = linhas.find((l) => s >= l.inicio && s < l.fim);
+  caixa.textContent = atual ? atual.texto : "";
+  caixa.style.visibility = atual ? "visible" : "hidden";
+}
+
+window.render = (ms) => {
+  const ini = inicios();
+  const lista = cenas();
+  lista.forEach((cena, i) => {
+    const local = ms - ini[i];
+    const dur = TEMPOS.duracoes[i] * 1000;
+    let op = 0;
+    if (local >= 0 && local < dur) op = 1;
+    if (local >= dur && local < dur + TRANSICAO && i < lista.length - 1) op = 1 - (local - dur) / TRANSICAO;
+    if (local < 0 && local > -TRANSICAO) op = 0; // a próxima entra por baixo da que sai
+    cena.style.opacity = op;
+    cena.style.zIndex = local >= dur ? 2 : 1;
+    if (op > 0) {
+      const real = Math.min(local, dur);
+      const fala = dur - SAIDA_CENA * 1000;
+      const l = COREOGRAFIA[i] && TEMPOS.legendas && TEMPOS.legendas[i + 1]
+        ? Math.min(real * (COREOGRAFIA[i] * 1000) / fala, real * 10)
+        : real;
+      cena.getAnimations({ subtree: true }).forEach((a) => { a.pause(); a.currentTime = l; });
+      ganchos(cena, l);
+      legenda(cena, i, real);
+    }
+  });
+};
+
+// Prévia no navegador: toca em tempo real (?play) ou para em ?t=segundos.
+const q = new URLSearchParams(location.search);
+if (q.has("legendas")) document.body.classList.add("com-legenda");
+if (q.has("t")) window.render(Number(q.get("t")) * 1000);
+else if (q.has("play")) { const t0 = performance.now(); const loop = () => { window.render(performance.now() - t0); requestAnimationFrame(loop); }; loop(); }
+else window.render(0);
+</script>
+</body>
+</html>
