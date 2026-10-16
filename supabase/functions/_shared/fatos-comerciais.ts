@@ -4,11 +4,13 @@
 // publicação é bloqueada se a legenda trouxer parcela, percentual ou valor
 // que não bata com ela.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Tipo mínimo: as funções do Imagery usam outra versão do supabase-js.
+// deno-lint-ignore no-explicit-any
+type ClienteSupabase = { from: (tabela: string) => any };
 
 export type Fatos = Record<string, string>;
 
-export async function carregarFatosAprovados(supabase: SupabaseClient): Promise<Fatos> {
+export async function carregarFatosAprovados(supabase: ClienteSupabase): Promise<Fatos> {
   const { data, error } = await supabase
     .from("fatos_comerciais")
     .select("chave, valor")
@@ -17,7 +19,9 @@ export async function carregarFatosAprovados(supabase: SupabaseClient): Promise<
     console.error("[fatos-comerciais] leitura falhou:", error.message);
     return {};
   }
-  return Object.fromEntries((data ?? []).map((f) => [f.chave as string, f.valor as string]));
+  return Object.fromEntries(
+    ((data ?? []) as { chave: string; valor: string }[]).map((f) => [f.chave, f.valor]),
+  );
 }
 
 /** Linha de condição comercial para o prompt do Imagery. */
