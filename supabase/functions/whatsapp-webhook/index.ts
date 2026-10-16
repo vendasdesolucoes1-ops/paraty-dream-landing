@@ -26,6 +26,7 @@ import {
   type InstanciaWhatsapp,
 } from "../_shared/resposta-ia.ts";
 import { chaveTelefone } from "../_shared/contato-bloqueado.ts";
+import { classificarRespostaFollowUp } from "../_shared/classificar-resposta.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -231,6 +232,12 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .maybeSingle();
 
   const sessionId = phone;
+
+  // Resposta a follow-up: classifica em segundo plano, sem atrasar a Sophia
+  // (vale também com humano no atendimento: o sinal fica no CRM).
+  if (temTexto(text)) {
+    EdgeRuntime.waitUntil(classificarRespostaFollowUp(supabase, lead.id, text));
+  }
 
   // 6. Atendimento humano em curso ou IA desligada: a Sophia não responde.
   if (await isHumanTakeoverActive(sessionId)) return;
