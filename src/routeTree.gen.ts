@@ -9,22 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
-import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
-import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/ferramentas'
-import { Route as DashboardDocumentosRouteImport } from './routes/dashboard/documentos'
-import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
-import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
-import { Route as DashboardClientesRouteImport } from './routes/dashboard/clientes'
 import { Route as DashboardAgendaRouteImport } from './routes/dashboard/agenda'
+import { Route as DashboardClientesRouteImport } from './routes/dashboard/clientes'
+import { Route as DashboardConfiguracoesRouteImport } from './routes/dashboard/configuracoes'
+import { Route as DashboardCrmRouteImport } from './routes/dashboard/crm'
+import { Route as DashboardDocumentosRouteImport } from './routes/dashboard/documentos'
+import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/ferramentas'
+import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
+import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
@@ -32,9 +32,9 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -42,34 +42,9 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardMarketingRoute = DashboardMarketingRouteImport.update({
-  id: '/marketing',
-  path: '/marketing',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardLotesRoute = DashboardLotesRouteImport.update({
-  id: '/lotes',
-  path: '/lotes',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardFerramentasRoute = DashboardFerramentasRouteImport.update({
-  id: '/ferramentas',
-  path: '/ferramentas',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardDocumentosRoute = DashboardDocumentosRouteImport.update({
-  id: '/documentos',
-  path: '/documentos',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardCrmRoute = DashboardCrmRouteImport.update({
-  id: '/crm',
-  path: '/crm',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardConfiguracoesRoute = DashboardConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
+const DashboardAgendaRoute = DashboardAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardClientesRoute = DashboardClientesRouteImport.update({
@@ -77,9 +52,34 @@ const DashboardClientesRoute = DashboardClientesRouteImport.update({
   path: '/clientes',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardAgendaRoute = DashboardAgendaRouteImport.update({
-  id: '/agenda',
-  path: '/agenda',
+const DashboardConfiguracoesRoute = DashboardConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardCrmRoute = DashboardCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardDocumentosRoute = DashboardDocumentosRouteImport.update({
+  id: '/documentos',
+  path: '/documentos',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardFerramentasRoute = DashboardFerramentasRouteImport.update({
+  id: '/ferramentas',
+  path: '/ferramentas',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardLotesRoute = DashboardLotesRouteImport.update({
+  id: '/lotes',
+  path: '/lotes',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardMarketingRoute = DashboardMarketingRouteImport.update({
+  id: '/marketing',
+  path: '/marketing',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 
@@ -177,11 +177,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -191,11 +191,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -205,46 +205,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/marketing': {
-      id: '/dashboard/marketing'
-      path: '/marketing'
-      fullPath: '/dashboard/marketing'
-      preLoaderRoute: typeof DashboardMarketingRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/lotes': {
-      id: '/dashboard/lotes'
-      path: '/lotes'
-      fullPath: '/dashboard/lotes'
-      preLoaderRoute: typeof DashboardLotesRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/ferramentas': {
-      id: '/dashboard/ferramentas'
-      path: '/ferramentas'
-      fullPath: '/dashboard/ferramentas'
-      preLoaderRoute: typeof DashboardFerramentasRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/documentos': {
-      id: '/dashboard/documentos'
-      path: '/documentos'
-      fullPath: '/dashboard/documentos'
-      preLoaderRoute: typeof DashboardDocumentosRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/crm': {
-      id: '/dashboard/crm'
-      path: '/crm'
-      fullPath: '/dashboard/crm'
-      preLoaderRoute: typeof DashboardCrmRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/configuracoes': {
-      id: '/dashboard/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/dashboard/configuracoes'
-      preLoaderRoute: typeof DashboardConfiguracoesRouteImport
+    '/dashboard/agenda': {
+      id: '/dashboard/agenda'
+      path: '/agenda'
+      fullPath: '/dashboard/agenda'
+      preLoaderRoute: typeof DashboardAgendaRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/clientes': {
@@ -254,11 +219,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClientesRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/agenda': {
-      id: '/dashboard/agenda'
-      path: '/agenda'
-      fullPath: '/dashboard/agenda'
-      preLoaderRoute: typeof DashboardAgendaRouteImport
+    '/dashboard/configuracoes': {
+      id: '/dashboard/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/dashboard/configuracoes'
+      preLoaderRoute: typeof DashboardConfiguracoesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/crm': {
+      id: '/dashboard/crm'
+      path: '/crm'
+      fullPath: '/dashboard/crm'
+      preLoaderRoute: typeof DashboardCrmRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/documentos': {
+      id: '/dashboard/documentos'
+      path: '/documentos'
+      fullPath: '/dashboard/documentos'
+      preLoaderRoute: typeof DashboardDocumentosRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/ferramentas': {
+      id: '/dashboard/ferramentas'
+      path: '/ferramentas'
+      fullPath: '/dashboard/ferramentas'
+      preLoaderRoute: typeof DashboardFerramentasRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/lotes': {
+      id: '/dashboard/lotes'
+      path: '/lotes'
+      fullPath: '/dashboard/lotes'
+      preLoaderRoute: typeof DashboardLotesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/marketing': {
+      id: '/dashboard/marketing'
+      path: '/marketing'
+      fullPath: '/dashboard/marketing'
+      preLoaderRoute: typeof DashboardMarketingRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
   }
