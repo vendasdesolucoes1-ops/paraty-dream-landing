@@ -3,6 +3,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador } from "../_shared/auth.ts";
 import {
   isHumanTakeoverActive as takeoverAtivo,
   pauseAI as pausarIA,
@@ -546,11 +547,15 @@ async function processWebhook(payload: Record<string, any>) {
 }
 
 Deno.serve(async (req) => {
-  console.log("=== WEBHOOK RECEIVED ===", JSON.stringify({ method: req.method, url: req.url }));
+  // Só o método: a URL carrega o segredo do webhook em `?token=`.
+  console.log("=== WEBHOOK RECEIVED ===", req.method);
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { segredos: ["evolution_webhook_secret"] });
+  if (chamador instanceof Response) return chamador;
 
   try {
     const payload = await req.json();

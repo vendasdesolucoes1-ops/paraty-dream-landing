@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RoleGuard } from "@/components/dashboard/role-guard";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { atraso } from "@/components/ds/reveal";
 import { MassDispatcherCard } from "@/components/ferramentas/mass-dispatcher-card";
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/dashboard/ferramentas")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: FerramentasPage,
+  component: FerramentasPageProtegida,
 });
 
 const FERRAMENTAS = [
@@ -52,5 +53,15 @@ function FerramentasPage() {
         ))}
       </ul>
     </div>
+  );
+}
+
+// Vendedor não opera instâncias, agente nem disparos: o bloqueio aqui cobre o
+// acesso direto pela URL; a RLS e as edge functions garantem o mesmo no servidor.
+function FerramentasPageProtegida() {
+  return (
+    <RoleGuard allow={["admin", "gestor"]}>
+      <FerramentasPage />
+    </RoleGuard>
   );
 }

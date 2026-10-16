@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { RoleGuard } from "@/components/dashboard/role-guard";
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare, Plus, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WhatsappInstance } from "@/lib/types";
+import { COLUNAS_INSTANCIA_PAINEL } from "@/lib/types";
 import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-card";
 import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/dashboard/configuracoes")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ConfiguracoesPage,
+  component: ConfiguracoesPageProtegida,
 });
 
 function ConfiguracoesPage() {
@@ -47,7 +49,7 @@ function ConfiguracoesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("*")
+        .select(COLUNAS_INSTANCIA_PAINEL)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as WhatsappInstance[];
@@ -140,5 +142,15 @@ function ConfiguracoesPage() {
         )}
       </Reveal>
     </div>
+  );
+}
+
+// Vendedor não opera instâncias, agente nem disparos: o bloqueio aqui cobre o
+// acesso direto pela URL; a RLS e as edge functions garantem o mesmo no servidor.
+function ConfiguracoesPageProtegida() {
+  return (
+    <RoleGuard allow={["admin", "gestor"]}>
+      <ConfiguracoesPage />
+    </RoleGuard>
   );
 }

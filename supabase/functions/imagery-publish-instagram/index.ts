@@ -3,6 +3,7 @@
 // Carrossel: um container por slide (is_carousel_item), depois o container pai.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,6 +39,9 @@ async function waitContainer(containerId: string, token: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
 
   let postId: string | undefined;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);

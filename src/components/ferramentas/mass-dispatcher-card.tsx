@@ -5,6 +5,7 @@ import { Paperclip, Send, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { parseContactsCsv, parseManualContacts } from "@/lib/csv";
 import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
+import { COLUNAS_INSTANCIA_PAINEL } from "@/lib/types";
 import { LEAD_STATUS_COLUMNS } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { DispatchHistoryPanel } from "@/components/ferramentas/dispatch-history-panel";
@@ -126,7 +127,7 @@ export function MassDispatcherCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("*")
+        .select(COLUNAS_INSTANCIA_PAINEL)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as WhatsappInstance[];

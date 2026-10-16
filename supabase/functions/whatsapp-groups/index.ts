@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { assertConnected, getEvolutionSession } from "../_shared/evolution-instance.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -72,6 +73,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
 
   try {
     const body = await req.json();

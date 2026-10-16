@@ -3,6 +3,7 @@
 // com headline, sub_text e brief visual de cada arte.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { BRAND_SLUG } from "../_shared/acervo.ts";
@@ -119,6 +120,9 @@ Devolva APENAS via tool call.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO, serviceRole: false });
+  if (chamador instanceof Response) return chamador;
 
   const t0 = Date.now();
   try {

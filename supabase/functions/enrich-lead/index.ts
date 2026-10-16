@@ -14,7 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { DELAY_MAX_MS, DELAY_MIN_MS, montarAbertura } from "../_shared/primeiro-contato.ts";
 import { handleLeadQualification, type LeadRecord } from "../_shared/lead-qualification.ts";
-import { carregarLead, carregarLeadPorTelefone } from "../_shared/lead-record.ts";
+import { carregarLead } from "../_shared/lead-record.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -28,13 +28,51 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 interface EnrichBody {
-  /** id devolvido pelo upsert_lead_from_form. Fonte primária de verdade. */
+  /** id devolvido pelo upsert_lead_from_form. Obrigatório. */
   lead_id?: string | null;
-  telefone: string; // já normalizado (55DDDNUMERO)
+  telefone?: string;
   nome?: string;
   cidade?: string | null;
   metragem?: string | null;
   tipo?: string | null;
+}
+
+// Esta função é pública (o formulário chama com a chave anon). Por isso ela
+// NÃO confia no corpo da requisição para nada que vá ao WhatsApp: o telefone,
+// o nome e a cidade vêm do banco, e só são aceitos leads que o próprio
+// formulário acabou de gravar. Sem isso, qualquer pessoa usava o número da
+// empresa para mandar texto escolhido a qualquer telefone (auditoria R-03).
+const JANELA_LEAD_RECENTE_MS = 2 * 60_000;
+const METRAGENS_FORM = new Set(["250m²", "250-350m²", "450m²"]);
+const TIPOS_FORM = new Set(["residencial", "comercial"]);
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function ipDoPedido(req: Request): string {
+  return (
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "desconhecido"
+  );
+}
+
+async function dentroDoLimite(chave: string, maximo: number, janelaSegundos: number) {
+  const { data, error } = await supabase.rpc("consumir_limite", {
+    p_chave: chave,
+    p_maximo: maximo,
+    p_janela_segundos: janelaSegundos,
+  });
+  // Falha fechada: sem conseguir contar, não abre a porta.
+  if (error) {
+    console.error("[enrich-lead] consumir_limite falhou:", error.message);
+    return false;
+  }
+  return data === true;
 }
 
 Deno.serve(async (req) => {
@@ -44,32 +82,44 @@ Deno.serve(async (req) => {
 
   try {
     const body: EnrichBody = await req.json();
-    const telefone = body.telefone?.trim();
-    if (!telefone) throw new Error("telefone is required");
+    const leadId = typeof body.lead_id === "string" ? body.lead_id.trim() : "";
+    if (!/^[0-9a-f-]{36}$/i.test(leadId))
+      return json({ ok: false, error: "lead_id obrigatório" }, 400);
 
-    // O lead vem por id, devolvido pelo RPC — assim a abordagem só acontece se
-    // o registro foi mesmo persistido. A busca por telefone fica como fallback
-    // para a janela de deploy em que o frontend ainda não manda lead_id (e
-    // para o RPC antigo, que era RETURNS void).
+    if (!(await dentroDoLimite(`enrich:ip:${ipDoPedido(req)}`, 5, 600))) {
+      return json({ ok: false, error: "Muitas tentativas. Tente de novo em alguns minutos." }, 429);
+    }
+    if (!(await dentroDoLimite(`enrich:lead:${leadId}`, 3, 3600))) {
+      return json({ ok: false, error: "Muitas tentativas." }, 429);
+    }
+
     // Campos completos porque handleLeadQualification precisa deles para o
     // resumo do vendedor e para a guarda de "primeira qualificação".
-    let lead: LeadRecord | null = null;
-
-    // Leitura tolerante: uma coluna de migration pendente NÃO pode derrubar a
-    // captação. Antes o select citava canal_origem direto e, sem a migration
-    // 20260807000000 aplicada, a função inteira morria com 500 — sem interação
-    // no histórico, sem abordagem da Sophia e sem qualificação.
-    if (body.lead_id) {
-      lead = (await carregarLead(supabase, body.lead_id)) as LeadRecord | null;
-    }
-
-    if (!lead) {
-      lead = (await carregarLeadPorTelefone(supabase, telefone)) as LeadRecord | null;
-    }
+    const lead = (await carregarLead(supabase, leadId)) as LeadRecord | null;
 
     // Sem lead persistido não há abordagem: falar com quem não tem registro no
     // CRM deixa a conversa órfã e o vendedor sem contexto nenhum.
-    if (!lead) throw new Error("lead not found (lead_id e telefone não resolveram)");
+    if (!lead) return json({ ok: false, error: "lead não encontrado" }, 404);
+
+    // Só o lead que o formulário acabou de gravar (o upsert atualiza
+    // updated_at também quando o telefone já existia).
+    const { data: carimbo } = await supabase
+      .from("leads")
+      .select("updated_at")
+      .eq("id", lead.id)
+      .maybeSingle();
+    const atualizadoEm = carimbo?.updated_at ? Date.parse(carimbo.updated_at) : 0;
+    if (!atualizadoEm || Date.now() - atualizadoEm > JANELA_LEAD_RECENTE_MS) {
+      return json({ ok: false, error: "lead fora da janela do formulário" }, 409);
+    }
+
+    const telefone = String(lead.telefone ?? "");
+    if (!telefone) return json({ ok: false, error: "lead sem telefone" }, 422);
+
+    // Metragem e tipo só entram na mensagem se forem exatamente as opções do
+    // formulário; qualquer outro texto é descartado.
+    const metragem = body.metragem && METRAGENS_FORM.has(body.metragem) ? body.metragem : null;
+    const tipo = body.tipo && TIPOS_FORM.has(body.tipo.toLowerCase()) ? body.tipo : null;
 
     // Round-robin assignment — only now, after the lead is confirmed to exist,
     // and only if it doesn't already have a salesperson.
@@ -110,6 +160,8 @@ Deno.serve(async (req) => {
       const { data: instancia } = await supabase
         .from("whatsapp_instances")
         .select("api_url, api_key, instance_name")
+        .in("status", ["connected", "open"])
+        .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
 
@@ -133,9 +185,9 @@ Deno.serve(async (req) => {
 
     // Origin history entry — shows in the CRM lead's "Histórico" tab.
     const detalhes = [
-      body.cidade ? `Cidade: ${body.cidade}` : null,
-      body.metragem ? `Metragem: ${body.metragem}` : null,
-      body.tipo ? `Tipo: ${body.tipo}` : null,
+      lead.cidade ? `Cidade: ${lead.cidade}` : null,
+      metragem ? `Metragem: ${metragem}` : null,
+      tipo ? `Tipo: ${tipo}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -158,10 +210,10 @@ Deno.serve(async (req) => {
     // silêncio; agora a linha fica pendente esperando ela voltar (com teto de
     // 24h, aplicado no banco).
     const partes = montarAbertura({
-      nome: body.nome ?? lead.nome ?? null,
-      cidade: body.cidade ?? null,
-      metragem: body.metragem ?? null,
-      tipo: body.tipo ?? null,
+      nome: (lead.nome as string | null) ?? null,
+      cidade: (lead.cidade as string | null) ?? null,
+      metragem,
+      tipo,
     });
 
     const espera = DELAY_MIN_MS + Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS));
@@ -185,14 +237,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, lead_id: lead.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: true, lead_id: lead.id });
   } catch (error) {
     console.error("enrich-lead error", (error as Error)?.message);
-    return new Response(JSON.stringify({ ok: false, error: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: false, error: "Erro interno" }, 500);
   }
 });

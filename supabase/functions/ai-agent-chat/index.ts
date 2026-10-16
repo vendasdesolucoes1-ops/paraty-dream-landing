@@ -3,6 +3,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
@@ -513,7 +514,10 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
 
   const { error: erroUpdate } = await supabase.from("leads").update(patch).eq("id", leadId);
   if (erroUpdate) {
-    console.error("[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:", erroUpdate.message);
+    console.error(
+      "[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:",
+      erroUpdate.message,
+    );
     return;
   }
 
@@ -615,6 +619,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
 
   try {
     const body: ChatRequestBody = await req.json();

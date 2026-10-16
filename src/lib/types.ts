@@ -21,9 +21,20 @@ export interface Lote {
 // segundo é histórico/genérico; manter os dois distintos facilita limpeza
 // futura sem misturar as duas origens.
 export type LeadOrigem =
-  "lp" | "whatsapp" | "whatsapp_contato" | "indicacao" | "instagram" | "google_maps";
+  | "lp"
+  | "whatsapp"
+  | "whatsapp_contato"
+  | "indicacao"
+  | "instagram"
+  | "google_maps";
 export type LeadStatus =
-  "novo" | "qualificado" | "agendado" | "visitou" | "proposta" | "fechado" | "perdido";
+  | "novo"
+  | "qualificado"
+  | "agendado"
+  | "visitou"
+  | "proposta"
+  | "fechado"
+  | "perdido";
 
 export interface Lead {
   id: string;
@@ -276,16 +287,24 @@ export const VISITA_STATUS_OPTIONS: { value: VisitaStatus; label: string }[] = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
+/**
+ * Instância do WhatsApp como o painel enxerga. A `api_key` da Evolution não é
+ * legível por usuários do painel (só gravável por admin/gestor): ela controla
+ * o número inteiro e fica restrita ao servidor.
+ */
 export interface WhatsappInstance {
   id: string;
   instance_name: string;
   api_url: string;
-  api_key: string;
   status: string;
   qr_code: string | null;
   qr_code_expires_at: string | null;
   created_at: string;
 }
+
+/** Colunas que o painel pode ler de whatsapp_instances (sem a api_key). */
+export const COLUNAS_INSTANCIA_PAINEL =
+  "id, instance_name, api_url, status, qr_code, qr_code_expires_at, created_at";
 
 export type AiAgentModelo = "gpt-4o-mini" | "gpt-4o";
 export type AiAgentTomVoz = "profissional" | "amigavel" | "formal" | "informal";

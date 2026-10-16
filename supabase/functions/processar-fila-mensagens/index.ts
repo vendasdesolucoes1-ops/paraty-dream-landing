@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador } from "../_shared/auth.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
 import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
 import { podeAbordar } from "../_shared/primeiro-contato.ts";
@@ -147,8 +148,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
     lead_id: m.lead_id,
     tipo: "sistema",
     canal: "sistema",
-    conteudo:
-      "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
+    conteudo: "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
   });
   return true;
 }
@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { segredos: ["cron_fila_secret"] });
+  if (chamador instanceof Response) return chamador;
 
   try {
     // Reivindicação atômica (FOR UPDATE SKIP LOCKED no banco): duas execuções
@@ -196,7 +199,10 @@ Deno.serve(async (req) => {
           erro: "nenhuma instância conectada",
           atualizado_em: new Date().toISOString(),
         })
-        .in("id", mensagens.map((m) => m.id));
+        .in(
+          "id",
+          mensagens.map((m) => m.id),
+        );
 
       return new Response(JSON.stringify({ ok: true, processadas: 0, sem_instancia: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -44,11 +44,22 @@ export interface InstanciaEvolution {
   instance_name: string;
 }
 
-/** Primeiro nome, que é como alguém chamaria a pessoa no WhatsApp. */
-function primeiroNome(nome: string | null | undefined): string {
+/**
+ * Primeiro nome, que é como alguém chamaria a pessoa no WhatsApp.
+ *
+ * O nome vem de um formulário público: só letras (com acento), hífen e
+ * apóstrofo, até 20 caracteres. Qualquer outra coisa (link, número, emoji,
+ * texto longo) cai na saudação sem nome — ninguém usa o número da empresa
+ * para entregar um texto escolhido por terceiros.
+ */
+export function primeiroNome(nome: string | null | undefined): string {
   const limpo = String(nome ?? "").trim();
   if (!limpo) return "";
-  return limpo.split(/\s+/)[0];
+  const primeiro = limpo.split(/\s+/)[0];
+  if (!/^[\p{L}][\p{L}'-]{0,19}$/u.test(primeiro)) return "";
+  return (
+    primeiro.charAt(0).toLocaleUpperCase("pt-BR") + primeiro.slice(1).toLocaleLowerCase("pt-BR")
+  );
 }
 
 /**

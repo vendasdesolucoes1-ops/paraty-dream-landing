@@ -3,14 +3,54 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO, recusar } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Hosts aceitos para a Evolution, separados por vírgula. Vazio = qualquer host
+// HTTPS público (o create continua restrito a admin).
+const HOSTS_PERMITIDOS = (Deno.env.get("EVOLUTION_ALLOWED_HOSTS") ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+// A api_key da Evolution controla o número inteiro: nunca sai desta função.
+function semSegredos<T extends Record<string, unknown> | null>(linha: T): T {
+  if (!linha) return linha;
+  const { api_key: _k, api_url: _u, ...resto } = linha as Record<string, unknown>;
+  return resto as T;
+}
+
+function validarApiUrl(bruta: string): string {
+  let url: URL;
+  try {
+    url = new URL(bruta);
+  } catch {
+    throw new Error("api_url inválida");
+  }
+  if (url.protocol !== "https:") throw new Error("api_url precisa ser https");
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)/.test(host) ||
+    host.endsWith(".internal") ||
+    host.endsWith(".local")
+  ) {
+    throw new Error("api_url aponta para rede interna");
+  }
+  if (HOSTS_PERMITIDOS.length && !HOSTS_PERMITIDOS.includes(host)) {
+    throw new Error("api_url fora da lista EVOLUTION_ALLOWED_HOSTS");
+  }
+  return url.origin + url.pathname.replace(/\/$/, "");
+}
+
 async function createInstance(body: { instance_name: string; api_url: string; api_key: string }) {
-  const { instance_name, api_url, api_key } = body;
+  const { instance_name, api_key } = body;
+  const api_url = validarApiUrl(body.api_url);
+  if (!/^[\w.-]{1,64}$/.test(instance_name ?? "")) throw new Error("instance_name inválido");
 
   const evolutionResponse = await fetch(`${api_url}/instance/create`, {
     method: "POST",
@@ -231,6 +271,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
+
   try {
     const url = new URL(req.url);
     const route = url.pathname.split("/").filter(Boolean).pop();
@@ -238,6 +281,12 @@ Deno.serve(async (req) => {
 
     // GET variants read instance_name from the query string.
     const getBody = { instance_name: url.searchParams.get("instance_name") ?? "" };
+
+    // Criar e apagar instância trocam o número da empresa: só admin.
+    const soAdmin = route === "create" || route === "delete";
+    if (soAdmin && chamador.tipo === "usuario" && chamador.papel !== "admin") {
+      return recusar(403, "Forbidden: apenas admin");
+    }
 
     let result;
     if (req.method === "POST" && route === "create") {
@@ -259,7 +308,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(semSegredos(result as Record<string, unknown>)), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
