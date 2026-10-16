@@ -69,6 +69,27 @@ interface MensagemAgendada {
   partes: string[];
   tentativas: number;
   partes_enviadas?: number | null;
+  instance_id?: string | null;
+  inscricao_id?: string | null;
+}
+
+/** Envios ativos de follow-up: cadência e campanha. */
+const TIPOS_FOLLOW_UP = new Set(["cadencia", "campanha"]);
+
+/** Texto do histórico do CRM para cada tipo de envio ativo. */
+const DESCRICAO_ENVIO: Record<string, string> = {
+  primeiro_contato:
+    "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
+  cadencia: "Mensagem de follow-up enviada pela cadência automática.",
+  campanha: "Mensagem de campanha enviada por WhatsApp.",
+};
+
+/** Meia-noite do dia seguinte em Brasília (UTC-3, sem horário de verão). */
+function inicioDoProximoDia(agora = new Date()): string {
+  const local = new Date(agora.getTime() - 3 * 3600_000);
+  return new Date(
+    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + 1, 3, 0),
+  ).toISOString();
 }
 
 interface Instancia {
@@ -171,10 +192,15 @@ async function cancelar(m: MensagemAgendada, motivo: string) {
 }
 
 /** Pergunta ao banco (pode_enviar) se este envio ativo pode sair agora. */
-async function checarEnvio(m: MensagemAgendada): Promise<{ ok: boolean; motivo: string | null }> {
+async function checarEnvio(
+  m: MensagemAgendada,
+  instanciaId: string,
+): Promise<{ ok: boolean; motivo: string | null }> {
+  // A instância entra para o limite diário e o aquecimento do número.
   const { data, error } = await supabase.rpc("pode_enviar", {
     p_lead_id: m.lead_id,
     p_tipo: m.tipo,
+    p_instance_id: instanciaId,
   });
   // Falha fechada: sem resposta do banco, não envia agora.
   if (error) {
@@ -198,6 +224,18 @@ const MOTIVOS_DEFINITIVOS = new Set([
 async function aplicarRecusa(m: MensagemAgendada, motivo: string | null) {
   if (motivo && MOTIVOS_DEFINITIVOS.has(motivo)) {
     await cancelar(m, `pode_enviar: ${motivo}`);
+    return;
+  }
+  if (motivo === "limite_diario") {
+    // Cota do número acabou hoje: volta no começo da janela de amanhã.
+    const { data: quando } = await supabase.rpc("proximo_horario_util", {
+      p_agora: inicioDoProximoDia(),
+    });
+    await reagendar(
+      m,
+      (quando as string) ?? new Date(Date.now() + 12 * 3600_000).toISOString(),
+      "limite diário da instância",
+    );
     return;
   }
   if (motivo === "fora_da_janela") {
@@ -234,7 +272,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
       await new Promise((r) => setTimeout(r, PAUSA_ENTRE_PARTES_MS));
       // O lead pode ter pedido para parar (ou um humano assumido) entre as
       // partes: a checagem vale antes de CADA parte, não só da primeira.
-      const checagem = await checarEnvio(m);
+      const checagem = await checarEnvio(m, instancia.id);
       if (!checagem.ok) {
         await aplicarRecusa(m, checagem.motivo);
         return false;
@@ -256,6 +294,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
       lead_id: m.lead_id,
       remote_jid: `${m.telefone}@s.whatsapp.net`,
       content: texto,
+      mensagem_agendada_id: m.id,
     });
 
     try {
@@ -283,7 +322,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
     lead_id: m.lead_id,
     tipo: "sistema",
     canal: "sistema",
-    conteudo: "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
+    conteudo: DESCRICAO_ENVIO[m.tipo] ?? "Mensagem automática enviada por WhatsApp.",
   });
   return true;
 }
@@ -356,7 +395,11 @@ Deno.serve(async (req) => {
     let canceladas = 0;
     let falhas = 0;
 
+    const porId = new Map((conectadas ?? []).map((i) => [i.id, i]));
+
     for (const m of mensagens) {
+      // Cadência com instância própria usa ela (se conectada); o resto, a padrão.
+      const instanciaDoEnvio = (m.instance_id && porId.get(m.instance_id)) || instancia;
       try {
         // Resposta da Sophia que o caminho rápido do webhook não concluiu
         // (isolate recolhido no debounce, por exemplo). Não passa por
@@ -377,7 +420,7 @@ Deno.serve(async (req) => {
         // Regras de envio num só lugar (pode_enviar, no banco): opt-out, sem
         // interesse, takeover humano, convertido, base legal e janela de
         // horário. Entre o enfileiramento e agora qualquer uma pode ter mudado.
-        const checagem = await checarEnvio(m);
+        const checagem = await checarEnvio(m, instanciaDoEnvio.id);
         if (!checagem.ok) {
           await aplicarRecusa(m, checagem.motivo);
           if (checagem.motivo && MOTIVOS_DEFINITIVOS.has(checagem.motivo)) canceladas++;
@@ -386,7 +429,9 @@ Deno.serve(async (req) => {
 
         // Entre o enfileiramento e agora o lead pode ter escrito primeiro — e
         // aí a conversa já está acontecendo. Abordar agora atropelaria.
-        if (!(await podeAbordar(supabase, m.lead_id))) {
+        // Follow-up não passa por aqui: a resposta do lead já pausa a
+        // cadência no banco, e lembrete de visita é para quem já conversa.
+        if (!TIPOS_FOLLOW_UP.has(m.tipo) && !(await podeAbordar(supabase, m.lead_id))) {
           await supabase
             .from("mensagens_agendadas")
             .update({
@@ -399,17 +444,19 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        if (!(await agenteAtivo(instancia.id))) {
+        if (!(await agenteAtivo(instanciaDoEnvio.id))) {
           await adiarPorPausa(m);
           continue;
         }
 
-        if (!(await enviar(m, instancia as Instancia))) continue;
+        if (!(await enviar(m, instanciaDoEnvio as Instancia))) continue;
 
+        // A instância que enviou fica no item: é ela que gasta a cota do dia.
         await supabase
           .from("mensagens_agendadas")
           .update({
             status: "enviado",
+            instance_id: instanciaDoEnvio.id,
             enviado_em: new Date().toISOString(),
             erro: null,
             atualizado_em: new Date().toISOString(),

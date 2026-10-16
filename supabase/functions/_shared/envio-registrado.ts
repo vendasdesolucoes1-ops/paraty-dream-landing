@@ -34,6 +34,8 @@ export interface EnvioRegistrado {
   remote_jid: string;
   message_type?: string;
   content: string;
+  /** Item da fila que gerou o envio (métricas de entrega por etapa). */
+  mensagem_agendada_id?: string | null;
 }
 
 /**
@@ -56,6 +58,7 @@ export async function registrarEnvio(
       message_type: dados.message_type ?? "text",
       content: dados.content,
       status: "pending",
+      ...(dados.mensagem_agendada_id ? { mensagem_agendada_id: dados.mensagem_agendada_id } : {}),
     })
     .select("id")
     .single();

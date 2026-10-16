@@ -12,7 +12,6 @@ RAIZ="$(cd "$(dirname "$0")/../.." && pwd)"
 PG_BIN="${PG_BIN:-$(dirname "$(command -v initdb 2>/dev/null || ls /usr/lib/postgresql/*/bin/initdb | tail -1)")}"
 DIR="$(mktemp -d)"
 PORTA="${PG_PORTA:-54329}"
-trap '"$PG_BIN/pg_ctl" -D "$DIR/dados" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"' EXIT
 
 if [ "$(id -u)" = "0" ]; then
   # initdb não roda como root: usa um usuário sem privilégio.
@@ -22,6 +21,8 @@ if [ "$(id -u)" = "0" ]; then
 else
   COMO=()
 fi
+
+trap '"${COMO[@]}" "$PG_BIN/pg_ctl" -D "$DIR/dados" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"' EXIT
 
 "${COMO[@]}" "$PG_BIN/initdb" -D "$DIR/dados" -U postgres -A trust --locale=C.UTF-8 >/dev/null
 "${COMO[@]}" "$PG_BIN/pg_ctl" -D "$DIR/dados" -o "-p $PORTA -k $DIR -c timezone=UTC" -l "$DIR/log" -w start >/dev/null
