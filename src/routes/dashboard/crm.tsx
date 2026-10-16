@@ -341,7 +341,7 @@ function CrmPage() {
   const [busca, setBusca] = useState("");
   const [origemFiltro, setOrigemFiltro] = useState<string>("todas");
   // A busca vai para o banco (as colunas são paginadas lá), então espera a
-  // digitação parar. Como no banco, diferencia acento: "Jose" não acha "José".
+  // digitação parar. Ignora acento e caixa: "jose" acha "José" (coluna leads.busca).
   const termo = limparTermoBusca(useAtrasado(busca, 300));
 
   // Números dos chips: contados no banco com o filtro de testes, sem busca

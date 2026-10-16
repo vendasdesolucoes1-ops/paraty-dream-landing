@@ -1073,8 +1073,8 @@ function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => v
             <AlertDialogDescription>
               Esta ação <strong>não pode ser desfeita</strong>. O lead será apagado do banco de
               dados junto com todo o histórico de conversas do WhatsApp, interações, visitas
-              agendadas e mensagens na fila de envio. O contato do WhatsApp é mantido, apenas
-              desvinculado.
+              agendadas, mensagens na fila de envio e o contato do WhatsApp desse número
+              (exclusão completa do titular, LGPD).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
