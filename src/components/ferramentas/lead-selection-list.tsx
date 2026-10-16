@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { buscarEmLotes } from "@/lib/buscar-em-lotes";
 import { chaveTelefone, cn } from "@/lib/utils";
 import type { DisparoCampanha, Lead } from "@/lib/types";
 import { Pill } from "@/components/ds/pill";
@@ -52,6 +53,13 @@ export interface LeadSelecionavel {
  */
 const LIMITE_ENVIOS = 5000;
 
+/**
+ * Quantas linhas a lista desenha de uma vez. Com milhares de leads, montar um
+ * checkbox por linha trava a tela; os botões de seleção continuam valendo para
+ * todos os que casam com a busca, desenhados ou não.
+ */
+const LIMITE_LINHAS_VISIVEIS = 300;
+
 function formatarData(valor: string | null): string {
   if (!valor) return "";
   return new Date(valor).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -72,17 +80,22 @@ export function LeadSelectionList({
   // meio, sem remandar para quem já tinha recebido.
   const [campanhaRef, setCampanhaRef] = useState<string>("todas");
 
+  // Em lotes: numa consulta só o PostgREST parava em 1.000 leads e o resto
+  // nem aparecia para ser escolhido.
   const { data: leads, isLoading: carregandoLeads } = useQuery({
     queryKey: ["disparador-leads-selecao"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, nome, telefone, status_crm")
-        .is("deletado_em", null)
-        .not("telefone", "is", null)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Pick<Lead, "id" | "nome" | "telefone" | "status_crm">[];
+      const leads = await buscarEmLotes((de, ate) =>
+        supabase
+          .from("leads")
+          .select("id, nome, telefone, status_crm")
+          .is("deletado_em", null)
+          .not("telefone", "is", null)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(de, ate),
+      );
+      return leads as Pick<Lead, "id" | "nome" | "telefone" | "status_crm">[];
     },
   });
 
@@ -101,15 +114,20 @@ export function LeadSelectionList({
 
   const { data: envios, isLoading: carregandoEnvios } = useQuery({
     queryKey: ["disparos-envios-concluidos"],
+    // Também em lotes: o `.limit(5000)` sozinho esbarrava no teto de 1.000.
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("disparos_itens")
-        .select("lead_id, telefone, enviado_em, campanha_id")
-        .eq("status", "enviado")
-        .order("enviado_em", { ascending: false })
-        .limit(LIMITE_ENVIOS);
-      if (error) throw error;
-      return data as unknown as EnvioAnterior[];
+      const envios = await buscarEmLotes(
+        (de, ate) =>
+          supabase
+            .from("disparos_itens")
+            .select("lead_id, telefone, enviado_em, campanha_id")
+            .eq("status", "enviado")
+            .order("enviado_em", { ascending: false })
+            .order("id", { ascending: false })
+            .range(de, ate),
+        { limite: LIMITE_ENVIOS },
+      );
+      return envios as unknown as EnvioAnterior[];
     },
   });
 
@@ -244,7 +262,7 @@ export function LeadSelectionList({
         <p className="text-sm text-muted-foreground">Nenhum lead encontrado.</p>
       ) : (
         <div className="max-h-80 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
-          {filtrados.map((lead) => {
+          {filtrados.slice(0, LIMITE_LINHAS_VISIVEIS).map((lead) => {
             const enviadoEm = ultimoEnvio(lead);
             const contatado = enviadoEm !== undefined;
             const marcado = selectedIds.has(lead.id);
@@ -279,6 +297,13 @@ export function LeadSelectionList({
           })}
         </div>
       )}
+
+      {!carregando && filtrados.length > LIMITE_LINHAS_VISIVEIS ? (
+        <p className="text-xs text-muted-foreground">
+          Mostrando {LIMITE_LINHAS_VISIVEIS} de {filtrados.length} leads. Use a busca para achar um
+          lead específico; &ldquo;Selecionar todos&rdquo; vale para os {filtrados.length}.
+        </p>
+      ) : null}
 
       <p className="text-xs text-muted-foreground">
         {selectedIds.size} lead{selectedIds.size === 1 ? "" : "s"} selecionado

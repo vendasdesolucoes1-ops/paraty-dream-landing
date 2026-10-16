@@ -58,6 +58,17 @@ function parseMetragem(value: Lead["metragem"]): number | null {
   return match ? Number(match[0]) : null;
 }
 
+/**
+ * Texto que a pessoa aceita ao enviar. Mudou o texto, muda a versão: o banco
+ * grava a versão aceita em `consentimentos`, e é ela que prova o consentimento.
+ * Revisar com o jurídico antes de publicar uma versão nova.
+ */
+const VERSAO_CONSENTIMENTO = "2026-10-16";
+const TEXTO_CONSENTIMENTO =
+  "Concordo em receber contato da equipe do Moradas de Paraty por WhatsApp sobre este empreendimento, " +
+  "inclusive mensagens de acompanhamento e atendimento inicial por assistente virtual. Meus dados podem " +
+  "ser processados por provedores de tecnologia, inclusive fora do Brasil. Posso pedir para parar a qualquer momento.";
+
 export function LeadForm() {
   const [lead, setLead] = useState<Lead>(empty);
   // Campo isca: invisível para pessoas, preenchido por robôs que completam
@@ -68,6 +79,7 @@ export function LeadForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telefoneTocado, setTelefoneTocado] = useState(false);
+  const [consentiu, setConsentiu] = useState(false);
 
   const update = <K extends keyof Lead>(k: K, v: Lead[K]) => setLead((l) => ({ ...l, [k]: v }));
 
@@ -94,6 +106,12 @@ export function LeadForm() {
       return;
     }
 
+    if (!consentiu) {
+      setError("Para receber o contato, marque a concordância abaixo do botão.");
+      document.getElementById("consentimento")?.focus();
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -114,6 +132,7 @@ export function LeadForm() {
           p_cidade: lead.cidade.trim() || null,
           p_metragem_interesse: parseMetragem(lead.metragem),
           p_tipo_lote_interesse: lead.tipo ? lead.tipo.toLowerCase() : null,
+          p_consentimento_versao: VERSAO_CONSENTIMENTO,
         },
       );
 
@@ -122,6 +141,7 @@ export function LeadForm() {
       setEnviadoPara(lead.nome.trim().split(/\s+/)[0] || "você");
       setLead(empty);
       setTelefoneTocado(false);
+      setConsentiu(false);
 
       // Fire-and-forget: everything that needs the new lead's id and elevated
       // access (round-robin assignment, origin history entry, WhatsApp AI
@@ -335,10 +355,20 @@ export function LeadForm() {
             {error}
           </p>
         )}
-        <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
-          Ao enviar, você concorda em ser contatado pela equipe do Moradas de Paraty por WhatsApp.
-          Seus dados são usados só para este atendimento.
-        </p>
+        <label
+          htmlFor="consentimento"
+          className="mt-5 flex items-start gap-3 text-xs leading-relaxed text-muted-foreground"
+        >
+          <input
+            id="consentimento"
+            type="checkbox"
+            checked={consentiu}
+            onChange={(e) => setConsentiu(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+            required
+          />
+          <span>{TEXTO_CONSENTIMENTO}</span>
+        </label>
       </div>
     </form>
   );

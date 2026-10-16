@@ -8,6 +8,7 @@ import { guardInternalCall } from "../_shared/internal-auth.ts";
 import { VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { base64ToBytes, uploadSigned } from "../_shared/imagery.ts";
 import { COST_IMAGE_FLASH, COST_IMAGE_PRO, isProTemplate } from "../_shared/imagery-cost.ts";
+import { MODELOS } from "../_shared/modelos.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -15,9 +16,10 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// IDs da API direta não levam o prefixo "google/" usado pelo gateway.
-const MODEL_FLASH_IMAGE = "gemini-2.5-flash-image";
-const MODEL_PRO_IMAGE = "gemini-3-pro-image";
+// IDs da API direta não levam o prefixo "google/" usado pelo gateway. A
+// situação de cada ID (GA ou a confirmar) está comentada em modelos.ts.
+const MODEL_FLASH_IMAGE = MODELOS.imagemRapida.id;
+const MODEL_PRO_IMAGE = MODELOS.imagemCapa.id;
 
 // Retrato 4:5, igual ao canvas do imagery-compose-slide (1080x1350).
 const ASPECT_RATIO = "4:5";

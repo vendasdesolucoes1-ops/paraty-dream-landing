@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Moradas de Paraty — vídeo curto para o dono</title>
+<!--
+  Versão curta (≈ 2 min). A sincronia é por fala e por palavra:
+    data-b="f04"           a animação começa quando a fala f04 começa;
+    data-w="lotes"         ...ou quando a palavra "lotes" é dita (estimada pela
+                           posição da palavra no texto da fala);
+    data-o="0.3"           deslocamento em segundos (pode ser negativo);
+    data-t="1.2"           alternativa: segundos desde o início da cena;
+    data-som="pop"         efeito sonoro (sfx/<nome>.mp3) no início da animação;
+    data-som-o / data-vol  deslocamento e volume (dB) do efeito.
+  Os tempos vêm de saida/tempos.json (linha_do_tempo.py); os efeitos são
+  extraídos por cues.mjs e mixados por mixar.py.
+-->
+<style>
+@font-face{font-family:"Cormorant Garamond";src:url("../../../public/fonts/cormorant-garamond-latin-var.woff2") format("woff2");font-weight:300 700}
+@font-face{font-family:"Inter";src:url("../../../public/fonts/inter-latin-var.woff2") format("woff2");font-weight:100 900}
+@font-face{font-family:"Playfair Display";src:url("../../../public/fonts/playfair-display-latin-var.woff") format("woff");font-weight:400 900}
+@font-face{font-family:"Nunito Sans";src:url("../../../public/fonts/nunito-sans-latin-var.woff") format("woff");font-weight:200 1000}
+:root{
+  --navy:#00234c;--navy2:#123e6a;--gold:#cd9a50;--sandl:#efe7d9;--ivory:#f9f6f1;--canvas:#eeebe5;
+  --fg:#101c28;--muted:#555f69;--border:#e7e2da;--ok:#1e7546;--oks:#ddf6e4;--warn:#a76100;--warns:#ffeccd;
+  --info:#286193;--infos:#e2f0ff;--bad:#cc2827;--bads:#ffe7e4;--wa:#e7ddd3;--wab:#d9fdd3;
+  --e:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--navy)}
+body{font-family:"Inter",sans-serif;color:var(--fg);-webkit-font-smoothing:antialiased}
+#palco{position:relative;width:1920px;height:1080px;overflow:hidden}
+.cena{position:absolute;inset:0;opacity:0;overflow:hidden}
+.serif{font-family:"Cormorant Garamond",serif;font-weight:600}
+.a{animation-duration:var(--t,.8s);animation-delay:calc(var(--d,0)*1s);animation-fill-mode:both;animation-timing-function:var(--e)}
+.fade-up{animation-name:fadeUp}.fade{animation-name:fade}.pop{animation-name:pop}
+.slide-l{animation-name:slideL}.slide-r{animation-name:slideR}.grow-x{animation-name:growX;transform-origin:left}
+.draw{animation-name:draw}.out{animation-name:out}
+@keyframes fadeUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes out{from{opacity:1}to{opacity:0}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-140px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(160px)}to{opacity:1;transform:none}}
+@keyframes growX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{from{stroke-dashoffset:var(--len,1000)}to{stroke-dashoffset:0}}
+@keyframes zoomLento{from{transform:scale(1)}to{transform:scale(1.06)}}
+.card{background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:0 2px 4px rgba(16,28,40,.05),0 24px 60px -30px rgba(16,28,40,.35)}
+.pill{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 16px;border-radius:999px;font-size:18px;font-weight:600;background:#f3eee6;white-space:nowrap}
+.pill.ok{background:var(--oks);color:var(--ok)}.pill.warn{background:var(--warns);color:var(--warn)}
+.pill.info{background:var(--infos);color:var(--info)}.pill.bad{background:var(--bads);color:var(--bad)}
+.pill.gold{background:#f6ead6;color:#8a5d17}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:54px;padding:0 26px;border-radius:14px;font-weight:700;font-size:19px;background:var(--navy);color:var(--ivory)}
+.titulo{position:absolute;left:96px;top:64px}
+.titulo .k{font-size:19px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.titulo h2{font-family:"Cormorant Garamond",serif;font-size:72px;line-height:1;color:var(--navy);font-weight:600;margin-top:8px}
+.claro .titulo h2{color:var(--ivory)}
+.msg{max-width:84%;padding:12px 15px;border-radius:16px;box-shadow:0 1px 1px rgba(0,0,0,.08);font-size:18px;line-height:1.38}
+.msg.s{background:#fff;align-self:flex-start;border-top-left-radius:4px}
+.msg.c{background:var(--wab);align-self:flex-end;border-top-right-radius:4px}
+#legenda{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);max-width:1380px;padding:10px 24px;border-radius:12px;background:rgba(0,20,44,.86);color:#fff;font-size:27px;line-height:1.35;text-align:center;z-index:100;visibility:hidden}
+/* Cena 2 */
+.campo{font-size:14px;font-weight:700;margin-bottom:6px}
+.caixa{height:50px;border:1px solid var(--border);border-radius:12px;padding:0 16px;display:flex;align-items:center;font-size:19px}
+@keyframes clique{0%{transform:scale(1)}40%{transform:scale(.93);filter:brightness(1.3)}100%{transform:scale(1)}}
+/* Cena 3 */
+.col{background:#f3eee6;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:250px}
+.cab{font-weight:700;font-size:19px;display:flex;justify-content:space-between;color:var(--navy)}.cab span{color:var(--muted);font-weight:600}
+.lc{background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,28,40,.06);border:1px solid var(--border)}
+.lc b{display:block;font-size:18px}.lc i{font-style:normal;font-size:14px;color:var(--muted)}
+@keyframes arrastar{0%{opacity:1;left:413px;top:300px;transform:none}20%{transform:rotate(-4deg) scale(1.06);box-shadow:0 30px 50px -20px rgba(0,0,0,.4)}85%{left:703px;top:300px;transform:rotate(-2deg) scale(1.06)}100%{opacity:1;left:703px;top:300px;transform:none}}
+@keyframes sumir{to{opacity:0}}
+.tarefa{display:flex;align-items:center;gap:14px;font-size:21px;margin-top:14px}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--navy);display:inline-block;position:relative;flex:none}
+.chk b{position:absolute;inset:3px;border-radius:4px;background:var(--navy)}
+/* Cena 4 */
+.marco{position:absolute;top:70px;width:250px;margin-left:-14px;display:flex;flex-direction:column;gap:4px;padding-top:58px}
+.marco::before{content:"";position:absolute;left:0;top:10px;width:30px;height:30px;border-radius:50%;background:var(--c,var(--gold));border:5px solid #fff;box-shadow:0 0 0 2px var(--c,var(--gold))}
+.marco b{font-size:22px}.marco span{font-size:16px;color:var(--muted)}
+.regra{background:rgba(255,255,255,.08);border:1px solid rgba(205,154,80,.5);border-radius:14px;padding:20px 22px;font-size:23px;line-height:1.35;color:var(--ivory)}
+/* Cena 5 */
+.kpi{padding:24px 26px}.kpi .l{font-size:17px;color:var(--muted)}.kpi .v{font-family:"Cormorant Garamond",serif;font-size:76px;color:var(--navy);line-height:1}
+.fun{height:56px;border-radius:12px;background:var(--navy);color:var(--ivory);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;transform-origin:center}
+.cond{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;font-size:20px}
+/* Cena 6 */
+.pilar{font-family:"Cormorant Garamond",serif;font-size:84px;line-height:1.05;color:var(--ivory)}
+</style>
+</head>
+<body>
+<div id="palco">
+
+<!-- ============ CENA 1 — Abertura ============ -->
+<section class="cena claro" data-cena="1" style="background:radial-gradient(1300px 760px at 70% 30%,#123e6a 0%,#00234c 60%,#001733 100%)">
+  <div style="position:absolute;inset:0;animation:zoomLento 16s linear both">
+    <svg width="1920" height="1080" style="position:absolute;inset:0">
+      <path d="M120 1000 C 520 890, 760 1050, 1120 950 S 1700 870, 1840 930" fill="none" stroke="#cd9a50" stroke-width="3" stroke-dasharray="1600" class="a draw" style="--len:1600;--t:3.2s" data-t="0.4"/>
+    </svg>
+    <div class="a pop" data-t="0.6" data-som="logo" data-som-o="-0.6" style="position:absolute;left:96px;top:150px;width:120px;height:120px;border-radius:30px;background:#cd9a50;color:#00234c;display:flex;align-items:center;justify-content:center"><span class="serif" style="font-size:78px;font-weight:700">M</span></div>
+    <div class="a fade-up" data-t="1.3" style="position:absolute;left:96px;top:320px;color:var(--gold);font-size:24px;letter-spacing:.2em;text-transform:uppercase;font-weight:700">Loteamento Residencial Sophia Saíde · Paraty</div>
+    <h1 class="a fade-up serif" data-b="f01" data-w="Moradas" data-o="-0.2" style="position:absolute;left:96px;top:370px;font-size:150px;line-height:.95;color:var(--ivory)">Moradas de Paraty</h1>
+    <div class="a fade-up serif" data-b="f01" data-w="sistema" data-o="-0.1" style="position:absolute;left:96px;top:540px;font-size:66px;color:var(--gold)">agora com um sistema próprio de vendas</div>
+    <!-- jornada -->
+    <div style="position:absolute;left:96px;top:700px;width:1728px;height:200px">
+      <div class="a grow-x" data-b="f02" data-w="clique" data-o="0.2" style="--t:3.4s;position:absolute;left:150px;right:150px;top:62px;height:3px;background:var(--gold)"></div>
+      <div class="no a pop" data-b="f02" data-w="clique" data-som="pop" style="left:0">🖱️<b>Primeiro clique</b></div>
+      <div class="no a pop" data-b="f02" data-w="clique" data-o="0.9" data-som="pop" style="left:476px">💬<b>Atendimento</b></div>
+      <div class="no a pop" data-b="f02" data-w="visita" data-o="-0.6" data-som="pop" style="left:952px">📋<b>Equipe</b></div>
+      <div class="no a pop" data-b="f02" data-w="terreno" data-o="-0.2" data-som="pop" style="left:1428px;border-color:var(--gold);background:#3a4550">🏡<b>Visita ao terreno</b></div>
+      <div class="a fade-up" data-b="f02" data-w="ninguém" data-o="-0.3" data-som="sucesso" style="position:absolute;left:0;top:150px;font-size:26px;color:var(--ivory);opacity:.9">✓ sem deixar ninguém para trás</div>
+    </div>
+  </div>
+  <style>
+    .no{position:absolute;z-index:1;top:20px;width:300px;height:84px;border-radius:18px;background:#14345f;border:1px solid rgba(205,154,80,.55);color:var(--ivory);display:flex;align-items:center;gap:14px;padding:0 22px;font-size:34px}
+    .no b{font-size:24px;font-weight:600}
+  </style>
+</section>
+
+<!-- ============ CENA 2 — Site e Sophia ============ -->
+<section class="cena" data-cena="2" style="background:var(--canvas)">
+  <div class="titulo"><div class="k a fade-up" data-t="0.2">1 · Atendimento</div><h2 class="a fade-up" data-t="0.35">Do site ao WhatsApp em segundos</h2></div>
+  <!-- navegador -->
+  <div class="card a slide-l" data-t="0.5" data-som="deslizar" style="position:absolute;left:96px;top:220px;width:680px;height:740px;overflow:hidden">
+    <div style="height:46px;background:#f3eee6;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid var(--border)"><i style="width:13px;height:13px;border-radius:50%;background:#e98b80"></i><i style="width:13px;height:13px;border-radius:50%;background:#e9c780"></i><i style="width:13px;height:13px;border-radius:50%;background:#9cc98d"></i><div style="margin-left:16px;height:26px;flex:1;border-radius:8px;background:#fff;font-size:14px;color:var(--muted);display:flex;align-items:center;padding:0 12px">moradasdeparaty.com.br</div></div>
+    <div style="height:200px;background:linear-gradient(160deg,#2f5a3e,#7a9a6b 45%,#d8c7a4);position:relative"><div style="position:absolute;left:36px;bottom:26px;color:#fff;font-family:'Playfair Display';font-size:46px;line-height:1">Viva Paraty<br>todos os dias</div></div>
+    <div style="padding:26px 36px">
+      <div style="font-family:'Playfair Display';font-size:30px;color:var(--navy)">Agende sua visita</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+        <div><div class="campo">Nome</div><div class="caixa"><span data-digita="16" data-b="f03" data-w="contato" data-o="-0.4" data-texto="Mariana Alves" data-som="digitar" data-vol="-4"></span></div></div>
+        <div><div class="campo">WhatsApp</div><div class="caixa"><span data-digita="18" data-b="f03" data-w="contato" data-o="0.5" data-texto="(24) 99812-3456"></span></div></div>
+        <div><div class="campo">Cidade</div><div class="caixa"><span data-digita="18" data-b="f03" data-w="contato" data-o="1.3" data-texto="Angra dos Reis"></span></div></div>
+        <div><div class="campo">Interesse</div><div class="caixa"><span data-digita="18" data-b="f03" data-w="autoriza" data-o="-0.6" data-texto="Lote de 360 m²"></span></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:18px;font-size:16px;color:var(--muted)"><div class="chk"><b class="a pop" data-b="f03" data-w="autoriza" data-o="0.1" data-som="clique" style="--t:.35s"></b></div>Aceito receber contato da equipe pelo WhatsApp.</div>
+      <div class="btn" data-b="f03" data-w="atendimento" data-o="0.2" data-som="clique" style="margin-top:18px;animation:clique .5s ease calc(var(--d)*1s) both">Quero conhecer</div>
+    </div>
+    <div class="a pop" data-b="f03" data-w="atendimento" data-o="0.8" data-som="sucesso" style="position:absolute;right:20px;bottom:20px;background:var(--navy);color:#fff;border-radius:14px;padding:14px 18px;font-size:18px;box-shadow:0 20px 40px -20px rgba(0,0,0,.5)">✓ Lead no CRM · consentimento salvo</div>
+  </div>
+  <!-- celular -->
+  <div class="a pop" data-b="f04" data-w="Sophia" data-o="-0.5" data-som="deslizar" style="position:absolute;left:830px;top:200px;width:430px;height:770px;border-radius:52px;background:#101c28;padding:15px">
+    <div style="width:100%;height:100%;border-radius:40px;overflow:hidden;background:var(--wa)">
+      <div style="height:90px;background:#00234c;color:#fff;display:flex;align-items:flex-end;gap:12px;padding:0 20px 13px"><div style="width:44px;height:44px;border-radius:50%;background:#cd9a50;display:flex;align-items:center;justify-content:center;font-weight:800;color:#00234c">S</div><div><div style="font-weight:700;font-size:19px">Moradas de Paraty</div><div style="font-size:13px;opacity:.75">online</div></div></div>
+      <div style="padding:16px 14px;display:flex;flex-direction:column;gap:10px">
+        <div class="a pop msg s" data-b="f04" data-w="responde" data-som="mensagem">Oi, Mariana! Aqui é a Sophia, do Moradas de Paraty 😊 Você procura lote para morar ou investir?</div>
+        <div class="a pop msg c" data-b="f04" data-w="procura" data-som="mensagem">Morar. Perto da praia, se der</div>
+        <div class="a pop msg s" data-b="f04" data-w="lotes" data-o="-0.2" data-som="mensagem">Temos lotes de 360 m² na quadra C, a 4 minutos da praia 🌿</div>
+        <div class="a pop msg c" data-b="f05" data-w="preço" data-o="-0.5" data-som="mensagem">Quanto custa?</div>
+        <div class="a pop msg s" data-b="f05" data-w="objetivo" data-o="-0.2" data-som="mensagem">Os valores eu apresento na visita, com a tabela atualizada. Que tal sábado às 10h?</div>
+      </div>
+    </div>
+  </div>
+  <!-- coluna direita -->
+  <div style="position:absolute;left:1330px;top:220px;width:494px;display:flex;flex-direction:column;gap:18px">
+    <div class="card a slide-r" data-b="f05" data-w="nunca" data-o="-0.2" data-som="pop" style="padding:20px 22px;display:flex;gap:16px;align-items:center"><div style="font-size:36px">🚫</div><div><b style="font-size:22px">Sem preço no chat</b><div style="font-size:17px;color:var(--muted)">o objetivo é marcar a visita</div></div></div>
+    <div class="card a slide-r" data-b="f05" data-w="visita" data-o="-0.1" data-som="sucesso" style="padding:20px 22px;border:2px solid var(--gold)"><div style="display:flex;justify-content:space-between;align-items:center"><b class="serif" style="font-size:32px;color:var(--navy)">Visita agendada</b><span class="pill ok">Agenda</span></div><div style="font-size:19px;margin-top:4px">Mariana · sábado, 10h · Quadra C</div></div>
+    <div class="card a slide-r" data-b="f06" data-w="pessoa" data-o="-0.3" data-som="mensagem" style="padding:20px 22px;display:flex;gap:16px;align-items:center"><div style="font-size:36px">🙋</div><div><b style="font-size:22px">"Quero falar com uma pessoa"</b><div style="font-size:17px;color:var(--muted)">pedido do cliente no WhatsApp</div></div></div>
+    <div class="card a slide-r" data-b="f06" data-w="consultor" data-o="-0.2" data-som="sino" style="padding:20px 22px;display:flex;gap:16px;align-items:center;background:var(--navy);color:var(--ivory);border:none"><div style="font-size:36px">🔔</div><div><b style="font-size:22px">Consultor avisado na hora</b><div style="font-size:17px;opacity:.8">a conversa passa para o Rafael</div></div></div>
+  </div>
+</section>
+
+<!-- ============ CENA 3 — Equipe ============ -->
+<section class="cena" data-cena="3" style="background:var(--canvas)">
+  <div class="titulo"><div class="k a fade-up" data-t="0.2">2 · Equipe</div><h2 class="a fade-up" data-t="0.35">Cada lead no seu lugar</h2></div>
+  <div style="position:absolute;left:96px;top:215px;width:1728px;display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+    <div class="col a fade-up" data-b="f07" data-w="CRM" data-o="-0.3" data-som="deslizar"><div class="cab">Novo <span>12</span></div><div class="lc"><b>Mariana Alves</b><i>Angra · agora</i></div><div class="lc"><b>Paulo Ribeiro</b><i>Ubatuba</i></div></div>
+    <div class="col a fade-up" data-b="f07" data-w="CRM" data-o="-0.15"><div class="cab">Qualificado <span>8</span></div><div class="lc" data-b="f07" data-w="contrato" data-o="-1.2" style="animation:sumir .05s calc(var(--d)*1s) forwards"><b>João Conceição</b><i>Rio de Janeiro</i></div><div class="lc"><b>Ana Costa</b><i>Paraty</i></div></div>
+    <div class="col a fade-up" data-b="f07" data-w="CRM"><div class="cab">Agendado <span>5</span></div><div class="lc" style="margin-top:78px"><b>Lúcia Fernandes</b><i>sáb 14h</i></div></div>
+    <div class="col a fade-up" data-b="f07" data-w="CRM" data-o="0.15"><div class="cab">Visitou <span>4</span></div><div class="lc"><b>Bruno Lima</b><i>gostou da quadra C</i></div></div>
+    <div class="col a fade-up" data-b="f07" data-w="CRM" data-o="0.3"><div class="cab">Proposta <span>3</span></div><div class="lc"><b>Carla Mendes</b><i>v2 enviada</i></div></div>
+    <div class="col a fade-up" data-b="f07" data-w="CRM" data-o="0.45"><div class="cab">Fechado <span>2</span></div><div class="lc" style="border-color:var(--gold)"><b>Diego Santos</b><i>contrato assinado ✓</i></div></div>
+  </div>
+  <div class="lc" data-b="f07" data-w="contrato" data-o="-1.2" data-som="deslizar" style="position:absolute;width:262px;z-index:5;border:2px solid var(--gold);opacity:0;animation:arrastar 1.6s var(--e) calc(var(--d)*1s) both"><b>João Conceição</b><i>Rio de Janeiro</i></div>
+  <span data-b="f07" data-w="contrato" data-o="0.4" data-som="clique"></span>
+  <!-- hoje -->
+  <div class="card a fade-up" data-b="f08" data-w="vendedor" data-o="-0.3" data-som="pop" style="position:absolute;left:96px;top:540px;width:760px;padding:28px 30px">
+    <div class="serif" style="font-size:38px;color:var(--navy)">Minhas tarefas de hoje</div>
+    <div class="tarefa"><i class="chk"><b class="a pop" data-b="f08" data-w="fazer" data-som="clique" style="--t:.35s"></b></i>Ligar para João Conceição</div>
+    <div class="tarefa"><i class="chk"><b class="a pop" data-b="f08" data-w="hoje" data-o="0.1" data-som="clique" style="--t:.35s"></b></i>Enviar proposta v2 para Carla</div>
+    <div class="tarefa"><i class="chk"></i>Confirmar visita de sábado</div>
+  </div>
+  <div class="card a slide-r" data-b="f08" data-w="agenda" data-o="-0.2" data-som="deslizar" style="position:absolute;left:910px;top:540px;width:914px;padding:28px 30px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="serif" style="font-size:38px;color:var(--navy)">Agenda</div><span class="pill ok">sábado</span></div>
+    <div style="display:flex;gap:14px;margin-top:16px"><div class="pill ok" style="font-size:18px">10h · Mariana</div><div class="pill info" style="font-size:18px">14h · Lúcia</div></div>
+    <div class="a pop" data-b="f08" data-w="véspera" data-o="-0.4" data-som="sino" style="margin-top:20px;padding:18px 20px;border-radius:16px;background:var(--wab);font-size:20px;line-height:1.4">⏰ <b>Lembrete na véspera:</b> "Oi Mariana! Sua visita é amanhã, às 10h. Te espero lá!"</div>
+  </div>
+</section>
+
+<!-- ============ CENA 4 — Follow-up ============ -->
+<section class="cena" data-cena="4" style="background:var(--canvas)">
+  <div class="titulo"><div class="k a fade-up" data-t="0.2">3 · Follow-up</div><h2 class="a fade-up" data-t="0.35">Ninguém é esquecido</h2></div>
+  <div class="card a fade-up" data-t="0.6" style="position:absolute;left:96px;top:215px;width:1728px;height:230px">
+    <div style="position:absolute;left:80px;right:80px;top:84px;height:6px;background:#efeae2;border-radius:6px"><div class="a grow-x" data-b="f09" data-w="novo" data-o="-0.6" style="--t:4.6s;height:100%;background:var(--navy);border-radius:6px"></div></div>
+    <div class="marco a pop" data-b="f09" data-w="novo" data-o="-0.6" style="left:80px"><b>Sem resposta</b><span>primeiro contato</span></div>
+    <div class="marco a pop" data-b="f09" data-w="novo" data-o="0.1" data-som="mensagem" style="left:520px"><b>Novo contato</b><span>dia 1</span></div>
+    <div class="marco a pop" data-b="f09" data-w="momento" data-o="0.1" data-som="mensagem" style="left:960px"><b>Novo contato</b><span>dia 4</span></div>
+    <div class="marco a pop" data-b="f09" data-w="responde" data-o="-0.2" data-som="sucesso" style="left:1400px;--c:var(--ok)"><b>Respondeu → para</b><span>pausa sozinha</span></div>
+  </div>
+  <div style="position:absolute;left:96px;top:470px;display:flex;gap:14px">
+    <span class="pill ok a pop" data-b="f09" data-w="responde" data-o="0.2" style="font-size:20px;height:42px">✓ parou porque respondeu</span>
+    <span class="pill bad a pop" data-b="f09" data-w="sair" data-o="-0.1" data-som="pop" style="font-size:20px;height:42px">✋ pediu para sair → nunca mais</span>
+  </div>
+  <div class="card a fade-up" data-b="f10" data-w="protege" data-o="-0.6" data-som="deslizar" style="position:absolute;left:96px;top:560px;width:1728px;height:300px;padding:30px 36px;background:var(--navy);border:none">
+    <div class="serif" style="font-size:44px;color:var(--gold)">🛡️ O número do WhatsApp protegido</div>
+    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:18px;margin-top:24px">
+      <div class="regra a pop" data-b="f10" data-w="limita" data-o="-0.2" data-som="pop">Limite de envios por dia
+        <div style="height:14px;border-radius:999px;background:rgba(255,255,255,.15);margin-top:16px;overflow:hidden"><div class="a grow-x" data-b="f10" data-w="limita" data-o="0.1" data-som="contagem" data-vol="-6" style="--t:1.5s;height:100%;width:58%;background:var(--gold)"></div></div>
+        <div style="font-size:17px;opacity:.75;margin-top:8px"><span data-conta="0,87,1.5" data-b="f10" data-w="limita" data-o="0.1"></span> de 150 hoje</div></div>
+      <div class="regra a pop" data-b="f10" data-w="envios" data-o="0.3" data-som="pop">Aquecimento de número novo<div style="font-size:17px;opacity:.75;margin-top:8px">volume sobe aos poucos</div></div>
+      <div class="regra a pop" data-b="f10" data-w="pausa" data-o="-0.1" data-som="sino" style="border-color:var(--gold);background:rgba(205,154,80,.16)">Pausa automática<div style="font-size:17px;opacity:.75;margin-top:8px">se muita gente pedir para sair</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CENA 5 — Resultados ============ -->
+<section class="cena" data-cena="5" style="background:var(--canvas)">
+  <div class="titulo"><div class="k a fade-up" data-t="0.2">4 · Gestão</div><h2 class="a fade-up" data-t="0.35">Tudo em números</h2></div>
+  <div style="position:absolute;left:96px;top:215px;width:1728px;display:grid;grid-template-columns:repeat(4,1fr);gap:20px">
+    <div class="card kpi a pop" data-b="f11" data-w="entregues" data-o="-0.3" data-som="contagem" data-vol="-4"><div class="l">Mensagens entregues</div><div class="v"><span data-conta="0,96,1.4" data-b="f11" data-w="entregues" data-o="-0.3"></span>%</div></div>
+    <div class="card kpi a pop" data-b="f11" data-w="respondidas" data-o="-0.3"><div class="l">Responderam</div><div class="v" style="color:var(--ok)"><span data-conta="0,31,1.4" data-b="f11" data-w="respondidas" data-o="-0.3"></span>%</div></div>
+    <div class="card kpi a pop" data-b="f11" data-w="conversão" data-o="-0.3"><div class="l">Visitas no mês</div><div class="v"><span data-conta="0,64,1.4" data-b="f11" data-w="conversão" data-o="-0.3"></span></div></div>
+    <div class="card kpi a pop" data-b="f11" data-w="metas" data-o="-0.3" data-som="pop"><div class="l">Meta da equipe</div><div class="v" style="color:var(--gold)"><span data-conta="0,80,1.4" data-b="f11" data-w="metas" data-o="-0.3"></span>%</div></div>
+  </div>
+  <div class="card a fade-up" data-b="f11" data-w="conversão" data-o="-0.4" data-som="deslizar" style="position:absolute;left:96px;top:420px;width:840px;height:540px;padding:30px">
+    <div class="serif" style="font-size:36px;color:var(--navy)">Conversão por etapa</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:22px;align-items:center">
+      <div class="fun a grow-x" data-b="f11" data-w="conversão" data-o="-0.1" style="width:100%">Leads · 240</div>
+      <div class="fun a grow-x" data-b="f11" data-w="conversão" data-o="0.1" style="width:78%">Qualificados · 142</div>
+      <div class="fun a grow-x" data-b="f11" data-w="conversão" data-o="0.3" style="width:56%">Visitas · 64</div>
+      <div class="fun a grow-x" data-b="f11" data-w="conversão" data-o="0.5" style="width:36%">Propostas · 28</div>
+      <div class="fun a grow-x" data-b="f11" data-w="conversão" data-o="0.7" style="width:22%;background:var(--gold);color:var(--navy)">Vendas · 11</div>
+    </div>
+  </div>
+  <!-- condições -->
+  <div class="card a slide-r" data-b="f12" data-w="condições" data-o="-0.4" data-som="deslizar" style="position:absolute;left:980px;top:420px;width:844px;height:540px;padding:30px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="serif" style="font-size:36px;color:var(--navy)">Condições comerciais</div><span class="pill gold">só o admin</span></div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px">
+      <div class="cond"><div style="flex:1"><b>Condição de lançamento</b><div style="font-size:16px;color:var(--muted)">10% de entrada · saldo em até 240x</div></div><span class="pill ok a out" data-b="f12" data-w="você" data-o="0.2" style="--t:.3s">Vigente</span></div>
+      <div class="cond" style="border-color:var(--gold)"><div style="flex:1"><b>Feirão de verão</b><div style="font-size:16px;color:var(--muted)">5% de entrada · saldo em até 180x</div></div><span class="pill ok a pop" data-b="f12" data-w="você" data-o="0.3" data-som="sucesso">Vigente</span><div class="btn" data-b="f12" data-w="definidas" data-o="0.1" data-som="clique" style="height:42px;font-size:16px;padding:0 16px;animation:clique .5s ease calc(var(--d)*1s) both">Tornar vigente</div></div>
+    </div>
+    <div style="margin-top:24px;border-radius:18px;background:var(--navy);color:var(--ivory);padding:22px 26px;display:flex;align-items:center;gap:22px">
+      <div style="font-size:15px;letter-spacing:.14em;opacity:.8">NO SITE</div>
+      <div style="position:relative;height:76px;width:420px">
+        <div class="a out" data-b="f12" data-w="você" data-o="0.3" style="--t:.4s;position:absolute;inset:0;font-family:'Playfair Display';font-size:52px;color:var(--gold)">10% · 240x</div>
+        <div class="a fade-up" data-b="f12" data-w="você" data-o="0.5" style="position:absolute;inset:0;font-family:'Playfair Display';font-size:52px;color:var(--gold)">5% · 180x</div>
+      </div>
+      <div style="font-size:17px;opacity:.85">atualiza na hora, sem programador</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CENA 6 — Encerramento ============ -->
+<section class="cena claro" data-cena="6" style="background:radial-gradient(1300px 760px at 30% 30%,#123e6a 0%,#00234c 60%,#001733 100%)">
+  <div style="position:absolute;inset:0;animation:zoomLento 18s linear both">
+    <div class="pilar a fade-up" data-b="f13" data-w="velocidade" data-o="-0.4" data-som="pop" style="position:absolute;left:96px;top:150px">Mais velocidade no atendimento.</div>
+    <div class="pilar a fade-up" data-b="f13" data-w="nenhum" data-o="-0.3" data-som="pop" style="position:absolute;left:96px;top:260px">Nenhum lead esquecido.</div>
+    <div class="pilar a fade-up" data-b="f14" data-w="equipe" data-o="-0.3" data-som="pop" style="position:absolute;left:96px;top:370px;color:var(--gold)">Equipe focada em levar o cliente até o terreno.</div>
+    <div class="a pop" data-b="f14" data-w="terreno" data-o="0.9" data-som="logo" data-som-o="-1.2" style="position:absolute;left:96px;top:640px;display:flex;align-items:center;gap:30px">
+      <div style="width:120px;height:120px;border-radius:30px;background:#cd9a50;color:#00234c;display:flex;align-items:center;justify-content:center"><span class="serif" style="font-size:78px;font-weight:700">M</span></div>
+      <div><div class="serif" style="font-size:96px;color:var(--ivory);line-height:1">Moradas de Paraty</div><div style="color:var(--gold);font-size:22px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;margin-top:10px">vendas · inteligência artificial · follow-up</div></div>
+    </div>
+  </div>
+</section>
+
+<div id="legenda"></div>
+</div>
+
+<script>
+// Tempos padrão (para abrir o arquivo sem saida/tempos.json).
+window.TEMPOS = window.TEMPOS || null;
+const TRANSICAO = 0.5; // s de fade entre cenas
+let PRONTO = false;
+
+function posicaoDaPalavra(texto, palavra) {
+  const t = texto.toLowerCase(), p = palavra.toLowerCase();
+  const re = new RegExp(`(^|[^\\p{L}])${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "u");
+  const m = re.exec(t);
+  if (!m) throw new Error(`palavra "${palavra}" não está na fala: ${texto}`);
+  return m.index + m[1].length;
+}
+
+// Instante (s, absoluto) em que um elemento começa, a partir de data-b/w/o/t.
+function instante(el, ini) {
+  let t;
+  if (el.dataset.b) {
+    const f = TEMPOS.falas[el.dataset.b];
+    t = f.inicio;
+    if (el.dataset.w) t += f.duracao * (posicaoDaPalavra(f.texto, el.dataset.w) / f.texto.length);
+  } else if (el.dataset.t !== undefined) {
+    t = ini + Number(el.dataset.t);
+  } else return null;
+  return t + Number(el.dataset.o || 0);
+}
+
+function preparar() {
+  if (PRONTO || !TEMPOS) return;
+  document.querySelectorAll(".cena").forEach((cena) => {
+    const c = TEMPOS.cenas.find((x) => x.id === Number(cena.dataset.cena));
+    cena._ini = c.inicio; cena._fim = c.fim;
+    cena.querySelectorAll("[data-b],[data-t]").forEach((el) => {
+      const abs = instante(el, c.inicio);
+      el._abs = abs;
+      el.style.setProperty("--d", (abs - c.inicio).toFixed(3));
+    });
+  });
+  PRONTO = true;
+}
+
+// Efeitos sonoros: lista {t, som, vol} para o mixador.
+window.cues = () => {
+  preparar();
+  return [...document.querySelectorAll("[data-som]")].map((el) => ({
+    t: +(el._abs + Number(el.dataset.somO || 0)).toFixed(3),
+    som: el.dataset.som,
+    vol: Number(el.dataset.vol || 0),
+  })).sort((a, b) => a.t - b.t);
+};
+
+window.duracaoTotal = () => TEMPOS.total * 1000;
+
+function ganchos(cena, s) {
+  cena.querySelectorAll("[data-conta]").forEach((el) => {
+    const [de, ate, dur] = el.dataset.conta.split(",").map(Number);
+    const p = Math.min(Math.max((s - el._abs) / dur, 0), 1);
+    el.textContent = Math.round(de + (ate - de) * (1 - Math.pow(1 - p, 3))).toLocaleString("pt-BR");
+  });
+  cena.querySelectorAll("[data-digita]").forEach((el) => {
+    const n = Math.max(0, Math.floor((s - el._abs) * Number(el.dataset.digita)));
+    el.textContent = el.dataset.texto.slice(0, n);
+  });
+}
+
+window.render = (ms) => {
+  preparar();
+  const s = ms / 1000;
+  document.querySelectorAll(".cena").forEach((cena, i, todas) => {
+    let op = 0;
+    if (s >= cena._ini && s < cena._fim) op = 1;
+    if (i < todas.length - 1 && s >= cena._fim - TRANSICAO && s < cena._fim) op = (cena._fim - s) / TRANSICAO;
+    cena.style.opacity = op;
+    cena.style.zIndex = s >= cena._fim - TRANSICAO ? 2 : 1;
+    if (op > 0 || (s >= cena._ini - 0.05 && s < cena._fim)) {
+      const local = Math.max(0, s - cena._ini) * 1000;
+      cena.getAnimations({ subtree: true }).forEach((a) => { a.pause(); a.currentTime = local; });
+      ganchos(cena, s);
+    }
+  });
+  const leg = document.getElementById("legenda");
+  const f = Object.values(TEMPOS.falas).find((x) => s >= x.inicio - 0.05 && s < x.inicio + x.duracao + 0.25);
+  leg.textContent = f ? f.texto : "";
+  leg.style.visibility = f ? "visible" : "hidden";
+};
+
+const q = new URLSearchParams(location.search);
+async function iniciar() {
+  if (!TEMPOS) TEMPOS = await (await fetch("saida/tempos.json")).json();
+  if (q.has("sem-legenda")) document.getElementById("legenda").remove();
+  if (q.has("t")) window.render(Number(q.get("t")) * 1000);
+  else if (q.has("play")) { const t0 = performance.now(); const loop = () => { window.render(performance.now() - t0); requestAnimationFrame(loop); }; loop(); }
+  else window.render(0);
+}
+if (window.TEMPOS) { preparar(); window.render(0); } else iniciar();
+</script>
+</body>
+</html>

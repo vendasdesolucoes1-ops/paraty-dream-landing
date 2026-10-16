@@ -1,0 +1,242 @@
+[
+ {
+  "t": 0,
+  "som": "logo",
+  "vol": 0
+ },
+ {
+  "t": 10.426,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 10.683,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 11.326,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 11.741,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 12.958,
+  "som": "sucesso",
+  "vol": 0
+ },
+ {
+  "t": 16.344,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 19.23,
+  "som": "digitar",
+  "vol": -4
+ },
+ {
+  "t": 20.383,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 21.201,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 21.801,
+  "som": "sucesso",
+  "vol": 0
+ },
+ {
+  "t": 22.947,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 25.887,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 27.686,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 28.834,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 31.013,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 31.84,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 32.865,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 35.138,
+  "som": "sucesso",
+  "vol": 0
+ },
+ {
+  "t": 38.475,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 41.095,
+  "som": "sino",
+  "vol": 0
+ },
+ {
+  "t": 46.039,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 48.547,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 50.147,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 51.083,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 52.622,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 53.094,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 53.414,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 55.506,
+  "som": "sino",
+  "vol": 0
+ },
+ {
+  "t": 59.652,
+  "som": "sucesso",
+  "vol": 0
+ },
+ {
+  "t": 61.113,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 62.09,
+  "som": "mensagem",
+  "vol": 0
+ },
+ {
+  "t": 66.29,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 70.323,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 71.944,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 72.244,
+  "som": "contagem",
+  "vol": -6
+ },
+ {
+  "t": 73.122,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 73.876,
+  "som": "sino",
+  "vol": 0
+ },
+ {
+  "t": 81.785,
+  "som": "contagem",
+  "vol": -4
+ },
+ {
+  "t": 83.292,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 84.999,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 87.375,
+  "som": "deslizar",
+  "vol": 0
+ },
+ {
+  "t": 90.606,
+  "som": "clique",
+  "vol": 0
+ },
+ {
+  "t": 91.637,
+  "som": "sucesso",
+  "vol": 0
+ },
+ {
+  "t": 96.231,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 98.355,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 101.139,
+  "som": "pop",
+  "vol": 0
+ },
+ {
+  "t": 105.27,
+  "som": "logo",
+  "vol": 0
+ }
+]

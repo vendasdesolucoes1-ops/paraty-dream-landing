@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { recusar, usuarioDoPedido } from "../_shared/auth.ts";
 import { assertConnected, getEvolutionSession } from "../_shared/evolution-instance.ts";
 import { isHumanTakeoverActive, pauseAI, resumeAI } from "../_shared/ai-takeover.ts";
 import { confirmarEnvio, descartarEnvio, registrarEnvio } from "../_shared/envio-registrado.ts";
@@ -158,15 +159,24 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Exige sessão: sem isso a função viraria um endpoint aberto capaz de
-    // disparar WhatsApp em nome da imobiliária.
-    const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
-    if (!token) throw new Error("Não autenticado.");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) throw new Error("Sessão inválida.");
+    // Exige sessão com perfil ativo: sem isso a função viraria um endpoint
+    // aberto capaz de disparar WhatsApp em nome da imobiliária.
+    const usuario = await usuarioDoPedido(req);
+    if (!usuario) return recusar(401, "Não autenticado.");
 
     const { action, lead_id, text } = await req.json();
     if (!lead_id) throw new Error("lead_id é obrigatório.");
+
+    // Vendedor só fala com leads da própria carteira.
+    if (usuario.papel === "vendedor") {
+      const [{ data: perfil }, { data: lead }] = await Promise.all([
+        supabase.from("profiles").select("vendedor_id").eq("id", usuario.id).maybeSingle(),
+        supabase.from("leads").select("vendedor_id").eq("id", lead_id).maybeSingle(),
+      ]);
+      if (!perfil?.vendedor_id || lead?.vendedor_id !== perfil.vendedor_id) {
+        return recusar(403, "Este lead não é da sua carteira.");
+      }
+    }
 
     let result;
     if (!action || action === "send_text") {

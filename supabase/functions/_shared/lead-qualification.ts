@@ -15,10 +15,14 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendWhatsAppText } from "./evolution-send.ts";
 import { carregarLead } from "./lead-record.ts";
 import { leadBloqueado } from "./contato-bloqueado.ts";
+import { fetchComRetry } from "./http.ts";
+import { enviarTextoRegistrado } from "./envio-registrado.ts";
+import { registrarChamadaIA } from "./telemetria.ts";
+import { MODELOS } from "./modelos.ts";
 
 // Extração é tarefa curta e mecânica — o modelo pequeno basta e mantém o custo
 // por lead qualificado irrelevante.
-const EXTRACTION_MODEL = "gpt-4o-mini";
+const EXTRACTION_MODEL = MODELOS.qualificacaoLead.id;
 
 // Destino do resumo quando o lead é de teste. O round-robin continua rodando
 // normalmente (a atribuição no CRM é parte do que se quer observar), mas o
@@ -84,26 +88,31 @@ async function extrairDadosQualificacao(
 
     if (!transcricao.trim()) return null;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
+    const inicioIA = Date.now();
+    const response = await fetchComRetry(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: EXTRACTION_MODEL,
+          temperature: MODELOS.qualificacaoLead.temperatura,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                'Extraia os dados de qualificação da conversa abaixo. Responda APENAS com um objeto JSON com as chaves: "cidade" (string), "objetivo" (exatamente um de: "moradia", "investimento", "temporada"), "metragem_interesse" (número em m², sem unidade), "forma_pagamento" (string curta, ex: "à vista", "financiado", "FGTS"), "canal_origem" (como o lead conheceu o empreendimento; normalize para um destes quando couber: "Instagram", "Facebook", "Google", "site", "indicação", "tráfego pago", "placa/outdoor"; se não encaixar em nenhum, use a expressão curta do próprio lead). Use null em qualquer campo que o lead não tenha informado de forma clara. Nunca invente ou deduza um valor que o lead não disse.',
+            },
+            { role: "user", content: transcricao },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: EXTRACTION_MODEL,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              'Extraia os dados de qualificação da conversa abaixo. Responda APENAS com um objeto JSON com as chaves: "cidade" (string), "objetivo" (exatamente um de: "moradia", "investimento", "temporada"), "metragem_interesse" (número em m², sem unidade), "forma_pagamento" (string curta, ex: "à vista", "financiado", "FGTS"), "canal_origem" (como o lead conheceu o empreendimento; normalize para um destes quando couber: "Instagram", "Facebook", "Google", "site", "indicação", "tráfego pago", "placa/outdoor"; se não encaixar em nenhum, use a expressão curta do próprio lead). Use null em qualquer campo que o lead não tenha informado de forma clara. Nunca invente ou deduza um valor que o lead não disse.',
-          },
-          { role: "user", content: transcricao },
-        ],
-      }),
-    });
+      { timeoutMs: 20_000, retries: 1 },
+    );
 
     if (!response.ok) {
       console.error("=== EXTRACAO FALHOU ===", response.status, await response.text());
@@ -111,6 +120,13 @@ async function extrairDadosQualificacao(
     }
 
     const result = await response.json();
+    await registrarChamadaIA(supabase, {
+      funcao: "extracao_qualificacao",
+      modelo: EXTRACTION_MODEL,
+      leadId,
+      usage: result.usage,
+      latenciaMs: Date.now() - inicioIA,
+    });
     const conteudo = result?.choices?.[0]?.message?.content;
     if (!conteudo) return null;
     return JSON.parse(conteudo);
@@ -157,7 +173,8 @@ function camposParaAtualizar(
 // Resumo por TEMPLATE puro: monta a partir das colunas do lead, nunca de texto
 // livre devolvido pela IA. Campo ausente vira "não informado" em vez de sumir,
 // pra o vendedor saber o que ainda falta perguntar.
-function montarResumoQualificacao(lead: Record<string, unknown>): string {
+function montarResumoQualificacao(entrada: object): string {
+  const lead = entrada as Record<string, unknown>;
   const ou = (valor: unknown) => {
     const texto = valor === null || valor === undefined ? "" : String(valor).trim();
     return texto.length > 0 ? texto : "não informado";
@@ -374,10 +391,13 @@ export async function handleLeadQualification(
   }
 
   try {
-    await sendWhatsAppText(
-      instance.api_url,
-      instance.api_key,
-      instance.instance_name,
+    // Registrado antes do envio: o eco desta mensagem chega ao webhook vindo
+    // do número da empresa para o vendedor, e sem registro abriria takeover e
+    // criaria um "lead" com o telefone do vendedor.
+    await enviarTextoRegistrado(
+      supabase,
+      (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+      instance,
       destino,
       resumo,
     );

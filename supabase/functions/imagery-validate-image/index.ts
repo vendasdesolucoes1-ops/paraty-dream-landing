@@ -9,6 +9,7 @@ import {
   AUTO_ARQUIVO_TAGS,
   BRAND_SLUG,
 } from "../_shared/acervo.ts";
+import { MODELOS } from "../_shared/modelos.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: MODELOS.validacaoImagem.id,
         messages: [
           { role: "system", content: SYSTEM },
           {
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
       post_id: slide.post_id,
       step: "validate",
       provider: "lovable",
-      model: "google/gemini-2.5-flash",
+      model: MODELOS.validacaoImagem.id,
       response_summary: score,
       custo_usd: 0.003,
       duracao_ms: Date.now() - t0,

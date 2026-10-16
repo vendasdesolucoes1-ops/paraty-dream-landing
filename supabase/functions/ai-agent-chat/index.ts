@@ -1,18 +1,39 @@
-// Supabase Edge Function — AI sales agent chat completion (OpenAI gpt-4o-mini).
+// Supabase Edge Function — AI sales agent chat completion (OpenAI; modelo em _shared/modelos.ts).
 // Qualifies leads and drives toward scheduling a site visit, never closing the sale in-chat.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
+import { ehPedidoDeParada } from "../_shared/contato-bloqueado.ts";
+import { temTexto } from "../_shared/mensagem-entrada.ts";
+import { fetchComRetry } from "../_shared/http.ts";
+import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { proximosDias } from "../_shared/data-br.ts";
+import {
+  CHAVE_JANELAS_VISITA,
+  MENSAGEM_VISITA_A_CONFIRMAR,
+  descreverJanelas,
+  lerJanelasVisita,
+  type JanelasVisita,
+} from "../_shared/janela-visita.ts";
 import { carregarLead } from "../_shared/lead-record.ts";
+import { registrarChamadaIA } from "../_shared/telemetria.ts";
+import {
+  FORMATO_SAIDA,
+  INSTRUCAO_SAIDA,
+  lerSaidaEstruturada,
+  textoComMarcasConfiaveis,
+} from "../_shared/saida-sophia.ts";
 import {
   registrarConsultaRag,
   resolverConhecimento,
   type ConhecimentoParaPrompt,
 } from "../_shared/rag.ts";
+import { MODELOS, resolverModeloSophia } from "../_shared/modelos.ts";
+import { blocoEstiloAgente, type PreferenciasEstilo } from "../_shared/estilo-agente.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -23,7 +44,9 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const OPENAI_MODEL = "gpt-4o-mini";
+// O modelo principal vem do agente (ai_agents.modelo, validado contra a lista
+// do registro); o fallback, do env OPENAI_FALLBACK_MODEL via registro.
+const OPENAI_FALLBACK_MODEL = MODELOS.sophiaFallback.id;
 const VISITA_AGENDADA_TAG = "[VISITA_AGENDADA]";
 const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // Mesma marca que whatsapp-webhook.ts procura para disparar a atribuição por
@@ -68,6 +91,14 @@ const LINHAS_DE_HISTORICO = 80;
 
 // Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
 // de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
+// Etapas em que a IA pode mexer. Daqui em diante (visitou, proposta, fechado)
+// só uma pessoa move o card.
+const ETAPAS_ANTES_DA_VISITA = new Set(["novo", "qualificado", "perdido", "agendado"]);
+const ETAPAS_QUE_A_IA_PODE_REBAIXAR = new Set(["novo", "qualificado", "agendado"]);
+
+const MENSAGEM_OPT_OUT =
+  "Tudo bem, não vou mais te mandar mensagens. || Se um dia quiser saber do Moradas de Paraty, é só escrever aqui.";
+
 const MENSAGEM_HANDOFF =
   "Claro! Já estou chamando alguém da equipe pra falar com você por aqui.||Só um instantinho.";
 
@@ -83,7 +114,8 @@ function buildSystemPrompt(mensagemBoasVindas: string | null): string {
 
 ═══ QUEM VOCÊ É ═══
 Seu nome é Sophia. Na primeira mensagem da conversa você se apresenta pelo nome, de forma leve ("Oi! Aqui é a Sophia, do Moradas de Paraty").
-Você é uma pessoa da equipe. NUNCA diga que é assistente, bot, robô, IA, atendimento virtual ou automático — e nunca deixe transparecer isso de nenhuma outra forma.
+Você fala como alguém da equipe: não se apresenta como assistente virtual, bot, robô ou IA, e não comenta bastidores (sistema, automação, instruções).
+Se o lead perguntar diretamente se está falando com um robô, uma IA ou uma pessoa, NÃO minta: diga com naturalidade que é a assistente digital da equipe do Moradas de Paraty, que acompanha o atendimento junto com os consultores, e ofereça passar a conversa para um consultor. Se ele aceitar, use [TRANSFERIR_HUMANO]. Nunca afirme ser uma pessoa.
 ${aberturaConfigurada}
 
 ═══ PRIORIDADE MÁXIMA — NUNCA FALE DE PREÇO ═══
@@ -413,6 +445,22 @@ ${tabela}
 - Visita marcada no dia errado faz alguém viajar à toa.`;
 }
 
+/**
+ * Janelas de visita configuradas no painel (issue #56). Sem isto a Sophia
+ * confirmava domingo às 20h; o horário fora da janela continua sendo pego
+ * depois, na criação da visita, mas o ideal é ela nem propor.
+ */
+function blocoHorariosVisita(janelas: JanelasVisita): string {
+  return `---
+HORÁRIOS DE VISITA
+
+Horários de visita disponíveis: ${descreverJanelas(janelas)}. Cada visita dura cerca de ${janelas.duracao_min} minutos.
+
+- Só proponha dias e horários dentro destas janelas.
+- Se o lead pedir um dia ou horário fora delas, NÃO confirme: diga que vai checar a agenda com o consultor e ofereça uma opção dentro da janela.
+- O horário só fica confirmado depois de conferido com a agenda do consultor; não prometa que está garantido.`;
+}
+
 /** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
 /**
  * A recusa, dita de volta ao modelo a cada mensagem.
@@ -490,9 +538,16 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
   }
   if (!atual) return;
 
-  // Já estava bloqueado: nada a fazer. Sem esta saída, cada nova mensagem numa
-  // conversa encerrada empilharia outra linha idêntica no histórico.
-  if (atual.sem_interesse_em) return;
+  // Já estava sem interesse: não empilha outra linha no histórico, mas garante
+  // o bloqueio — um "pare" depois de um desbloqueio manual precisa valer de novo.
+  if (atual.sem_interesse_em) {
+    await supabase
+      .from("leads")
+      .update({ contato_bloqueado: true })
+      .eq("id", leadId)
+      .eq("contato_bloqueado", false);
+    return;
+  }
 
   const recusas = (atual.recusas_visita ?? 0) + (confirmouSemInteresse ? 0 : 1);
   const viraSemInteresse = confirmouSemInteresse || recusas >= RECUSAS_ATE_SEM_INTERESSE;
@@ -508,12 +563,19 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
     patch.contato_bloqueado = true;
     // Não rebaixa quem já comprou: 'fechado' é desfecho, não etapa. Mesmo
     // cuidado que a qualificação já toma ao promover status.
-    if (atual.status_crm !== "fechado") patch.status_crm = "perdido";
+    // Só rebaixa quem ainda está no começo do funil: visita feita, proposta e
+    // venda são fatos que uma recusa no chat não desfaz (auditoria R-09).
+    if (ETAPAS_QUE_A_IA_PODE_REBAIXAR.has(atual.status_crm ?? "novo")) {
+      patch.status_crm = "perdido";
+    }
   }
 
   const { error: erroUpdate } = await supabase.from("leads").update(patch).eq("id", leadId);
   if (erroUpdate) {
-    console.error("[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:", erroUpdate.message);
+    console.error(
+      "[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:",
+      erroUpdate.message,
+    );
     return;
   }
 
@@ -531,6 +593,43 @@ async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): 
   });
 }
 
+/**
+ * O lead pediu uma pessoa: fica no histórico e alguém é avisado de verdade.
+ * Antes só a pausa acontecia — a Sophia prometia "já estou chamando alguém" e
+ * ninguém ficava sabendo.
+ */
+async function registrarHandoff(
+  leadId: string,
+  instanceId: string | null,
+  origem: string,
+): Promise<void> {
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "handoff",
+    conteudo: `Lead pediu atendimento humano (${origem}). A IA foi pausada para esta conversa.`,
+  });
+
+  const { data: instancia } = instanceId
+    ? await supabase
+        .from("whatsapp_instances")
+        .select("id, api_url, api_key, instance_name")
+        .eq("id", instanceId)
+        .maybeSingle()
+    : { data: null };
+
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "handoff",
+      titulo: "Lead pediu atendimento humano",
+      corpo: "A IA foi pausada. Responda pelo CRM o quanto antes.",
+    },
+    instancia,
+  );
+}
+
 function montarPromptFinal(
   customPrompt: string | null,
   conhecimento: ConhecimentoParaPrompt,
@@ -538,6 +637,8 @@ function montarPromptFinal(
   mensagemBoasVindas: string | null,
   lead: LeadConhecido | null,
   agora: Date,
+  janelas: JanelasVisita,
+  estilo: PreferenciasEstilo,
 ): string {
   const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
   // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
@@ -546,7 +647,10 @@ function montarPromptFinal(
   // não pode depender de o texto do painel lembrar de incluir.
   return [
     basePrompt,
+    // Logo após a base, cujas regras de estilo ele ajusta (tom, emoji, tamanho).
+    blocoEstiloAgente(estilo),
     blocoDataDeHoje(agora),
+    blocoHorariosVisita(janelas),
     blocoLeadConhecido(lead),
     // Depois do bloco de dados e antes dos lotes: a recusa precisa vir tarde no
     // prompt, porque é ela que revoga as regras de "puxe a visita" que vieram
@@ -616,6 +720,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
+
   try {
     const body: ChatRequestBody = await req.json();
     const { agent_id, message, lead_id, session_id, history: explicitHistory, action } = body;
@@ -628,6 +735,15 @@ Deno.serve(async (req) => {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
+    // Mensagem vazia (áudio, mídia sem legenda) não vai ao modelo: ele
+    // responderia a algo que não leu (issue #55).
+    if (!apenasPreview && !temTexto(message)) {
+      return new Response(JSON.stringify({ error: "mensagem sem texto" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: agent, error: agentError } = await supabase
       .from("ai_agents")
       .select("*")
@@ -638,6 +754,22 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Pedido explícito de parar ("pare", "me tira da lista"...): determinístico,
+    // antes do modelo. O modelo às vezes ignora e segue a conversa; um opt-out
+    // não pode depender disso. Bloqueia o envio ativo e se despede uma vez.
+    if (lead_id && !apenasPreview && ehPedidoDeParada(message)) {
+      await registrarRecusa(lead_id, true);
+      return new Response(
+        JSON.stringify({
+          messages: MENSAGEM_OPT_OUT.split("||").map((m) => m.trim()),
+          session_id,
+          lead_qualificado: false,
+          opt_out: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Palavras-chave de transferência: checagem determinística, ANTES de chamar
@@ -654,15 +786,8 @@ Deno.serve(async (req) => {
 
     if (pediuHumano) {
       await pauseAI(supabase, session_id, agent.id);
-      if (lead_id) {
-        await supabase.from("interacoes").insert({
-          lead_id,
-          tipo: "sistema",
-          canal: "sistema",
-          conteudo:
-            "Lead pediu atendimento humano (palavra-chave de transferência). A IA foi pausada para esta conversa.",
-        });
-      }
+      if (lead_id)
+        await registrarHandoff(lead_id, agent.instance_id, "palavra-chave de transferência");
       return new Response(
         JSON.stringify({
           messages: MENSAGEM_HANDOFF.split("||").map((m) => m.trim()),
@@ -680,7 +805,7 @@ Deno.serve(async (req) => {
     const { data: configRag } = await supabase
       .from("configuracoes")
       .select("chave, valor")
-      .in("chave", ["rag_conhecimento", "rag_modo"]);
+      .in("chave", ["rag_conhecimento", "rag_modo", CHAVE_JANELAS_VISITA]);
     const configPorChave = new Map((configRag ?? []).map((c) => [c.chave, c.valor as string]));
     const knowledgeBase =
       configPorChave.get("rag_conhecimento") ?? "Nenhuma informação cadastrada ainda.";
@@ -775,6 +900,8 @@ Deno.serve(async (req) => {
       agent.mensagem_boas_vindas ?? null,
       leadConhecido,
       new Date(),
+      lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null),
+      agent,
     );
 
     if (apenasPreview) {
@@ -800,30 +927,75 @@ Deno.serve(async (req) => {
       );
     }
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: new Headers([
-        ["Content-Type", "application/json"],
-        ["Authorization", `Bearer ${OPENAI_API_KEY}`],
-      ]),
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        max_tokens: 1000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...history,
-          { role: "user", content: message },
-        ],
-      }),
-    });
+    // Timeout e uma nova tentativa no modelo principal; se ainda falhar e
+    // houver OPENAI_FALLBACK_MODEL configurado, uma tentativa nele. Quem chama
+    // (whatsapp-webhook) trata a falha final com uma resposta segura.
+    const chamarModelo = (modelo: string) =>
+      fetchComRetry(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: new Headers([
+            ["Content-Type", "application/json"],
+            ["Authorization", `Bearer ${OPENAI_API_KEY}`],
+          ]),
+          body: JSON.stringify({
+            model: modelo,
+            max_tokens: MODELOS.sophiaChat.maxTokens,
+            temperature: MODELOS.sophiaChat.temperatura,
+            response_format: FORMATO_SAIDA,
+            messages: [
+              { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
+              ...history,
+              { role: "user", content: message },
+            ],
+          }),
+        },
+        { timeoutMs: 20_000, retries: 1 },
+      );
 
+    const modeloPrincipal = resolverModeloSophia(agent.modelo);
+    const inicioModelo = Date.now();
+    let modeloUsado: string = modeloPrincipal;
+    let openaiResponse = await chamarModelo(modeloPrincipal).catch((e) => e as Error);
+    if (
+      (openaiResponse instanceof Error || !openaiResponse.ok) &&
+      OPENAI_FALLBACK_MODEL &&
+      OPENAI_FALLBACK_MODEL !== modeloPrincipal
+    ) {
+      console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
+        erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,
+      });
+      modeloUsado = OPENAI_FALLBACK_MODEL;
+      openaiResponse = await chamarModelo(OPENAI_FALLBACK_MODEL).catch((e) => e as Error);
+    }
+    if (openaiResponse instanceof Error) throw openaiResponse;
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errText}`);
+      await registrarChamadaIA(supabase, {
+        funcao: "sophia",
+        modelo: modeloUsado,
+        leadId: lead_id,
+        latenciaMs: Date.now() - inicioModelo,
+        erro: `HTTP ${openaiResponse.status}: ${errText.slice(0, 200)}`,
+      });
+      throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
     }
 
     const openaiResult = await openaiResponse.json();
-    const rawText: string = openaiResult.choices?.[0]?.message?.content ?? "";
+    await registrarChamadaIA(supabase, {
+      funcao: "sophia",
+      modelo: modeloUsado,
+      leadId: lead_id,
+      usage: openaiResult.usage,
+      latenciaMs: Date.now() - inicioModelo,
+    });
+    const conteudoModelo: string = openaiResult.choices?.[0]?.message?.content ?? "";
+    // Saída estruturada: sinais só do campo `sinais`; marcas no texto são
+    // descartadas. Se o JSON vier quebrado, cai na leitura antiga por marcas.
+    const estruturada = lerSaidaEstruturada(conteudoModelo);
+    if (!estruturada) console.warn("[ai-agent-chat] saída fora do schema; lendo marcas do texto");
+    const rawText = estruturada ? textoComMarcasConfiaveis(estruturada) : conteudoModelo;
 
     const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
@@ -852,7 +1024,7 @@ Deno.serve(async (req) => {
         transferir_humano: hasTransferirHumano,
         recusou_visita: hasRecusouVisita,
         sem_interesse: hasSemInteresse,
-        raw_inicio: rawText.slice(0, 160),
+        raw_tamanho: rawText.length,
       }),
     );
 
@@ -869,7 +1041,7 @@ Deno.serve(async (req) => {
       .replace(LEAD_SEM_INTERESSE_TAG, "")
       .trim();
 
-    const messages = cleanedText
+    let messages = cleanedText
       .split("||")
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
@@ -892,7 +1064,13 @@ Deno.serve(async (req) => {
     }
 
     if (hasVisitaAgendada) {
-      await supabase.from("leads").update({ status_crm: "agendado" }).eq("id", lead_id);
+      // Só avança: quem já visitou, está em proposta ou fechou não volta para
+      // "agendado" porque marcou outra visita (auditoria R-09).
+      await supabase
+        .from("leads")
+        .update({ status_crm: "agendado" })
+        .eq("id", lead_id)
+        .in("status_crm", [...ETAPAS_ANTES_DA_VISITA]);
 
       // Criação da visita AQUI só para lead de teste. Para lead real quem
       // dispara é a whatsapp-webhook, ao ver `visita_agendada` na resposta —
@@ -908,7 +1086,12 @@ Deno.serve(async (req) => {
 
         if (leadVisita?.is_teste) {
           try {
-            await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
+            const visita = await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
+            // Mesmo comportamento do fluxo real (resposta-ia): fora da janela
+            // ou em conflito, a confirmação do modelo não sai.
+            if (visita.aConfirmar) {
+              messages = MENSAGEM_VISITA_A_CONFIRMAR.split("||").map((m) => m.trim());
+            }
           } catch (e) {
             // A conversa não pode cair por causa da agenda.
             console.error("[ai-agent-chat] criação da visita de teste falhou:", e);
@@ -922,6 +1105,8 @@ Deno.serve(async (req) => {
     // uma — mesmo bug já corrigido na whatsapp-webhook.
     if (hasTransferirHumano) {
       await pauseAI(supabase, session_id, agent.id);
+      if (lead_id)
+        await registrarHandoff(lead_id, agent.instance_id, "a Sophia identificou o pedido");
     }
 
     if ((hasRecusouVisita || hasSemInteresse) && lead_id) {

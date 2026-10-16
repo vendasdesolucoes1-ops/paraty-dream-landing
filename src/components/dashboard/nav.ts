@@ -1,10 +1,12 @@
 import {
+  BarChart3,
   Calendar,
   FileText,
   LayoutDashboard,
   LayoutGrid,
   Map,
   Megaphone,
+  Repeat,
   Settings,
   UserCheck,
   Wrench,
@@ -22,6 +24,8 @@ export interface NavItem {
     | "/dashboard/documentos"
     | "/dashboard/ferramentas"
     | "/dashboard/marketing"
+    | "/dashboard/relatorios"
+    | "/dashboard/cadencias"
     | "/dashboard/configuracoes";
   label: string;
   icon: LucideIcon;
@@ -64,6 +68,22 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Lotes",
         icon: Map,
         palavras: "terrenos estoque mapa planta",
+      },
+      // Conversão da equipe inteira e cadastro de metas: visão de gestão.
+      {
+        to: "/dashboard/relatorios",
+        label: "Relatórios",
+        icon: BarChart3,
+        hideFor: ["vendedor"],
+        palavras: "metas conversão funil desempenho vendedores",
+      },
+      // Cadências, aprovação dos rascunhos da IA e regras de envio: gestão.
+      {
+        to: "/dashboard/cadencias",
+        label: "Follow-up",
+        icon: Repeat,
+        hideFor: ["vendedor"],
+        palavras: "cadências follow-up aprovação regras de envio fila lembretes",
       },
     ],
   },

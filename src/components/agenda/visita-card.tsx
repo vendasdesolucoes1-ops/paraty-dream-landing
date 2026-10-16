@@ -31,6 +31,7 @@ import { formatDiaCurto, formatDiaSemana, formatHora, formatTelefone } from "@/l
 // leaves the lead as "agendado" (awaiting a new visit) rather than losing it.
 const STATUS_CRM_MAP: Record<Exclude<VisitaStatus, "cancelada">, string> = {
   agendada: "agendado",
+  a_confirmar: "agendado",
   confirmada: "agendado",
   realizada: "visitou",
   no_show: "agendado",

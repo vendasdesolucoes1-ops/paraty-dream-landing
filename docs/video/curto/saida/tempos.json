@@ -1,0 +1,121 @@
+{
+ "total": 112.151,
+ "cenas": [
+  {
+   "id": 1,
+   "inicio": 0.0,
+   "fim": 15.844
+  },
+  {
+   "id": 2,
+   "inicio": 15.844,
+   "fim": 43.309
+  },
+  {
+   "id": 3,
+   "inicio": 43.309,
+   "fim": 57.802
+  },
+  {
+   "id": 4,
+   "inicio": 57.802,
+   "fim": 77.885
+  },
+  {
+   "id": 5,
+   "inicio": 77.885,
+   "fim": 94.756
+  },
+  {
+   "id": 6,
+   "inicio": 94.756,
+   "fim": 112.151
+  }
+ ],
+ "falas": {
+  "f01": {
+   "inicio": 4.0,
+   "duracao": 3.553,
+   "texto": "O Moradas de Paraty agora tem um sistema próprio de vendas.",
+   "cena": 1
+  },
+  "f02": {
+   "inicio": 8.253,
+   "duracao": 6.191,
+   "texto": "Ele cuida do cliente do primeiro clique até a visita ao terreno… sem deixar ninguém para trás.",
+   "cena": 1
+  },
+  "f03": {
+   "inicio": 17.344,
+   "duracao": 4.441,
+   "texto": "O cliente chega pelo site, deixa o contato e autoriza o atendimento.",
+   "cena": 2
+  },
+  "f04": {
+   "inicio": 22.484,
+   "duracao": 7.706,
+   "texto": "Em segundos, a Sophia, nossa assistente no WhatsApp, responde, entende o que ele procura e oferece os lotes disponíveis.",
+   "cena": 2
+  },
+  "f05": {
+   "inicio": 30.891,
+   "duracao": 4.911,
+   "texto": "Ela nunca fala de preço. O objetivo é um só: marcar a visita.",
+   "cena": 2
+  },
+  "f06": {
+   "inicio": 36.502,
+   "duracao": 5.407,
+   "texto": "E, se o cliente quiser falar com uma pessoa, a conversa passa na hora para um consultor.",
+   "cena": 2
+  },
+  "f07": {
+   "inicio": 44.809,
+   "duracao": 5.564,
+   "texto": "A equipe trabalha num CRM organizado por etapa, do primeiro contato ao contrato.",
+   "cena": 3
+  },
+  "f08": {
+   "inicio": 51.073,
+   "duracao": 5.329,
+   "texto": "Cada vendedor sabe o que fazer hoje, e a agenda lembra o cliente da visita na véspera.",
+   "cena": 3
+  },
+  "f09": {
+   "inicio": 59.302,
+   "duracao": 7.393,
+   "texto": "Quem não responde recebe um novo contato no momento certo, e as mensagens param assim que ele responde ou pede para sair.",
+   "cena": 4
+  },
+  "f10": {
+   "inicio": 67.395,
+   "duracao": 9.091,
+   "texto": "Como usamos o WhatsApp sem a API oficial, o sistema protege o número: limita os envios por dia e pausa sozinho se algo sair do normal.",
+   "cena": 4
+  },
+  "f11": {
+   "inicio": 79.385,
+   "duracao": 7.393,
+   "texto": "Você acompanha tudo em números: mensagens entregues e respondidas, conversão por etapa e as metas de cada vendedor.",
+   "cena": 5
+  },
+  "f12": {
+   "inicio": 87.478,
+   "duracao": 5.878,
+   "texto": "E as condições comerciais que aparecem no site são definidas por você, sem depender de programador.",
+   "cena": 5
+  },
+  "f13": {
+   "inicio": 96.256,
+   "duracao": 4.049,
+   "texto": "Mais velocidade no atendimento, nenhum lead esquecido…",
+   "cena": 6
+  },
+  "f14": {
+   "inicio": 101.004,
+   "duracao": 5.146,
+   "texto": "e uma equipe focada no que dá resultado: levar o cliente até o terreno.",
+   "cena": 6
+  }
+ }
+}

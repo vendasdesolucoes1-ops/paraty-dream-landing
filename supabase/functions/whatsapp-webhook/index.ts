@@ -3,67 +3,46 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador } from "../_shared/auth.ts";
 import {
   isHumanTakeoverActive as takeoverAtivo,
   pauseAI as pausarIA,
 } from "../_shared/ai-takeover.ts";
+import { enviarTextoRegistrado, reconciliarEco } from "../_shared/envio-registrado.ts";
 import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import { notificarResponsaveis } from "../_shared/notificar.ts";
 import {
-  confirmarEnvio,
-  descartarEnvio,
-  reconciliarEco,
-  registrarEnvio,
-} from "../_shared/envio-registrado.ts";
-import { handleLeadQualification as posQualificacao } from "../_shared/lead-qualification.ts";
-import { desbloquearContato } from "../_shared/contato-bloqueado.ts";
-import { handleVisitaAgendada as criarVisita } from "../_shared/lead-visita.ts";
+  base64NoPayload,
+  classificarMensagem,
+  descreverMidia,
+  extrairTexto,
+  resolverRemetente,
+  temTexto,
+} from "../_shared/mensagem-entrada.ts";
+import { transcreverAudio } from "../_shared/transcricao.ts";
+import {
+  enfileirarResposta,
+  responderLead,
+  type InstanciaWhatsapp,
+} from "../_shared/resposta-ia.ts";
+import { chaveTelefone } from "../_shared/contato-bloqueado.ts";
+import { classificarRespostaFollowUp } from "../_shared/classificar-resposta.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// Mesma higienização usada em ai-agent-chat: a chave copiada do painel costuma
-// vir com quebra de linha invisível, que faz o header Authorization falhar.
-const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
-  .trim()
-  .replace(/[\r\n\t]/g, "")
-  .replace(/[^\x20-\x7E]/g, "");
+
+// Global do runtime das Edge Functions do Supabase (não tem tipo no Deno puro).
+declare const EdgeRuntime: { waitUntil(promessa: Promise<unknown>): void };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const AI_RESPONSE_DELAY_MS = 30_000;
-// Intervalo entre as mensagens quebradas de uma mesma resposta (separadas por
-// ||), pra parecer alguém digitando em partes em vez de um bot disparando
-// tudo de uma vez. Proporcional ao tamanho do texto, com piso e teto.
-const INTER_MESSAGE_DELAY_MIN_MS = 1000;
-const INTER_MESSAGE_DELAY_MAX_MS = 3000;
-const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
+// Telefone e texto da mensagem: ver _shared/mensagem-entrada.ts. Contatos @lid
+// só são descartados quando a Evolution não manda nenhum telefone alternativo
+// (remoteJidAlt/senderPn) — transformar os dígitos do LID em telefone criaria
+// leads falsos no CRM.
 
-function humanizedDelay(text: string): number {
-  const estimated = text.length * INTER_MESSAGE_DELAY_MS_PER_CHAR;
-  return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
-}
-
-function normalizePhone(remoteJid: string): string | null {
-  // @lid é um identificador interno do WhatsApp, não um telefone. Quando a
-  // Evolution ainda não resolveu remoteJidAlt após um novo QR, transformar os
-  // dígitos do LID em telefone criaria leads falsos no CRM.
-  if (remoteJid.includes("@lid")) return null;
-  const digitsOnly = remoteJid.replace(/@s\.whatsapp\.net|@g\.us/g, "").replace(/\D/g, "");
-  if (digitsOnly.length < 10 || digitsOnly.length > 15) return null;
-  if (digitsOnly.startsWith("55")) return digitsOnly;
-  return `55${digitsOnly}`;
-}
-
-function extractMessageText(message: Record<string, unknown> | undefined): string {
-  if (!message) return "";
-  const m = message as Record<string, any>;
-  return (
-    m.conversation ??
-    m.extendedTextMessage?.text ??
-    m.imageMessage?.caption ??
-    m.videoMessage?.caption ??
-    ""
-  );
-}
+const MENSAGEM_PEDIDO_TEXTO =
+  "Não consegui ouvir seu áudio por aqui 😅 Pode me mandar a mensagem por escrito, por favor?";
 
 async function findInstance(instanceName: string) {
   const { data } = await supabase
@@ -75,11 +54,23 @@ async function findInstance(instanceName: string) {
 }
 
 async function findOrCreateLead(phone: string, name: string | null) {
-  const { data: existingLead } = await supabase
-    .from("leads")
-    .select("*")
-    .eq("telefone", phone)
-    .maybeSingle();
+  // Pela chave canônica: o WhatsApp pode mandar o número sem o 9 que o
+  // formulário gravou, e sem isso nascia um lead duplicado com outro vendedor.
+  const chave = chaveTelefone(phone);
+  const porChave = chave
+    ? await supabase
+        .from("leads")
+        .select("*")
+        .eq("telefone_chave", chave)
+        .is("deletado_em", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+  // Coluna ainda inexistente (migration pendente): cai na busca exata antiga.
+  const existingLead =
+    porChave.data ??
+    (await supabase.from("leads").select("*").eq("telefone", phone).maybeSingle()).data;
 
   if (existingLead) return existingLead;
 
@@ -149,23 +140,9 @@ const isHumanTakeoverActive = (sessionId: string) => takeoverAtivo(supabase, ses
 const pauseAIForHumanTakeover = (agentId: string | null, sessionId: string) =>
   pausarIA(supabase, sessionId, agentId);
 
-async function sendPresence(apiUrl: string, apiKey: string, instanceName: string, number: string) {
-  try {
-    await fetch(`${apiUrl}/chat/sendPresence/${instanceName}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number, presence: "composing" }),
-    });
-  } catch (error) {
-    // presence indicator is a UX nicety — log but don't fail the webhook
-    console.error("=== ERROR ===", (error as Error)?.message, (error as Error)?.stack);
-  }
-}
-
 async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
-  const remoteJid: string = data.key?.remoteJid;
-  if (!messageId || !remoteJid) return;
+  if (!messageId || !data.key?.remoteJid) return;
 
   // 2. Deduplication
   const { data: existingMessage } = await supabase
@@ -175,27 +152,41 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .maybeSingle();
   if (existingMessage) return;
 
-  // 3. Normalize phone
-  const phone = normalizePhone(remoteJid);
-  if (!phone) {
+  // 3. Normalize phone (@lid usa remoteJidAlt/senderPn quando houver)
+  const remetente = resolverRemetente(data);
+  if (!remetente) {
+    // Sem JID no log (LGPD): só se havia alternativa.
     console.warn("=== UNRESOLVED WHATSAPP JID ===", {
-      remoteJid,
-      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+      lid: String(data.key?.remoteJid).includes("@lid"),
+      temAlternativo: Boolean(
+        data.key?.remoteJidAlt ?? data.remoteJidAlt ?? data.key?.senderPn ?? data.senderPn,
+      ),
     });
     return;
   }
+  const phone = remetente.telefone;
+  const remoteJid = remetente.jid;
   const pushName: string | null = data.pushName ?? null;
-  const text = extractMessageText(data.message);
+  const tipoEntrada = classificarMensagem(data.message, data.messageType);
+  let text = extrairTexto(data.message);
 
+  // Sem telefone nem texto no log (LGPD): só o tipo e o tamanho.
   console.log(
     "=== MESSAGE DATA ===",
     JSON.stringify({
-      fromMe: data.key?.fromMe,
       messageType: data.messageType,
-      remoteJid,
-      content: text?.substring(0, 100),
+      tipoEntrada,
+      viaAlternativo: remetente.viaAlternativo,
+      tamanho: text?.length ?? 0,
     }),
   );
+
+  // Vendedor respondendo um resumo de lead não é lead: sem isso a Sophia
+  // abria conversa de venda com a própria equipe.
+  if (await ehTelefoneDeVendedor(phone)) {
+    console.log("=== MENSAGEM DE VENDEDOR IGNORADA ===");
+    return;
+  }
 
   // 4. Find or create lead (round robin)
   const lead = await findOrCreateLead(phone, pushName);
@@ -206,172 +197,149 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     await supabase.from("whatsapp_contacts").update({ lead_id: lead.id }).eq("id", contact.id);
   }
 
-  // A pessoa escreveu: o bloqueio de envio ATIVO cai. Foi ela quem procurou a
-  // gente, então responder não é insistir — insistir seria escrever primeiro.
-  //
-  // O histórico da recusa (sem_interesse_em, recusas_visita) NÃO é limpo: é ele
-  // que faz o blocoRecusaAnterior seguir proibindo o convite de visita nesta
-  // conversa. Voltar a conversar não é voltar a poder convidar.
-  await desbloquearContato(supabase, lead.id);
+  // O lead escrever NÃO desfaz um opt-out: a Sophia responde quem escreveu,
+  // mas o envio ativo (fila, campanhas) continua barrado até um desbloqueio
+  // manual no painel. Antes o bloqueio caía sozinho a cada mensagem.
+
+  // Áudio: a transcrição vira o conteúdo da mensagem — é o que a Sophia lê e o
+  // que o vendedor vê no CRM. Falhou ou não há chave: segue sem texto.
+  let audioSemTranscricao = false;
+  if (tipoEntrada === "audio") {
+    const transcricao = await transcreverAudio(
+      instance as InstanciaWhatsapp,
+      data,
+      base64NoPayload(data),
+    );
+    if (temTexto(transcricao)) text = transcricao!;
+    else audioSemTranscricao = true;
+  }
 
   // 5. Save incoming message
-  await supabase.from("whatsapp_messages").insert({
-    instance_id: instance.id,
-    contact_id: contact.id,
-    lead_id: lead.id,
-    remote_jid: remoteJid,
-    message_id: messageId,
-    from_me: false,
-    message_type: data.messageType ?? "text",
-    content: text,
-    status: "received",
-  });
+  const { data: recebida } = await supabase
+    .from("whatsapp_messages")
+    .insert({
+      instance_id: instance.id,
+      contact_id: contact.id,
+      lead_id: lead.id,
+      remote_jid: remoteJid,
+      message_id: messageId,
+      from_me: false,
+      message_type: data.messageType ?? "text",
+      content: text,
+      status: "received",
+    })
+    .select("created_at")
+    .maybeSingle();
 
   const sessionId = phone;
 
-  console.log("=== CHECKING HUMAN TAKEOVER ===", { leadId: lead.id });
+  // Resposta a follow-up: classifica em segundo plano, sem atrasar a Sophia
+  // (vale também com humano no atendimento: o sinal fica no CRM).
+  if (temTexto(text)) {
+    EdgeRuntime.waitUntil(classificarRespostaFollowUp(supabase, lead.id, text));
+  }
 
-  // 6. Human takeover check
+  // 6. Atendimento humano em curso ou IA desligada: a Sophia não responde.
   if (await isHumanTakeoverActive(sessionId)) return;
-
-  // Active agent for this instance
   const { data: agent } = await supabase
     .from("ai_agents")
-    .select("*")
+    .select("id")
     .eq("instance_id", instance.id)
     .eq("is_active", true)
     .maybeSingle();
   if (!agent) return;
 
-  const receivedAt = new Date().toISOString();
+  // 7. Sem texto para o modelo: nunca chama a Sophia com mensagem vazia.
+  if (audioSemTranscricao) {
+    await pedirTextoAoLead(instance, lead.id, contact.id, phone);
+    return;
+  }
+  if (tipoEntrada === "midia_sem_legenda") {
+    await avisarMidiaSemLegenda(instance, lead.id, descreverMidia(data.message, data.messageType));
+    return;
+  }
+  if (!temTexto(text)) return;
 
-  console.log("=== CALLING AI AGENT ===", { agentId: agent.id, leadId: lead.id, sessionId });
-
-  // 7. Call ai-agent-chat
-  const aiResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-agent-chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({
-      agent_id: agent.id,
-      message: text,
-      contact_phone: phone,
-      contact_name: pushName,
-      lead_id: lead.id,
-      session_id: sessionId,
-    }),
+  // 8. Resposta durável: a linha na fila garante que, se este isolate morrer
+  // durante o debounce, o cron responde. O caminho rápido abaixo responde em
+  // ~30 s quando tudo corre bem (ver _shared/resposta-ia.ts).
+  await enfileirarResposta(supabase, lead.id, phone, instance.id);
+  const resultado = await responderLead(supabase, instance as InstanciaWhatsapp, lead.id, {
+    aguardarDebounce: true,
+    recebidaEm: (recebida?.created_at as string | undefined) ?? new Date().toISOString(),
   });
+  console.log("=== RESPOSTA ===", { leadId: lead.id, resultado });
+}
 
-  if (!aiResponse.ok) return;
-  const aiResult = await aiResponse.json();
-  console.log("=== AI RESPONSE ===", JSON.stringify(aiResult).substring(0, 300));
+/** Áudio não transcrito: a Sophia pede o texto e o vendedor fica sabendo. */
+async function pedirTextoAoLead(
+  instance: Record<string, any>,
+  leadId: string,
+  contactId: string | null,
+  phone: string,
+) {
+  await enviarTextoRegistrado(
+    supabase,
+    (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+    instance as InstanciaWhatsapp,
+    phone,
+    MENSAGEM_PEDIDO_TEXTO,
+    { lead_id: leadId, contact_id: contactId },
+  ).catch((e) => console.error("[webhook] pedido de texto não enviado:", (e as Error).message));
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "whatsapp",
+    conteudo:
+      "Lead mandou um áudio que não pôde ser transcrito. A Sophia pediu que ele escrevesse a mensagem.",
+  });
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "audio_nao_transcrito",
+      titulo: "Lead mandou áudio",
+      corpo: "Não foi possível transcrever o áudio. Ouça pelo WhatsApp se o lead não escrever.",
+    },
+    instance as InstanciaWhatsapp,
+  );
+}
 
-  const messages: string[] = aiResult.messages ?? [];
-  if (messages.length === 0) return;
+/** Mídia sem legenda: a Sophia não tem o que ler; quem decide é o vendedor. */
+async function avisarMidiaSemLegenda(instance: Record<string, any>, leadId: string, midia: string) {
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "whatsapp",
+    conteudo: `Lead mandou ${midia} sem legenda. A IA não respondeu; o vendedor foi avisado.`,
+  });
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "midia_sem_legenda",
+      titulo: "Lead mandou mídia",
+      corpo: `O lead enviou ${midia} sem texto. Veja no WhatsApp e responda se precisar.`,
+    },
+    instance as InstanciaWhatsapp,
+  );
+}
 
-  // ai-agent-chat já detecta e remove a marca do texto antes de devolver —
-  // ela nunca chega aqui dentro de `messages` (isso também corrige o painel
-  // "Testar Agente", que consome a mesma function direto e antes vazava a
-  // marca crua na tela). Só o sinal booleano chega.
-  if (aiResult.lead_qualificado) {
-    try {
-      await posQualificacao(supabase, lead, instance, OPENAI_API_KEY);
-    } catch (error) {
-      console.error(
-        "=== LEAD QUALIFICATION ERROR ===",
-        (error as Error)?.message,
-        (error as Error)?.stack,
-      );
-    }
-  }
-
-  // Visita real na Agenda. Até agora a marca [VISITA_AGENDADA] só movia o card
-  // para "Agendado" (isso a ai-agent-chat já fazia); a visita em si só era
-  // criada para lead de teste. A extração de data foi validada, então passa a
-  // valer para lead real — a partir daqui a Sophia escreve no calendário de
-  // quem vende.
-  //
-  // Idempotente por lead (ver _shared/lead-visita.ts): uma segunda marca na
-  // mesma conversa reagenda a visita existente em vez de duplicar a agenda. E
-  // falhar aqui não pode derrubar a resposta ao lead — no pior caso o card
-  // fica em "Agendado" sem a linha na Agenda, que é o comportamento antigo.
-  if (aiResult.visita_agendada) {
-    try {
-      await criarVisita(supabase, lead, OPENAI_API_KEY);
-    } catch (error) {
-      console.error(
-        "=== VISITA CREATION ERROR ===",
-        (error as Error)?.message,
-        (error as Error)?.stack,
-      );
-    }
-  }
-
-  const cleanMessages = messages.map((m) => m.trim()).filter((m) => m.length > 0);
-
-  if (cleanMessages.length === 0) return;
-
-  // 8. Humanized delay with composing presence
-  await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
-  await new Promise((resolve) => setTimeout(resolve, AI_RESPONSE_DELAY_MS));
-
-  // 9. Debounce — abort if a newer inbound message arrived meanwhile
-  const { data: newerMessages } = await supabase
-    .from("whatsapp_messages")
-    .select("id")
-    .eq("contact_id", contact.id)
-    .eq("from_me", false)
-    .gt("created_at", receivedAt)
-    .neq("message_id", messageId);
-
-  if (newerMessages && newerMessages.length > 0) return;
-
-  console.log("=== SENDING TO EVOLUTION ===", { phone, messageCount: cleanMessages.length });
-
-  // 10 & 11. Send response(s) and persist them
-  for (const [index, messageText] of cleanMessages.entries()) {
-    // Antes da primeira mensagem já rolou o delay + presence lá em cima; a
-    // partir da segunda, cada parte espera um pouco — como alguém digitando
-    // em blocos, não um bot cuspindo tudo de uma vez.
-    if (index > 0) {
-      await sendPresence(instance.api_url, instance.api_key, instance.instance_name, phone);
-      await new Promise((resolve) => setTimeout(resolve, humanizedDelay(messageText)));
-    }
-
-    // Registra ANTES de enviar: o eco da Evolution chega em milissegundos e
-    // precisa encontrar esta linha, senão handleOutgoingMessage o confunde com
-    // um vendedor digitando no celular e pausa a IA.
-    const rowId = await registrarEnvio(supabase, {
-      instance_id: instance.id,
-      contact_id: contact.id,
-      lead_id: lead.id,
-      remote_jid: remoteJid,
-      content: messageText,
-    });
-
-    try {
-      const sendResult = await sendWhatsAppText(
-        instance.api_url,
-        instance.api_key,
-        instance.instance_name,
-        phone,
-        messageText,
-      );
-      await confirmarEnvio(supabase, rowId, sendResult?.key?.id);
-    } catch (error) {
-      // Sem isso ficaria uma bolha no CRM de uma mensagem que não chegou.
-      await descartarEnvio(supabase, rowId);
-      throw error;
-    }
-  }
+/** O telefone é de alguém da equipe de vendas (mesma chave de 10 dígitos)? */
+async function ehTelefoneDeVendedor(phone: string): Promise<boolean> {
+  const chave = chaveTelefone(phone);
+  if (!chave) return false;
+  const { data } = await supabase
+    .from("vendedores")
+    .select("telefone")
+    .not("telefone", "is", null)
+    .ilike("telefone", `%${chave.slice(-4)}`);
+  return (data ?? []).some((v) => chaveTelefone(v.telefone) === chave);
 }
 
 async function handleOutgoingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
-  const remoteJid: string = data.key?.remoteJid;
-  if (!messageId || !remoteJid) return;
+  if (!messageId || !data.key?.remoteJid) return;
 
   // 1. If it already exists, it was sent by the AI agent — nothing to do
   const { data: existingMessage } = await supabase
@@ -382,22 +350,30 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
   if (existingMessage) return;
 
   // 2. Manual message sent by a human salesperson
-  const phone = normalizePhone(remoteJid);
-  if (!phone) {
+  const remetente = resolverRemetente(data);
+  if (!remetente) {
     console.warn("=== UNRESOLVED OUTGOING WHATSAPP JID ===", {
-      remoteJid,
-      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+      lid: String(data.key?.remoteJid).includes("@lid"),
     });
     return;
   }
-  const text = extractMessageText(data.message);
+  const phone = remetente.telefone;
+  const remoteJid = remetente.jid;
+  const text = extrairTexto(data.message);
 
   // Segunda checagem, imune a timing: pode ser um envio NOSSO cujo message_id
   // real ainda não voltou da Evolution. Casa por conteúdo com a linha gravada
   // antes do envio e adota o id real. Sem isso, cada parte de uma resposta
   // quebrada com || virava um takeover e a IA emudecia para sempre.
   if (await reconciliarEco(supabase, { remoteJid, content: text, messageIdReal: messageId })) {
-    console.log("=== ECO RECONCILIADO ===", { messageId, phone });
+    console.log("=== ECO RECONCILIADO ===", { messageId });
+    return;
+  }
+
+  // Mensagem do número da empresa para um VENDEDOR (resumo de lead, aviso) não
+  // é atendimento: não abre takeover nem cria lead com o telefone do vendedor.
+  if (await ehTelefoneDeVendedor(phone)) {
+    console.log("=== ECO PARA VENDEDOR IGNORADO ===", { messageId });
     return;
   }
 
@@ -546,11 +522,15 @@ async function processWebhook(payload: Record<string, any>) {
 }
 
 Deno.serve(async (req) => {
-  console.log("=== WEBHOOK RECEIVED ===", JSON.stringify({ method: req.method, url: req.url }));
+  // Só o método: a URL carrega o segredo do webhook em `?token=`.
+  console.log("=== WEBHOOK RECEIVED ===", req.method);
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { segredos: ["evolution_webhook_secret"] });
+  if (chamador instanceof Response) return chamador;
 
   try {
     const payload = await req.json();

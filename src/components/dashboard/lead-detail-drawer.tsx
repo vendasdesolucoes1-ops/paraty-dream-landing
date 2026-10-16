@@ -9,15 +9,18 @@ import {
   ChevronsUpDown,
   Cog,
   ExternalLink,
+  FileSignature,
   FileText,
   Headset,
   History,
+  ListTodo,
   Mail,
   MapPin,
   MapPinned,
   MessageCircle,
   Phone,
   Plus,
+  Repeat,
   Send,
   StickyNote,
   Trash2,
@@ -91,6 +94,10 @@ import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
 import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
+import { LeadPropostasTab } from "@/components/propostas/lead-propostas-tab";
+import { LeadTarefasTab } from "@/components/dashboard/lead-tarefas-tab";
+import { LeadOptOutAviso } from "@/components/dashboard/lead-opt-out-aviso";
+import { LeadFollowupTab } from "@/components/dashboard/lead-followup-tab";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -1066,8 +1073,8 @@ function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => v
             <AlertDialogDescription>
               Esta ação <strong>não pode ser desfeita</strong>. O lead será apagado do banco de
               dados junto com todo o histórico de conversas do WhatsApp, interações, visitas
-              agendadas e mensagens na fila de envio. O contato do WhatsApp é mantido, apenas
-              desvinculado.
+              agendadas, mensagens na fila de envio e o contato do WhatsApp desse número
+              (exclusão completa do titular, LGPD).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1176,6 +1183,9 @@ export function LeadDetailDrawer({
                   </Button>
                 </div>
               ) : null}
+              <div className="mt-4 empty:hidden">
+                <LeadOptOutAviso leadId={lead.id} />
+              </div>
             </header>
 
             <Tabs defaultValue="dados" className="flex min-h-0 flex-1 flex-col">
@@ -1192,6 +1202,14 @@ export function LeadDetailDrawer({
                   <History className="h-3.5 w-3.5" aria-hidden />
                   Histórico
                 </TabsTrigger>
+                <TabsTrigger value="tarefas" className={TAB}>
+                  <ListTodo className="h-3.5 w-3.5" aria-hidden />
+                  Tarefas
+                </TabsTrigger>
+                <TabsTrigger value="followup" className={TAB}>
+                  <Repeat className="h-3.5 w-3.5" aria-hidden />
+                  Follow-up
+                </TabsTrigger>
                 <TabsTrigger value="whatsapp" className={TAB}>
                   <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                   Conversas WhatsApp
@@ -1199,6 +1217,10 @@ export function LeadDetailDrawer({
                 <TabsTrigger value="visitas" className={TAB}>
                   <CalendarClock className="h-3.5 w-3.5" aria-hidden />
                   Visitas
+                </TabsTrigger>
+                <TabsTrigger value="propostas" className={TAB}>
+                  <FileSignature className="h-3.5 w-3.5" aria-hidden />
+                  Propostas
                 </TabsTrigger>
                 {canSeeDocumentos ? (
                   <TabsTrigger value="documentos" className={TAB}>
@@ -1218,6 +1240,12 @@ export function LeadDetailDrawer({
                 <TabsContent value="historico" className="mt-0">
                   <HistoricoTab leadId={lead.id} />
                 </TabsContent>
+                <TabsContent value="tarefas" className="mt-0">
+                  <LeadTarefasTab leadId={lead.id} />
+                </TabsContent>
+                <TabsContent value="followup" className="mt-0">
+                  <LeadFollowupTab leadId={lead.id} />
+                </TabsContent>
                 <TabsContent value="whatsapp" className="mt-0">
                   <WhatsappTab leadId={lead.id} nome={lead.nome} telefone={lead.telefone} />
                 </TabsContent>
@@ -1228,6 +1256,9 @@ export function LeadDetailDrawer({
                 ) : null}
                 <TabsContent value="visitas" className="mt-0">
                   <VisitasTab lead={lead} />
+                </TabsContent>
+                <TabsContent value="propostas" className="mt-0">
+                  <LeadPropostasTab lead={lead} podeConverter={canSeeClientes} />
                 </TabsContent>
 
                 {canSeeClientes ? <LeadClienteSection lead={lead} /> : null}

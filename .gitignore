@@ -31,3 +31,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Worktrees e estado local do Claude Code
+.claude/
+deno.lock
+
+# Vídeo de apresentação: só fontes, áudios e legendas vão para o git
+docs/video/saida/*
+!docs/video/saida/audio/
+!docs/video/saida/tempos.json
+!docs/video/saida/legendas.srt
+docs/video/curto/saida/*
+!docs/video/curto/saida/tempos.json
+!docs/video/curto/saida/legendas.srt
+!docs/video/curto/saida/cues.json

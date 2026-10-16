@@ -17,8 +17,21 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diaSemanaEmSaoPaulo, hojeEmSaoPaulo, normalizarDiaSemana } from "./data-br.ts";
+import { fetchComRetry } from "./http.ts";
+import type { InstanciaEnvio } from "./envio-registrado.ts";
+import {
+  CHAVE_JANELAS_VISITA,
+  STATUS_A_CONFIRMAR,
+  avaliarHorarioVisita,
+  descreverJanelas,
+  lerJanelasVisita,
+  type MotivoAConfirmar,
+} from "./janela-visita.ts";
+import { notificarResponsaveis } from "./notificar.ts";
+import { registrarChamadaIA } from "./telemetria.ts";
+import { MODELOS } from "./modelos.ts";
 
-const EXTRACTION_MODEL = "gpt-4o-mini";
+const EXTRACTION_MODEL = MODELOS.extracaoVisita.id;
 
 // Janela de sanidade. Uma data fora disso é quase sempre erro de interpretação
 // ("ano que vem", data no passado, alucinação) — nesses casos é melhor uma
@@ -33,6 +46,13 @@ interface DataExtraida {
   quando: Date;
   /** "sábado", se o lead mencionou um dia da semana. null se falou só a data. */
   diaSemanaMencionado: string | null;
+}
+
+/** O que aconteceu com a visita — o chamador decide o que dizer ao lead. */
+export interface ResultadoVisita {
+  /** true = horário fora da janela ou em conflito: NÃO dizer ao lead que está confirmada. */
+  aConfirmar: boolean;
+  motivo: MotivoAConfirmar | null;
 }
 
 export interface LeadVisita {
@@ -91,32 +111,37 @@ async function extrairDataVisita(
 
     const { data: hoje, diaSemana } = hojeEmSaoPaulo(agora);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
-      body: JSON.stringify({
-        model: EXTRACTION_MODEL,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              `Hoje é ${hoje} (${diaSemana}), no fuso de São Paulo (UTC-3). ` +
-              "Leia a conversa e extraia a data e hora combinadas para a visita ao terreno. " +
-              'Responda APENAS com JSON: {"data_hora": "YYYY-MM-DDTHH:mm:ss-03:00", "dia_semana_mencionado": "sábado"} ' +
-              'onde data_hora usa a data absoluta ' +
-              'correspondente ao que foi combinado ("sábado", "semana que vem", "dia 12"), sempre no futuro em relação a hoje. ' +
-              "Se só houver o dia sem horário, use 10:00. " +
-              'Em "dia_semana_mencionado" copie o dia da semana que o LEAD escreveu ("sábado", "terça"), ou null se ele ' +
-              "só citou a data. NÃO deduza o dia da semana a partir da data — só preencha se a palavra apareceu na conversa. " +
-              'Se nada tiver sido combinado de fato, ou se houver dúvida, responda {"data_hora": null}. ' +
-              "Nunca invente uma data que o lead não aceitou.",
-          },
-          { role: "user", content: transcricao },
-        ],
-      }),
-    });
+    const inicioIA = Date.now();
+    const response = await fetchComRetry(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: EXTRACTION_MODEL,
+          temperature: MODELOS.extracaoVisita.temperatura,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                `Hoje é ${hoje} (${diaSemana}), no fuso de São Paulo (UTC-3). ` +
+                "Leia a conversa e extraia a data e hora combinadas para a visita ao terreno. " +
+                'Responda APENAS com JSON: {"data_hora": "YYYY-MM-DDTHH:mm:ss-03:00", "dia_semana_mencionado": "sábado"} ' +
+                "onde data_hora usa a data absoluta " +
+                'correspondente ao que foi combinado ("sábado", "semana que vem", "dia 12"), sempre no futuro em relação a hoje. ' +
+                "Se só houver o dia sem horário, use 10:00. " +
+                'Em "dia_semana_mencionado" copie o dia da semana que o LEAD escreveu ("sábado", "terça"), ou null se ele ' +
+                "só citou a data. NÃO deduza o dia da semana a partir da data — só preencha se a palavra apareceu na conversa. " +
+                'Se nada tiver sido combinado de fato, ou se houver dúvida, responda {"data_hora": null}. ' +
+                "Nunca invente uma data que o lead não aceitou.",
+            },
+            { role: "user", content: transcricao },
+          ],
+        }),
+      },
+      { timeoutMs: 20_000, retries: 1 },
+    );
 
     if (!response.ok) {
       console.error("=== EXTRACAO DE DATA FALHOU ===", response.status);
@@ -124,6 +149,13 @@ async function extrairDataVisita(
     }
 
     const resultado = await response.json();
+    await registrarChamadaIA(supabase, {
+      funcao: "extracao_visita",
+      modelo: EXTRACTION_MODEL,
+      leadId,
+      usage: resultado.usage,
+      latenciaMs: Date.now() - inicioIA,
+    });
     const conteudo = resultado?.choices?.[0]?.message?.content;
     if (!conteudo) return null;
 
@@ -151,15 +183,58 @@ function dataPlausivel(data: Date, agora: Date): boolean {
 }
 
 /**
+ * Janela de visitas (configuracoes) e a agenda do vendedor perto do horário.
+ * Sem configuração, vale o padrão; sem agenda legível, sem conflito.
+ */
+async function conferirHorario(
+  supabase: SupabaseClient,
+  vendedorId: string | null,
+  quando: Date,
+  ignorarVisitaId: string | undefined,
+): Promise<{ motivo: MotivoAConfirmar | null; descricaoJanela: string }> {
+  const { data: config } = await supabase
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", CHAVE_JANELAS_VISITA)
+    .maybeSingle();
+  const janelas = lerJanelasVisita(config?.valor ?? null);
+
+  let ocupados: Date[] = [];
+  if (vendedorId) {
+    const margemMs = janelas.duracao_min * 60_000;
+    let q = supabase
+      .from("visitas")
+      .select("id, data_hora")
+      .eq("vendedor_id", vendedorId)
+      .in("status", ["agendada", STATUS_A_CONFIRMAR, "confirmada"])
+      .gt("data_hora", new Date(quando.getTime() - margemMs).toISOString())
+      .lt("data_hora", new Date(quando.getTime() + margemMs).toISOString());
+    if (ignorarVisitaId) q = q.neq("id", ignorarVisitaId);
+    const { data: agenda } = await q;
+    ocupados = (agenda ?? []).map((v: Record<string, unknown>) => new Date(String(v.data_hora)));
+  }
+
+  return {
+    motivo: avaliarHorarioVisita(quando, janelas, ocupados),
+    descricaoJanela: descreverJanelas(janelas),
+  };
+}
+
+/**
  * Cria (ou atualiza) a visita do lead. Idempotente por lead: uma segunda
  * emissão de [VISITA_AGENDADA] na mesma conversa reagenda a visita existente
  * em vez de encher a agenda de duplicatas.
+ *
+ * Horário fora da janela de visitas ou em conflito com outra visita do mesmo
+ * vendedor: a visita entra como "a_confirmar", o vendedor é avisado e o
+ * resultado diz ao chamador para não confirmar ao lead.
  */
 export async function handleVisitaAgendada(
   supabase: SupabaseClient,
   lead: LeadVisita,
   openaiKey: string,
-): Promise<void> {
+  instancia?: InstanciaEnvio | null,
+): Promise<ResultadoVisita> {
   const agora = new Date();
 
   const extraida = await extrairDataVisita(supabase, lead.id, openaiKey, agora);
@@ -178,33 +253,59 @@ export async function handleVisitaAgendada(
     diaReal !== null &&
     normalizarDiaSemana(diaDito) !== normalizarDiaSemana(diaReal);
 
-  const confiavel =
-    extraida !== null && dataPlausivel(extraida.quando, agora) && !conflitoDeDia;
+  const confiavel = extraida !== null && dataPlausivel(extraida.quando, agora) && !conflitoDeDia;
   const dataHora = confiavel ? extraida!.quando : proximoDiaUtil(agora);
-
-  const observacoes = confiavel
-    ? "Agendada automaticamente pela Sophia, a partir do que foi combinado na conversa."
-    : conflitoDeDia
-      ? `Agendada automaticamente pela Sophia — DATA CONFLITANTE, A CONFIRMAR: o lead falou em` +
-        ` "${diaDito}", mas a data combinada (${extraida!.quando.toLocaleDateString("pt-BR", { timeZone: FUSO })})` +
-        ` cai numa ${diaReal}. Confirme com ele antes de sair. Este é um horário provisório.`
-      : "Agendada automaticamente pela Sophia — HORÁRIO A CONFIRMAR: não foi possível" +
-        " identificar a data combinada na conversa. Este é um horário provisório.";
 
   // Já existe visita em aberto? Reagenda em vez de criar outra.
   const { data: existentes } = await supabase
     .from("visitas")
-    .select("id")
+    .select("id, status")
     .eq("lead_id", lead.id)
-    .in("status", ["agendada", "confirmada"])
+    .in("status", ["agendada", STATUS_A_CONFIRMAR, "confirmada"])
     .limit(1);
 
-  const visitaAberta = existentes?.[0]?.id;
+  const visitaAberta = existentes?.[0]?.id as string | undefined;
+
+  // Só faz sentido conferir janela e agenda com uma data em que se confia; o
+  // horário provisório já sai marcado como a confirmar na observação.
+  const conferencia = confiavel
+    ? await conferirHorario(supabase, lead.vendedor_id ?? null, dataHora, visitaAberta).catch(
+        (e) => {
+          console.error("[lead-visita] conferência de horário falhou:", (e as Error)?.message);
+          return { motivo: null, descricaoJanela: "" };
+        },
+      )
+    : { motivo: null, descricaoJanela: "" };
+  const motivo = conferencia.motivo;
+  const quandoTexto = dataHora.toLocaleString("pt-BR", { timeZone: FUSO });
+  const explicacaoMotivo =
+    motivo === "fora_da_janela"
+      ? `o horário pedido (${quandoTexto}) está fora da janela de visitas (${conferencia.descricaoJanela})`
+      : motivo === "conflito_agenda"
+        ? `o horário pedido (${quandoTexto}) conflita com outra visita na agenda do vendedor`
+        : "";
+
+  const status = motivo
+    ? STATUS_A_CONFIRMAR
+    : existentes?.[0]?.status === STATUS_A_CONFIRMAR
+      ? "agendada"
+      : undefined;
+
+  const observacoes = motivo
+    ? `Pedida pela Sophia — HORÁRIO A CONFIRMAR: ${explicacaoMotivo}. Confirme com o lead antes de sair.`
+    : confiavel
+      ? "Agendada automaticamente pela Sophia, a partir do que foi combinado na conversa."
+      : conflitoDeDia
+        ? `Agendada automaticamente pela Sophia — DATA CONFLITANTE, A CONFIRMAR: o lead falou em` +
+          ` "${diaDito}", mas a data combinada (${extraida!.quando.toLocaleDateString("pt-BR", { timeZone: FUSO })})` +
+          ` cai numa ${diaReal}. Confirme com ele antes de sair. Este é um horário provisório.`
+        : "Agendada automaticamente pela Sophia — HORÁRIO A CONFIRMAR: não foi possível" +
+          " identificar a data combinada na conversa. Este é um horário provisório.";
 
   if (visitaAberta) {
     const { error } = await supabase
       .from("visitas")
-      .update({ data_hora: dataHora.toISOString(), observacoes })
+      .update({ data_hora: dataHora.toISOString(), observacoes, ...(status ? { status } : {}) })
       .eq("id", visitaAberta);
     if (error) throw error;
   } else {
@@ -212,7 +313,7 @@ export async function handleVisitaAgendada(
       lead_id: lead.id,
       vendedor_id: lead.vendedor_id ?? null,
       data_hora: dataHora.toISOString(),
-      status: "agendada",
+      status: status ?? "agendada",
       observacoes,
     });
     if (error) throw error;
@@ -222,10 +323,27 @@ export async function handleVisitaAgendada(
     lead_id: lead.id,
     tipo: "sistema",
     canal: "sistema",
-    conteudo: confiavel
-      ? `Visita ${visitaAberta ? "reagendada" : "agendada"} automaticamente para ${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}.`
-      : conflitoDeDia
-        ? `Visita ${visitaAberta ? "reagendada" : "criada"} com horário provisório (${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}) — o lead falou em "${diaDito}", mas a data combinada cai numa ${diaReal}. Confirme com ele antes de sair.`
-        : `Visita ${visitaAberta ? "reagendada" : "criada"} com horário provisório (${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}) — a data combinada não pôde ser identificada na conversa. Confirme na Agenda.`,
+    conteudo: motivo
+      ? `Visita ${visitaAberta ? "reagendada" : "criada"} como A CONFIRMAR — ${explicacaoMotivo}. A Sophia não confirmou ao lead.`
+      : confiavel
+        ? `Visita ${visitaAberta ? "reagendada" : "agendada"} automaticamente para ${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}.`
+        : conflitoDeDia
+          ? `Visita ${visitaAberta ? "reagendada" : "criada"} com horário provisório (${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}) — o lead falou em "${diaDito}", mas a data combinada cai numa ${diaReal}. Confirme com ele antes de sair.`
+          : `Visita ${visitaAberta ? "reagendada" : "criada"} com horário provisório (${dataHora.toLocaleString("pt-BR", { timeZone: FUSO })}) — a data combinada não pôde ser identificada na conversa. Confirme na Agenda.`,
   });
+
+  if (motivo) {
+    await notificarResponsaveis(
+      supabase,
+      lead.id,
+      {
+        tipo: "visita_a_confirmar",
+        titulo: "Visita a confirmar",
+        corpo: `O lead pediu visita, mas ${explicacaoMotivo}. Combine o horário com ele pela conversa.`,
+      },
+      instancia ?? null,
+    );
+  }
+
+  return { aConfirmar: motivo !== null, motivo };
 }

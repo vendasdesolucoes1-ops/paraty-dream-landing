@@ -10,7 +10,7 @@
 export const COST_IMAGE_PRO = 0.134;
 export const COST_IMAGE_FLASH = 0.039;
 export const COST_VALIDATE = 0.003;
-// Planner (gemini-3-flash-preview): estimativa a priori; o real vem do
+// Planner (Flash estável, ver modelos.ts): estimativa a priori; o real vem do
 // usageMetadata.
 export const COST_PLAN = 0.02;
 

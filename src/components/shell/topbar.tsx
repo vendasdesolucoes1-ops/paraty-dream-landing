@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDashboardTheme } from "@/hooks/use-dashboard-theme";
 import { Marca, ListaNav } from "./app-sidebar";
+import { Notificacoes } from "./notificacoes";
 import { useSidebar } from "./sidebar-context";
 import { UserMenu } from "./user-menu";
 
@@ -17,7 +18,7 @@ const ATALHO =
 const BOTAO_ICONE =
   "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-[color,background-color,transform] duration-150 active:scale-95 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** Barra superior: menu, onde estou, busca, tema e conta. Fixa no topo; o conteúdo rola por baixo. */
+/** Barra superior: menu, onde estou, busca, notificações, tema e conta. Fixa no topo; o conteúdo rola por baixo. */
 export function Topbar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { aberta, alternar } = useSidebar();
@@ -102,6 +103,8 @@ export function Topbar() {
         >
           <Search className="h-[18px] w-[18px]" aria-hidden />
         </button>
+
+        <Notificacoes className={BOTAO_ICONE} />
 
         <Tooltip>
           <TooltipTrigger asChild>

@@ -11,6 +11,12 @@
 // alcança o host. Antes de usar em campanha real, confirmar com os dois curls
 // do README da equipe — se a rota divergir, a correção é só aqui.
 
+import { fetchComRetry } from "./http.ts";
+
+// Envio não tem retry: uma resposta perdida depois do envio duplicaria a
+// mensagem no WhatsApp do lead. Só o timeout, para não prender a função.
+const TIMEOUT_EVOLUTION_MS = 15_000;
+
 export async function sendWhatsAppText(
   apiUrl: string,
   apiKey: string,
@@ -18,11 +24,15 @@ export async function sendWhatsAppText(
   number: string,
   text: string,
 ) {
-  const response = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({ number, text }),
-  });
+  const response = await fetchComRetry(
+    `${apiUrl}/message/sendText/${instanceName}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ number, text }),
+    },
+    { timeoutMs: TIMEOUT_EVOLUTION_MS },
+  );
   const result = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(`Evolution sendText error: ${response.status} ${JSON.stringify(result)}`);
@@ -51,17 +61,21 @@ export async function sendWhatsAppMedia(
   number: string,
   media: { url: string; tipo: EvolutionMediaType; nomeArquivo?: string; caption?: string },
 ) {
-  const response = await fetch(`${apiUrl}/message/sendMedia/${instanceName}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({
-      number,
-      mediatype: media.tipo,
-      media: media.url,
-      ...(media.nomeArquivo ? { fileName: media.nomeArquivo } : {}),
-      ...(media.caption ? { caption: media.caption } : {}),
-    }),
-  });
+  const response = await fetchComRetry(
+    `${apiUrl}/message/sendMedia/${instanceName}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({
+        number,
+        mediatype: media.tipo,
+        media: media.url,
+        ...(media.nomeArquivo ? { fileName: media.nomeArquivo } : {}),
+        ...(media.caption ? { caption: media.caption } : {}),
+      }),
+    },
+    { timeoutMs: TIMEOUT_EVOLUTION_MS },
+  );
   const result = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(`Evolution sendMedia error: ${response.status} ${JSON.stringify(result)}`);
@@ -83,11 +97,15 @@ export async function sendWhatsAppAudio(
   number: string,
   audioUrl: string,
 ) {
-  const response = await fetch(`${apiUrl}/message/sendWhatsAppAudio/${instanceName}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-    body: JSON.stringify({ number, audio: audioUrl }),
-  });
+  const response = await fetchComRetry(
+    `${apiUrl}/message/sendWhatsAppAudio/${instanceName}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ number, audio: audioUrl }),
+    },
+    { timeoutMs: TIMEOUT_EVOLUTION_MS },
+  );
   const result = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(

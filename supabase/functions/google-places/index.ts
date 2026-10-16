@@ -8,6 +8,7 @@
 // frontend offers higher options like 50 or 100.
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 
 const GOOGLE_PLACES_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY")!;
 const PLACES_API_MAX_RESULTS = 20;
@@ -22,6 +23,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
 
   try {
     const { query, city, maxResults }: SearchBody = await req.json();

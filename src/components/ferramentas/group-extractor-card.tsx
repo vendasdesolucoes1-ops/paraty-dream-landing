@@ -5,6 +5,7 @@ import { Users, UsersRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { downloadCsv } from "@/lib/csv";
 import type { WhatsappInstance } from "@/lib/types";
+import { COLUNAS_INSTANCIA_PAINEL } from "@/lib/types";
 import { ToolCard } from "@/components/ferramentas/tool-card";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ds/pill";
@@ -52,7 +53,7 @@ export function GroupExtractorCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("*")
+        .select(COLUNAS_INSTANCIA_PAINEL)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as WhatsappInstance[];

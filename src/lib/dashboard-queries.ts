@@ -209,7 +209,7 @@ export function useAgendaProxima(escopo: Escopo, enabled: boolean) {
       let q = supabase
         .from("visitas")
         .select("id, data_hora, status, observacoes, lead:leads(id, nome, telefone, is_teste)")
-        .in("status", ["agendada", "confirmada"])
+        .in("status", ["agendada", "a_confirmar", "confirmada"])
         .gte("data_hora", inicio.toISOString())
         .lt("data_hora", somarDias(inicio, 8).toISOString())
         .order("data_hora", { ascending: true })
@@ -231,7 +231,7 @@ export function useAgendaProxima(escopo: Escopo, enabled: boolean) {
           id: v.id,
           data_hora: v.data_hora,
           status: v.status,
-          aConfirmar: visitaAConfirmar(v.observacoes),
+          aConfirmar: v.status === "a_confirmar" || visitaAConfirmar(v.observacoes),
           lead: v.lead ? { id: v.lead.id, nome: v.lead.nome, telefone: v.lead.telefone } : null,
         }));
     },
@@ -277,9 +277,9 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
       let visitasQ = supabase
         .from("visitas")
         .select("id, data_hora, observacoes, created_at, lead:leads(id, nome, telefone, is_teste)")
-        .eq("status", "agendada")
+        .in("status", ["agendada", "a_confirmar"])
         .gte("data_hora", inicioDoDia().toISOString())
-        .or("observacoes.ilike.%A CONFIRMAR%,observacoes.ilike.%CONFLITANTE%")
+        .or("status.eq.a_confirmar,observacoes.ilike.%A CONFIRMAR%,observacoes.ilike.%CONFLITANTE%")
         .order("data_hora", { ascending: true })
         .limit(6);
       if (escopo.vendedorId) visitasQ = visitasQ.eq("vendedor_id", escopo.vendedorId);
@@ -291,15 +291,15 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           .order("updated_at", { ascending: true })
           .limit(6),
         visitasQ,
-        // Atendimento humano em aberto é visão de gestão; a tabela é do agente
-        // de IA e pode não estar liberada para todos os perfis — na falta,
-        // simplesmente não entra na fila.
-        papel === "vendedor"
-          ? Promise.resolve({ count: 0, error: null })
-          : supabase
-              .from("ai_agent_human_takeover")
-              .select("id", { count: "exact", head: true })
-              .is("resolved_at", null),
+        // Atendimento humano em aberto: a RPC já recorta pelo papel (gestão
+        // vê todos; vendedor, os da carteira).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.rpc as any)("takeovers_abertos").then(
+          ({ data, error }: { data: unknown[] | null; error: unknown }) => ({
+            count: (data ?? []).length,
+            error,
+          }),
+        ),
       ]);
 
       if (qualificados.error) throw qualificados.error;

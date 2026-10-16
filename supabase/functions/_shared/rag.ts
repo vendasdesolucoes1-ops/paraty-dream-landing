@@ -9,8 +9,9 @@
 // descartável; qualquer falha aqui faz a Sophia recuar para a base inteira.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { MODELOS } from "./modelos.ts";
 
-export const MODELO_EMBEDDING = "text-embedding-3-small";
+export const MODELO_EMBEDDING = MODELOS.embeddingRag.id;
 export const DIMENSOES = 1536;
 
 /** Trechos injetados no prompt. Com ~800 chars cada, cabem ~3 mil caracteres. */

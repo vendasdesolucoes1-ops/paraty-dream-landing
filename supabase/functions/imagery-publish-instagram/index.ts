@@ -3,6 +3,8 @@
 // Carrossel: um container por slide (is_carousel_item), depois o container pai.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
+import { carregarFatosAprovados, violacoesComerciais } from "../_shared/fatos-comerciais.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,6 +40,9 @@ async function waitContainer(containerId: string, token: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  if (chamador instanceof Response) return chamador;
 
   let postId: string | undefined;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -91,6 +96,14 @@ Deno.serve(async (req) => {
     const hashtags = Array.isArray(copy.hashtags) ? copy.hashtags : [];
     const caption = (post.ig_caption ?? body.caption ?? copy.caption ?? "") +
       (hashtags.length ? `\n\n${hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}` : "");
+
+    // Nenhuma condição comercial fora da tabela de fatos aprovados vai ao ar.
+    const violacoes = violacoesComerciais(caption, await carregarFatosAprovados(admin));
+    if (violacoes.length) {
+      throw new Error(
+        `A legenda cita condição comercial não aprovada (${violacoes.join(", ")}). Ajuste a legenda ou aprove o fato em fatos_comerciais.`,
+      );
+    }
 
     await admin.from("imagery_posts").update({ ig_status: "publishing", ig_error: null }).eq(
       "id",

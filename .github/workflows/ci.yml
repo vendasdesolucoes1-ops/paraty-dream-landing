@@ -1,0 +1,92 @@
+# CI do Moradas de Paraty (auditoria R-25, issue #41).
+#
+# Bloqueia: typecheck do app, build, typecheck das Edge Functions (Deno),
+# testes, lint dos arquivos alterados e vulnerabilidades críticas.
+# Lint do repositório inteiro ainda não bloqueia: há ~1.700 problemas antigos,
+# quase todos de formatação; cada PR mantém limpo o que toca.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (typecheck, testes, lint, build, dependências)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Testes
+        run: node --test "supabase/functions/_shared/*.test.ts" "src/lib/*.test.ts"
+      - name: Lint dos arquivos alterados
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" \
+            | grep -E '\.(ts|tsx)$' | grep -v 'routeTree.gen.ts' \
+            | xargs -r npx eslint --max-warnings=0 --no-warn-ignored
+      - name: Build
+        run: npx vite build
+      - name: Dependências (vulnerabilidades críticas bloqueiam)
+        run: bun audit --audit-level=critical
+
+  edge-functions:
+    name: Edge Functions (deno check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.x
+      - name: deno check
+        run: deno check --no-lock supabase/functions/*/index.ts
+
+  evals:
+    name: Evals da Sophia
+    runs-on: ubuntu-latest
+    # Só roda quando há um ambiente de avaliação configurado (staging).
+    if: ${{ vars.EVAL_HABILITADO == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Conversas de referência
+        env:
+          EVAL_SUPABASE_URL: ${{ secrets.EVAL_SUPABASE_URL }}
+          EVAL_SERVICE_ROLE_KEY: ${{ secrets.EVAL_SERVICE_ROLE_KEY }}
+          EVAL_AGENT_ID: ${{ secrets.EVAL_AGENT_ID }}
+        run: node scripts/evals/sophia.eval.ts
+      - name: Classificador do follow-up
+        env:
+          EVAL_OPENAI_API_KEY: ${{ secrets.EVAL_OPENAI_API_KEY }}
+        run: node scripts/evals/followup-intencao.eval.ts
+
+  banco:
+    name: Banco (migrations do zero e testes SQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Postgres 16
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq postgresql-16 postgresql-client-16
+      - name: Migrations e testes
+        env:
+          PG_BIN: /usr/lib/postgresql/16/bin
+        run: scripts/db/testar-migrations.sh
