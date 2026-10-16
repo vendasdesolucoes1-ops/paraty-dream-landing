@@ -95,6 +95,7 @@ import { DocumentoPreviewDialog } from "@/components/documentos/documento-previe
 import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
 import { LeadPropostasTab } from "@/components/propostas/lead-propostas-tab";
 import { LeadTarefasTab } from "@/components/dashboard/lead-tarefas-tab";
+import { LeadOptOutAviso } from "@/components/dashboard/lead-opt-out-aviso";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -1180,6 +1181,9 @@ export function LeadDetailDrawer({
                   </Button>
                 </div>
               ) : null}
+              <div className="mt-4 empty:hidden">
+                <LeadOptOutAviso leadId={lead.id} />
+              </div>
             </header>
 
             <Tabs defaultValue="dados" className="flex min-h-0 flex-1 flex-col">

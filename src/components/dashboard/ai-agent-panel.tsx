@@ -5,10 +5,11 @@ import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2, Power, Loader2 } 
 import { supabase } from "@/lib/supabase";
 import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
 import { ChatBubble } from "@/components/whatsapp/chat-ui";
-import type { AiAgent } from "@/lib/types";
+import type { AiAgent, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Pill } from "@/components/ds/pill";
 import { PontoVivo } from "@/components/ajustes/ponto-vivo";
 import { Campo, LinhaAjuste, SeloIcone } from "@/components/ajustes/campos";
@@ -45,6 +46,18 @@ import {
 const DEFAULT_AGENT_NAME = "Agente Moradas de Paraty";
 const DEFAULT_TRANSFER_KEYWORDS = ["atendente", "humano", "falar com alguém", "corretor"];
 const RAG_KEY = "rag_conhecimento";
+
+// Mesmas opções aceitas pelas funções (_shared/modelos.ts e estilo-agente.ts).
+const MODELOS_AGENTE: { valor: AiAgentModelo; rotulo: string }[] = [
+  { valor: "gpt-4o-mini", rotulo: "GPT-4o mini (padrão, mais barato)" },
+  { valor: "gpt-4o", rotulo: "GPT-4o (mais caro)" },
+];
+const TONS_AGENTE: { valor: AiAgentTomVoz; rotulo: string }[] = [
+  { valor: "profissional", rotulo: "Profissional (padrão)" },
+  { valor: "amigavel", rotulo: "Amigável" },
+  { valor: "formal", rotulo: "Formal" },
+  { valor: "informal", rotulo: "Informal" },
+];
 
 /** Só o horário, para o carimbo dentro da bolha. */
 function formatHoraTeste(iso: string) {
@@ -229,12 +242,20 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
   const [form, setForm] = useState({
     mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
     keywordsInput: (agent.transfer_keywords ?? []).join(", "),
+    modelo: agent.modelo,
+    tom_voz: agent.tom_voz,
+    usar_emojis: agent.usar_emojis,
+    ser_breve: agent.ser_breve,
   });
 
   useEffect(() => {
     setForm({
       mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
       keywordsInput: (agent.transfer_keywords ?? []).join(", "),
+      modelo: agent.modelo,
+      tom_voz: agent.tom_voz,
+      usar_emojis: agent.usar_emojis,
+      ser_breve: agent.ser_breve,
     });
   }, [agent]);
 
@@ -250,6 +271,10 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
         .update({
           mensagem_boas_vindas: form.mensagem_boas_vindas || null,
           transfer_keywords: keywords,
+          modelo: form.modelo,
+          tom_voz: form.tom_voz,
+          usar_emojis: form.usar_emojis,
+          ser_breve: form.ser_breve,
         })
         .eq("id", agent.id);
       if (error) throw error;
@@ -305,6 +330,71 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
           onChange={(e) => setForm((f) => ({ ...f, keywordsInput: e.target.value }))}
         />
       </Campo>
+
+      <Campo
+        id="modelo"
+        label="Modelo"
+        dica="Mude só depois de rodar os evals da Sophia com o modelo novo."
+      >
+        <Select
+          value={form.modelo}
+          onValueChange={(v) => setForm((f) => ({ ...f, modelo: v as AiAgentModelo }))}
+        >
+          <SelectTrigger id="modelo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MODELOS_AGENTE.map((m) => (
+              <SelectItem key={m.valor} value={m.valor}>
+                {m.rotulo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Campo>
+
+      <Campo id="tom_voz" label="Tom de voz">
+        <Select
+          value={form.tom_voz}
+          onValueChange={(v) => setForm((f) => ({ ...f, tom_voz: v as AiAgentTomVoz }))}
+        >
+          <SelectTrigger id="tom_voz">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TONS_AGENTE.map((t) => (
+              <SelectItem key={t.valor} value={t.valor}>
+                {t.rotulo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Campo>
+
+      <div className="space-y-4 rounded-xl border border-border bg-background p-4">
+        <LinhaAjuste
+          titulo="Usar emojis"
+          descricao="Permite emojis com moderação nas respostas."
+          controle={
+            <Switch
+              checked={form.usar_emojis}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, usar_emojis: v }))}
+              aria-label="Usar emojis"
+            />
+          }
+        />
+        <LinhaAjuste
+          titulo="Respostas breves"
+          descricao="Mensagens curtas, uma ideia por vez."
+          controle={
+            <Switch
+              checked={form.ser_breve}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, ser_breve: v }))}
+              aria-label="Respostas breves"
+            />
+          }
+        />
+      </div>
 
       <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
         {saveMutation.isPending ? "Salvando..." : "Salvar configurações"}
