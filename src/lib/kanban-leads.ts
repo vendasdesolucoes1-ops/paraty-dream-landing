@@ -45,10 +45,21 @@ export function limparTermoBusca(busca: string): string {
     .trim();
 }
 
-/** Os filtros de busca no formato do .or() do PostgREST; null quando não há busca. */
+/** Minúsculas e sem acento, como a coluna `leads.busca` (função sem_acento do banco). */
+export function semAcento(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Os filtros de busca no formato do .or() do PostgREST; null quando não há
+ * busca. Nome, cidade e e-mail vão pela coluna `busca`, sem acento.
+ */
 export function filtrosDeBusca(termo: string): string | null {
   if (!termo) return null;
-  const filtros = [`nome.ilike.%${termo}%`, `cidade.ilike.%${termo}%`, `email.ilike.%${termo}%`];
+  const filtros = [`busca.ilike.%${semAcento(termo)}%`];
   const digitos = termo.replace(/\D/g, "");
   if (digitos.length >= 3) filtros.push(`telefone.ilike.%${digitos}%`);
   return filtros.join(",");
@@ -57,7 +68,7 @@ export function filtrosDeBusca(termo: string): string | null {
 /**
  * O mesmo filtro do banco, avaliado no navegador, para decidir se um registro
  * que chegou pelo realtime entra numa coluna já carregada. A busca imita o
- * `ilike`: sem diferença de caixa, mas com acento (como no banco).
+ * `ilike` sobre a coluna `busca`: sem diferença de caixa nem de acento.
  */
 export function leadCasaComFiltros(lead: Lead, filtros: FiltrosKanban): boolean {
   if (lead.deletado_em) return false;
@@ -65,12 +76,10 @@ export function leadCasaComFiltros(lead: Lead, filtros: FiltrosKanban): boolean 
   if (!filtros.mostrarTestes && lead.is_teste) return false;
   if (filtros.origem && lead.origem !== filtros.origem) return false;
   if (filtros.termo) {
-    const termo = filtros.termo.toLowerCase();
+    const termo = semAcento(filtros.termo);
     const digitos = filtros.termo.replace(/\D/g, "");
     const bate =
-      (lead.nome ?? "").toLowerCase().includes(termo) ||
-      (lead.cidade ?? "").toLowerCase().includes(termo) ||
-      (lead.email ?? "").toLowerCase().includes(termo) ||
+      semAcento(`${lead.nome ?? ""} ${lead.cidade ?? ""} ${lead.email ?? ""}`).includes(termo) ||
       (digitos.length >= 3 && (lead.telefone ?? "").includes(digitos));
     if (!bate) return false;
   }

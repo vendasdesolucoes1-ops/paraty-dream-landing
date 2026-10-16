@@ -10,6 +10,7 @@ import {
   aplicarLeadNaColuna,
   ajustarContagens,
   etapaContada,
+  filtrosDeBusca,
   leadCasaComFiltros,
   leadsDaColuna,
   type ColunaKanban,
@@ -114,4 +115,12 @@ test("contagens: move de uma etapa para outra e conta inserção", () => {
   });
   assert.deepEqual(ajustarContagens(c, null, "novo"), { novo: 4, proposta: 1 });
   assert.equal(ajustarContagens(c, "novo", "novo"), c);
+});
+
+test("busca ignora acento e caixa, no banco e no navegador", () => {
+  assert.equal(filtrosDeBusca("São João"), "busca.ilike.%sao joao%");
+  const f = { ...TODOS, termo: "joao" };
+  assert.equal(leadCasaComFiltros(lead("a", 1, { nome: "João Silva" }), f), true);
+  const cidade = { ...TODOS, termo: "PARATÝ" };
+  assert.equal(leadCasaComFiltros(lead("a", 1, { cidade: "Paraty" }), cidade), true);
 });
