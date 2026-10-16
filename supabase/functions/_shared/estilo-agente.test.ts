@@ -51,3 +51,39 @@ test("campos combinados: uma linha por preferência, um cabeçalho só", () => {
   assert.equal(bloco.match(/PREFERÊNCIAS DE ESTILO/g)?.length, 1);
   assert.equal(bloco.split("\n").filter((l) => l.startsWith("- ")).length, 3);
 });
+
+test("temperatura: nulo/inválido usa o padrão; fora da faixa é limitada", async () => {
+  const { temperaturaAgente, TEMPERATURA_PADRAO } = await import("./estilo-agente.ts");
+  assert.equal(temperaturaAgente(null), TEMPERATURA_PADRAO);
+  assert.equal(temperaturaAgente("abc"), TEMPERATURA_PADRAO);
+  assert.equal(temperaturaAgente("0.70"), 0.7, "numeric do Postgres chega como texto");
+  assert.equal(temperaturaAgente(0.2), 0.2);
+  assert.equal(temperaturaAgente(5), 1);
+  assert.equal(temperaturaAgente(-1), 0);
+});
+
+test("instruções da equipe: vazio não muda o prompt; texto vem com as regras fixas acima dele", async () => {
+  const { blocoInstrucoesEquipe, LIMITE_INSTRUCOES_EXTRAS } = await import("./estilo-agente.ts");
+  assert.equal(blocoInstrucoesEquipe(null), "");
+  assert.equal(blocoInstrucoesEquipe("   "), "");
+  const bloco = blocoInstrucoesEquipe("Sempre mencione a praia do Jabaquara.");
+  assert.match(bloco, /INSTRUÇÕES DA EQUIPE/);
+  assert.match(bloco, /nunca informar preço/);
+  assert.ok(bloco.endsWith("Sempre mencione a praia do Jabaquara."));
+  const longo = blocoInstrucoesEquipe("x".repeat(LIMITE_INSTRUCOES_EXTRAS + 50));
+  assert.ok(!longo.includes("x".repeat(LIMITE_INSTRUCOES_EXTRAS + 1)), "texto cortado no limite");
+});
+
+test("mensagem de transferência: personalizada em bolhas, padrão quando vazia", async () => {
+  const { mensagemTransferencia, MENSAGEM_TRANSFERENCIA_PADRAO } =
+    await import("./estilo-agente.ts");
+  assert.deepEqual(mensagemTransferencia("Já te passo pro consultor! || Um minutinho"), [
+    "Já te passo pro consultor!",
+    "Um minutinho",
+  ]);
+  assert.deepEqual(
+    mensagemTransferencia(" || "),
+    MENSAGEM_TRANSFERENCIA_PADRAO.split("||").map((m) => m.trim()),
+  );
+  assert.equal(mensagemTransferencia(null).length, 2);
+});

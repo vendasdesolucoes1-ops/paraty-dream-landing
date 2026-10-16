@@ -155,3 +155,28 @@ export function ehPedidoDeParada(texto: string | null | undefined): boolean {
   if (!normalizado || normalizado.length > 60) return false;
   return PEDIDOS_DE_PARADA.includes(normalizado);
 }
+
+/**
+ * Pedido explícito de parada: bloqueia o envio ativo na hora, esteja a IA
+ * ligada ou não. Antes isso só acontecia dentro da Sophia, então com a IA
+ * pausada ou um humano no atendimento o "SAIR" se perdia e as cadências
+ * seguiam enviando. Devolve true quando o bloqueio é novo.
+ */
+export async function bloquearPorPedidoDeParada(
+  supabase: SupabaseClient,
+  leadId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("leads")
+    .update({ contato_bloqueado: true })
+    .eq("id", leadId)
+    .eq("contato_bloqueado", false)
+    .select("id");
+  if (error) {
+    if (!ehColunaInexistente(error)) {
+      console.error("[contato-bloqueado] bloqueio por pedido falhou:", error.message);
+    }
+    return false;
+  }
+  return (data ?? []).length > 0;
+}

@@ -20,6 +20,7 @@ export interface PreferenciasEstilo {
   tom_voz?: string | null;
   usar_emojis?: boolean | null;
   ser_breve?: boolean | null;
+  instrucoes_extras?: string | null;
 }
 
 /** Padrões das colunas em ai_agents (migração 20260711000000). */
@@ -69,4 +70,49 @@ export function blocoEstiloAgente(preferencias: PreferenciasEstilo | null | unde
     "Configuradas no painel do agente. Quando conflitarem com as regras de estilo acima, valem estas.",
     ...linhas,
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Opções do painel além do estilo (migração 20261018000800_ai_agent_opcoes).
+
+/** Temperatura padrão da Sophia (MODELOS.sophiaChat.temperatura). */
+export const TEMPERATURA_PADRAO = 0.4;
+export const LIMITE_INSTRUCOES_EXTRAS = 2000;
+
+export const MENSAGEM_TRANSFERENCIA_PADRAO =
+  "Claro! Já estou chamando alguém da equipe pra falar com você por aqui.||Só um instantinho.";
+
+/** ai_agents.temperatura validada; nulo ou inválido = padrão do código. */
+export function temperaturaAgente(valor: unknown, padrao = TEMPERATURA_PADRAO): number {
+  const n = typeof valor === "string" ? Number(valor) : valor;
+  if (typeof n !== "number" || !Number.isFinite(n)) return padrao;
+  return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * Orientações livres da equipe. Vêm depois do estilo e com a ressalva de que
+ * não revogam as regras fixas: o texto do painel não pode liberar preço nem
+ * fazer a Sophia insistir com quem pediu para sair.
+ */
+export function blocoInstrucoesEquipe(texto: string | null | undefined): string {
+  const limpo = (texto ?? "").trim().slice(0, LIMITE_INSTRUCOES_EXTRAS);
+  if (!limpo) return "";
+  return [
+    "═══ INSTRUÇÕES DA EQUIPE ═══",
+    "Orientações adicionais escritas pela equipe no painel. Siga-as, EXCETO se conflitarem com as regras fixas:",
+    "nunca informar preço, valores, entrada ou parcelas; respeitar quem pede para sair ou falar com uma pessoa;",
+    "marcar visita só nos horários disponíveis; não inventar informação fora da base. Nesses casos, as regras fixas valem.",
+    limpo,
+  ].join("\n");
+}
+
+/** Bolhas da mensagem de transferência para humano ("||" separa). */
+export function mensagemTransferencia(texto: string | null | undefined): string[] {
+  const bolhas = (texto ?? "")
+    .split("||")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return bolhas.length > 0
+    ? bolhas
+    : MENSAGEM_TRANSFERENCIA_PADRAO.split("||").map((m) => m.trim());
 }

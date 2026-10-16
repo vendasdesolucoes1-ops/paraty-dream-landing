@@ -48,9 +48,10 @@ async function agenteAtivo(instanceId: string) {
     .from("ai_agents")
     .select("is_active")
     .eq("instance_id", instanceId)
-    .maybeSingle();
+    .eq("is_active", true)
+    .limit(1);
   if (error) throw error;
-  return data?.is_active === true;
+  return (data ?? []).length > 0;
 }
 
 async function adiarPorPausa(m: MensagemAgendada) {
@@ -334,6 +335,10 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
       await aplicarRecusa(m, checagem.motivo);
       return false;
     }
+    if (!(await agenteAtivo(instancia.id))) {
+      await adiarPorPausa(m);
+      return false;
+    }
     if (m.midia.tipo === "audio") {
       await sendWhatsAppAudio(
         instancia.api_url,
@@ -449,9 +454,11 @@ Deno.serve(async (req) => {
         // (isolate recolhido no debounce, por exemplo). Não passa por
         // pode_enviar: é resposta a quem escreveu, não envio ativo.
         if (m.tipo === "resposta_ia") {
+          // Responde pela instância em que o lead escreveu (gravada por
+          // enfileirar_resposta_ia), não pela padrão.
           const resultado = await responderLead(
             supabase,
-            instancia as InstanciaWhatsapp,
+            instanciaDoEnvio as InstanciaWhatsapp,
             m.lead_id,
             {
               filaId: m.id,

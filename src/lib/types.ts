@@ -329,6 +329,12 @@ export interface AiAgent {
   tom_voz: AiAgentTomVoz;
   usar_emojis: boolean;
   ser_breve: boolean;
+  /** Criatividade (0–1); nulo = padrão do código (0,4). */
+  temperatura: number | null;
+  /** Orientações da equipe anexadas ao prompt; não revogam as regras fixas. */
+  instrucoes_extras: string | null;
+  /** Texto da transferência por palavra-chave; "||" separa bolhas. Nulo = padrão. */
+  mensagem_transferencia: string | null;
   created_at: string;
 }
 

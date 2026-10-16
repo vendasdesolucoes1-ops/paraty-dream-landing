@@ -678,7 +678,7 @@ export function useInscreverLead() {
 // ── Campanhas ───────────────────────────────────────────────────────────
 
 /** Teto de leads por campanha (o mesmo de `criar_campanha`). */
-export const LIMITE_LEADS_CAMPANHA = 20_000;
+export const LIMITE_LEADS_CAMPANHA = 5_000;
 
 export function useCampanhas() {
   return useQuery({

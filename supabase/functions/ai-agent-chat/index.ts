@@ -33,7 +33,13 @@ import {
   type ConhecimentoParaPrompt,
 } from "../_shared/rag.ts";
 import { MODELOS, resolverModeloSophia } from "../_shared/modelos.ts";
-import { blocoEstiloAgente, type PreferenciasEstilo } from "../_shared/estilo-agente.ts";
+import {
+  blocoEstiloAgente,
+  blocoInstrucoesEquipe,
+  mensagemTransferencia,
+  temperaturaAgente,
+  type PreferenciasEstilo,
+} from "../_shared/estilo-agente.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,9 +104,6 @@ const ETAPAS_QUE_A_IA_PODE_REBAIXAR = new Set(["novo", "qualificado", "agendado"
 
 const MENSAGEM_OPT_OUT =
   "Tudo bem, não vou mais te mandar mensagens. || Se um dia quiser saber do Moradas de Paraty, é só escrever aqui.";
-
-const MENSAGEM_HANDOFF =
-  "Claro! Já estou chamando alguém da equipe pra falar com você por aqui.||Só um instantinho.";
 
 // A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
 // prompt final, para valer também quando o agente tem system_prompt
@@ -649,6 +652,7 @@ function montarPromptFinal(
     basePrompt,
     // Logo após a base, cujas regras de estilo ele ajusta (tom, emoji, tamanho).
     blocoEstiloAgente(estilo),
+    blocoInstrucoesEquipe(estilo.instrucoes_extras),
     blocoDataDeHoje(agora),
     blocoHorariosVisita(janelas),
     blocoLeadConhecido(lead),
@@ -790,7 +794,7 @@ Deno.serve(async (req) => {
         await registrarHandoff(lead_id, agent.instance_id, "palavra-chave de transferência");
       return new Response(
         JSON.stringify({
-          messages: MENSAGEM_HANDOFF.split("||").map((m) => m.trim()),
+          messages: mensagemTransferencia(agent.mensagem_transferencia),
           session_id,
           lead_qualificado: false,
           transferido_para_humano: true,
@@ -942,7 +946,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             model: modelo,
             max_tokens: MODELOS.sophiaChat.maxTokens,
-            temperature: MODELOS.sophiaChat.temperatura,
+            temperature: temperaturaAgente(agent.temperatura, MODELOS.sophiaChat.temperatura),
             response_format: FORMATO_SAIDA,
             messages: [
               { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },

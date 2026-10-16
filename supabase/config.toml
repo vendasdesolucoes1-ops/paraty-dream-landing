@@ -1,1 +1,13 @@
 project_id = "mokgxoygbjvtketoyraf"
+# Chamadas sem JWT do Supabase: o cron (pg_net) manda x-internal-secret, a
+# Evolution manda ?token= e o gatilho da base manda x-rag-secret. Cada função
+# confere o próprio segredo (_shared/auth.ts); com verify_jwt ligado o gateway
+# recusaria antes (401) e a fila e o recebimento de mensagens parariam.
+[functions.processar-fila-mensagens]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.rag-admin]
+verify_jwt = false

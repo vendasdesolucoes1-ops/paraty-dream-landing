@@ -1,5 +1,6 @@
 // Supabase Edge Function — Evolution API webhook receiver for WhatsApp.
 // Handles messages.upsert, messages.update, connection.update, qrcode.updated.
+/* eslint-disable @typescript-eslint/no-explicit-any -- payloads da Evolution chegam sem tipo; cada campo é validado no uso. */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -25,7 +26,11 @@ import {
   responderLead,
   type InstanciaWhatsapp,
 } from "../_shared/resposta-ia.ts";
-import { chaveTelefone } from "../_shared/contato-bloqueado.ts";
+import {
+  bloquearPorPedidoDeParada,
+  chaveTelefone,
+  ehPedidoDeParada,
+} from "../_shared/contato-bloqueado.ts";
 import { classificarRespostaFollowUp } from "../_shared/classificar-resposta.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -239,15 +244,32 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     EdgeRuntime.waitUntil(classificarRespostaFollowUp(supabase, lead.id, text));
   }
 
+  // Pedido de parada ("SAIR", "pare"): bloqueia o envio ativo antes de saber
+  // se a IA vai responder. Com a IA ligada, a Sophia ainda se despede e marca
+  // o lead sem interesse; sem ela, quem fica sabendo é a equipe.
+  const pediuParada = temTexto(text) && ehPedidoDeParada(text);
+  const bloqueouAgora = pediuParada ? await bloquearPorPedidoDeParada(supabase, lead.id) : false;
+
   // 6. Atendimento humano em curso ou IA desligada: a Sophia não responde.
-  if (await isHumanTakeoverActive(sessionId)) return;
-  const { data: agent } = await supabase
-    .from("ai_agents")
-    .select("id")
-    .eq("instance_id", instance.id)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!agent) return;
+  const humanoNoAtendimento = await isHumanTakeoverActive(sessionId);
+  const { data: agentes } = humanoNoAtendimento
+    ? { data: [] }
+    : await supabase
+        .from("ai_agents")
+        .select("id")
+        .eq("instance_id", instance.id)
+        .eq("is_active", true)
+        .limit(1);
+  if (humanoNoAtendimento || !agentes?.length) {
+    if (bloqueouAgora) {
+      await notificarResponsaveis(supabase, lead.id, {
+        tipo: "opt_out",
+        titulo: "Lead pediu para sair",
+        corpo: "O contato foi bloqueado para follow-up e campanhas. Só a gestão desfaz.",
+      });
+    }
+    return;
+  }
 
   // 7. Sem texto para o modelo: nunca chama a Sophia com mensagem vazia.
   if (audioSemTranscricao) {
