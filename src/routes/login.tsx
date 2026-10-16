@@ -9,7 +9,14 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
-    meta: [{ title: "Acessar o Sistema — Moradas de Paraty" }],
+    meta: [
+      { title: "Acessar o Sistema — Moradas de Paraty" },
+      { name: "description", content: "Acesse a área de vendas do Moradas de Paraty." },
+      { property: "og:title", content: "Acessar o Sistema — Moradas de Paraty" },
+      { property: "og:description", content: "Acesse a área de vendas do Moradas de Paraty." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: LoginPage,
 });

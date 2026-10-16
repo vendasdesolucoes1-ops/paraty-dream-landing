@@ -1184,6 +1184,150 @@ export type Database = {
           },
         ]
       }
+      rag_chunks: {
+        Row: {
+          conteudo: string
+          criado_em: string
+          documento_chave: string
+          embedding: string
+          fts: unknown
+          hash: string
+          id: string
+          modelo: string
+          ordem: number
+          secao: string
+        }
+        Insert: {
+          conteudo: string
+          criado_em?: string
+          documento_chave: string
+          embedding: string
+          fts?: unknown
+          hash: string
+          id?: string
+          modelo: string
+          ordem: number
+          secao: string
+        }
+        Update: {
+          conteudo?: string
+          criado_em?: string
+          documento_chave?: string
+          embedding?: string
+          fts?: unknown
+          hash?: string
+          id?: string
+          modelo?: string
+          ordem?: number
+          secao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_chunks_documento_chave_fkey"
+            columns: ["documento_chave"]
+            isOneToOne: false
+            referencedRelation: "rag_documentos"
+            referencedColumns: ["chave"]
+          },
+        ]
+      }
+      rag_consultas: {
+        Row: {
+          chunk_ids: string[]
+          consulta: string
+          criado_em: string
+          id: string
+          latencia_ms: number | null
+          lead_id: string | null
+          melhor_similaridade: number | null
+          modo: string
+          motivo_recuo: string | null
+          similaridades: number[]
+        }
+        Insert: {
+          chunk_ids?: string[]
+          consulta: string
+          criado_em?: string
+          id?: string
+          latencia_ms?: number | null
+          lead_id?: string | null
+          melhor_similaridade?: number | null
+          modo: string
+          motivo_recuo?: string | null
+          similaridades?: number[]
+        }
+        Update: {
+          chunk_ids?: string[]
+          consulta?: string
+          criado_em?: string
+          id?: string
+          latencia_ms?: number | null
+          lead_id?: string | null
+          melhor_similaridade?: number | null
+          modo?: string
+          motivo_recuo?: string | null
+          similaridades?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_consultas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_documentos: {
+        Row: {
+          ativo: boolean
+          chave: string
+          conteudo_hash: string | null
+          criado_em: string
+          erro: string | null
+          escopo: string
+          indexado_em: string | null
+          modelo_embedding: string | null
+          n_trechos: number
+          status: string
+          titulo: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          chave: string
+          conteudo_hash?: string | null
+          criado_em?: string
+          erro?: string | null
+          escopo: string
+          indexado_em?: string | null
+          modelo_embedding?: string | null
+          n_trechos?: number
+          status?: string
+          titulo?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          chave?: string
+          conteudo_hash?: string | null
+          criado_em?: string
+          erro?: string | null
+          escopo?: string
+          indexado_em?: string | null
+          modelo_embedding?: string | null
+          n_trechos?: number
+          status?: string
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_documentos_chave_fkey"
+            columns: ["chave"]
+            isOneToOne: true
+            referencedRelation: "configuracoes"
+            referencedColumns: ["chave"]
+          },
+        ]
+      }
       vendedores: {
         Row: {
           ativo: boolean
@@ -1461,6 +1605,60 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      rag_buscar: {
+        Args: {
+          p_candidatos?: number
+          p_consulta: string
+          p_embedding: string
+          p_escopo?: string
+          p_limite?: number
+        }
+        Returns: {
+          chunk_id: string
+          conteudo: string
+          documento: string
+          ordem: number
+          rank_texto: number
+          rank_vetor: number
+          score: number
+          secao: string
+          similaridade: number
+        }[]
+      }
+      rag_buscar_hibrido: {
+        Args: {
+          p_candidatos: number
+          p_consulta: string
+          p_embedding: string
+          p_escopo: string
+          p_limite: number
+          p_peso_texto: number
+          p_peso_vetor: number
+          p_rrf_k: number
+        }
+        Returns: {
+          chunk_id: string
+          conteudo: string
+          documento: string
+          ordem: number
+          rank_texto: number
+          rank_vetor: number
+          score: number
+          secao: string
+          similaridade: number
+        }[]
+      }
+      rag_segredo_valido: { Args: { p_segredo: string }; Returns: boolean }
+      rag_substituir_chunks: {
+        Args: {
+          p_conteudo_hash: string
+          p_documento: string
+          p_modelo: string
+          p_titulo: string
+          p_trechos: Json
+        }
+        Returns: Json
       }
       reivindicar_mensagens_agendadas: {
         Args: { p_limite?: number }

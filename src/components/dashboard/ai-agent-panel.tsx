@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2 } from "lucide-react";
+import { Bot, FileText, BookOpen, MessageSquare, Send, Trash2, Power, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
 import { ChatBubble } from "@/components/whatsapp/chat-ui";
@@ -13,7 +13,6 @@ import { Pill } from "@/components/ds/pill";
 import { PontoVivo } from "@/components/ajustes/ponto-vivo";
 import { Campo, LinhaAjuste, SeloIcone } from "@/components/ajustes/campos";
 import { SkeletonRows } from "@/components/ds/query-state";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,6 +93,28 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
     onError: () => toast.error("Erro ao criar o agente IA."),
   });
 
+  const toggleMutation = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      if (!agent) throw new Error("Agente não encontrado.");
+      const { data, error } = await supabase
+        .from("ai_agents")
+        .update({ is_active: isActive })
+        .eq("id", agent.id)
+        .eq("instance_id", instanceId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      if (data.is_active !== isActive) throw new Error("Status não foi atualizado.");
+      return data as AiAgent;
+    },
+    onSuccess: (updatedAgent) => {
+      queryClient.setQueryData(["ai-agent", instanceId], updatedAgent);
+      void queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+      toast.success(updatedAgent.is_active ? "IA ativada." : "IA desativada.");
+    },
+    onError: () => toast.error("Não foi possível alterar o status da IA. Tente novamente."),
+  });
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b border-border p-5">
@@ -107,14 +128,37 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
           </div>
         </div>
         {agent ? (
-          <Pill tone={agent.is_active ? "success" : "warning"} className="gap-2 px-3 py-1 text-xs">
-            <PontoVivo
-              tom={agent.is_active ? "success" : "warning"}
-              vivo={agent.is_active}
-              className="h-2 w-2"
-            />
-            {agent.is_active ? "Ativo" : "Pausado"}
-          </Pill>
+          <div className="flex flex-wrap items-center gap-3">
+            <Pill
+              tone={agent.is_active ? "success" : "warning"}
+              className="gap-2 px-3 py-1 text-xs"
+            >
+              <PontoVivo
+                tom={agent.is_active ? "success" : "warning"}
+                vivo={agent.is_active}
+                className="h-2 w-2"
+              />
+              {agent.is_active ? "Ativo" : "Pausado"}
+            </Pill>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={toggleMutation.isPending}
+              aria-pressed={agent.is_active}
+              onClick={() => toggleMutation.mutate(!agent.is_active)}
+            >
+              {toggleMutation.isPending ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : (
+                <Power aria-hidden />
+              )}
+              {toggleMutation.isPending
+                ? "Salvando..."
+                : agent.is_active
+                  ? "Desativar IA"
+                  : "Ativar IA"}
+            </Button>
+          </div>
         ) : null}
       </CardHeader>
       <CardContent className="p-5">
@@ -184,14 +228,12 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
-    is_active: agent.is_active,
     keywordsInput: (agent.transfer_keywords ?? []).join(", "),
   });
 
   useEffect(() => {
     setForm({
       mensagem_boas_vindas: agent.mensagem_boas_vindas ?? "",
-      is_active: agent.is_active,
       keywordsInput: (agent.transfer_keywords ?? []).join(", "),
     });
   }, [agent]);
@@ -207,7 +249,6 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
         .from("ai_agents")
         .update({
           mensagem_boas_vindas: form.mensagem_boas_vindas || null,
-          is_active: form.is_active,
           transfer_keywords: keywords,
         })
         .eq("id", agent.id);
@@ -226,21 +267,19 @@ function GeneralTab({ agent, instanceId }: { agent: AiAgent; instanceId: string 
         <LinhaAjuste
           titulo={
             <span className="flex items-center gap-2">
-              <PontoVivo tom={form.is_active ? "success" : "warning"} vivo={form.is_active} />
+              <PontoVivo tom={agent.is_active ? "success" : "warning"} vivo={agent.is_active} />
               Status do agente
             </span>
           }
           descricao={
-            form.is_active
+            agent.is_active
               ? "Respondendo leads automaticamente"
               : "Pausado — mensagens não serão respondidas pela IA"
           }
           controle={
-            <Switch
-              aria-label="Agente ativo"
-              checked={form.is_active}
-              onCheckedChange={(checked) => setForm((f) => ({ ...f, is_active: checked }))}
-            />
+            <Pill tone={agent.is_active ? "success" : "warning"}>
+              {agent.is_active ? "Ativo" : "Pausado"}
+            </Pill>
           }
         />
       </div>

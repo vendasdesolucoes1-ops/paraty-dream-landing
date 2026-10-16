@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Use `ai_agents.is_active` as the single persisted per-instance AI power control; both inbound responses and queued first contact must respect it to keep pause behavior consistent.

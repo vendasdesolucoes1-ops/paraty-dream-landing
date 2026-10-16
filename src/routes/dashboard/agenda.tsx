@@ -26,7 +26,19 @@ type AgendaView = "lista" | "semana" | "mes";
 type Periodo = "hoje" | "semana" | "todas";
 
 export const Route = createFileRoute("/dashboard/agenda")({
-  head: () => ({ meta: [{ title: "Agenda — Moradas de Paraty" }] }),
+  head: () => ({
+    meta: [
+      { title: "Agenda — Moradas de Paraty" },
+      { name: "description", content: "Organize visitas e atendimentos do Moradas de Paraty." },
+      { property: "og:title", content: "Agenda — Moradas de Paraty" },
+      {
+        property: "og:description",
+        content: "Organize visitas e atendimentos do Moradas de Paraty.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: AgendaPage,
 });
 
