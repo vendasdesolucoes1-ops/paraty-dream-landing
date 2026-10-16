@@ -79,12 +79,15 @@ export function CompraFormDialog({
   onOpenChange,
   clienteId,
   compra,
+  inicial,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clienteId: string;
   /** Presente = edição. */
   compra?: Compra;
+  /** Valores sugeridos numa compra nova (ex.: vindos da proposta aceita). */
+  inicial?: Partial<Pick<Compra, "lote_id" | "valor_total" | "valor_entrada" | "num_parcelas">>;
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -106,10 +109,19 @@ export function CompraFormDialog({
         escritura_emitida: compra.escritura_emitida,
         observacoes: compra.observacoes ?? "",
       });
+    } else if (inicial) {
+      setForm({
+        ...EMPTY,
+        lote_id: inicial.lote_id ?? SEM_LOTE,
+        // Vírgula decimal: numOrNull trata o ponto como separador de milhar.
+        valor_total: inicial.valor_total?.toString().replace(".", ",") ?? "",
+        valor_entrada: inicial.valor_entrada?.toString().replace(".", ",") ?? "",
+        num_parcelas: inicial.num_parcelas?.toString() ?? "",
+      });
     } else {
       setForm(EMPTY);
     }
-  }, [open, compra]);
+  }, [open, compra, inicial]);
 
   // Na criação só fazem sentido os lotes livres; na edição o lote atual já está
   // 'vendido' pelo trigger e precisa continuar aparecendo na lista.

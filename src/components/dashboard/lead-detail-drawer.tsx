@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   Cog,
   ExternalLink,
+  FileSignature,
   FileText,
   Headset,
   History,
@@ -91,6 +92,7 @@ import { DocumentoUploadDialog } from "@/components/documentos/documento-upload-
 import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
 import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
+import { LeadPropostasTab } from "@/components/propostas/lead-propostas-tab";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -1200,6 +1202,10 @@ export function LeadDetailDrawer({
                   <CalendarClock className="h-3.5 w-3.5" aria-hidden />
                   Visitas
                 </TabsTrigger>
+                <TabsTrigger value="propostas" className={TAB}>
+                  <FileSignature className="h-3.5 w-3.5" aria-hidden />
+                  Propostas
+                </TabsTrigger>
                 {canSeeDocumentos ? (
                   <TabsTrigger value="documentos" className={TAB}>
                     <FileText className="h-3.5 w-3.5" aria-hidden />
@@ -1228,6 +1234,9 @@ export function LeadDetailDrawer({
                 ) : null}
                 <TabsContent value="visitas" className="mt-0">
                   <VisitasTab lead={lead} />
+                </TabsContent>
+                <TabsContent value="propostas" className="mt-0">
+                  <LeadPropostasTab lead={lead} podeConverter={canSeeClientes} />
                 </TabsContent>
 
                 {canSeeClientes ? <LeadClienteSection lead={lead} /> : null}

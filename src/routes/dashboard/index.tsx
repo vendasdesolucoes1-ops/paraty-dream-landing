@@ -18,6 +18,7 @@ import { Cabecalho } from "@/components/dashboard/inicio/cabecalho";
 import { Entrada } from "@/components/dashboard/inicio/entrada";
 import { Fila } from "@/components/dashboard/inicio/fila";
 import { Foco } from "@/components/dashboard/inicio/foco";
+import { Forecast } from "@/components/dashboard/inicio/forecast";
 import { Funil } from "@/components/dashboard/inicio/funil";
 import { Indicadores } from "@/components/dashboard/inicio/indicadores";
 import { Recentes } from "@/components/dashboard/inicio/recentes";
@@ -84,6 +85,8 @@ function DashboardHome() {
   }).length;
   const pendencias = fila.data?.length;
   const primeiroNome = nome?.trim().split(/\s+/)[0];
+  // Forecast olha valores de contrato da operação inteira: só para a gestão.
+  const veForecast = papel === "admin" || papel === "gestor";
 
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-10">
@@ -131,7 +134,13 @@ function DashboardHome() {
         <Funil query={resumo} />
       </Reveal>
 
-      <Reveal ordem={5}>
+      {veForecast ? (
+        <Reveal ordem={5}>
+          <Forecast enabled={pronto} />
+        </Reveal>
+      ) : null}
+
+      <Reveal ordem={veForecast ? 6 : 5}>
         <Entrada chegadas={chegadas} resumo={resumo} />
       </Reveal>
     </div>
