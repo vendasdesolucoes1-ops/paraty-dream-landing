@@ -75,15 +75,19 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 > o site novo usa RPCs e colunas que só existem depois das migrations.
 
 1. **Pausar a IA** no painel (desliga respostas, fila e cadências).
-2. **Migrations** (24 arquivos, de `20261016000000` a `20261018000700`):
+2. **Migrations** (26 arquivos, de `20261016000000` a `20261018000900`):
    `supabase db push` com o projeto de produção linkado. Se o Lovable aplicar
    migrations por conta própria ao sincronizar, confirme no editor do Lovable
    que todas rodaram, na ordem, sem erro.
 3. **Site:** merge do PR na `main` (o Lovable publica o frontend). Conferir login,
    CRM e agenda.
 4. **Edge Functions:** `supabase functions deploy` de todas (inclui a nova
-   `followup-redigir`; `generate-post` e `publish-instagram` passam a responder
-   410 de propósito).
+   `followup-redigir`). `processar-fila-mensagens`, `whatsapp-webhook` e
+   `rag-admin` precisam subir **sem verificação de JWT** (já configurado em
+   `supabase/config.toml`): o cron e a Evolution se autenticam por segredo, e com
+   JWT o gateway recusaria (401) e a fila e o recebimento parariam. Se o deploy for
+   pelo Lovable, confira essa opção nas três. `generate-post` e
+   `publish-instagram` passam a responder 410 de propósito.
 5. **Secrets das funções** (`supabase secrets set`), opcionais:
    `OPENAI_FALLBACK_MODEL` (modelo reserva da Sophia), `EVOLUTION_ALLOWED_HOSTS`
    (hosts permitidos para a URL da Evolution, separados por vírgula).
@@ -123,9 +127,9 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 
 - CI: typecheck, testes unitários (Edge Functions e app), lint dos arquivos
   alterados, build, `deno check` de todas as funções, auditoria de dependências.
-- Banco: `scripts/db/testar-migrations.sh` aplica as 74 migrations num Postgres
+- Banco: `scripts/db/testar-migrations.sh` aplica as 76 migrations num Postgres
   limpo e roda os testes SQL (cadências, campanhas, métricas, alerta, busca,
-  opt-out).
+  opt-out, opções do agente, aprovação e agente único por instância).
 - **Não verificado:** comportamento real de pg_cron, pg_net, Vault e pgvector
   (imitados no teste), a Evolution real e os modelos de IA (evals rodam quando
   houver staging configurado).
