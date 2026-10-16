@@ -574,7 +574,9 @@ function KnowledgeBaseTab() {
     <div className="space-y-4">
       <p className="text-[0.875rem] leading-relaxed text-muted-foreground">
         Esta é a base de conhecimento que o agente consulta a cada conversa. Inclua informações
-        sobre lotes, preços, condições de pagamento e diferenciais do empreendimento.
+        sobre lotes, localização, infraestrutura e diferenciais do empreendimento. Valores e
+        condições de pagamento não entram: a Sophia nunca informa números (eles ficam em Condições
+        comerciais).
       </p>
 
       <div className="relative">
