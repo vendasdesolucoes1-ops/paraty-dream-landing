@@ -7,6 +7,7 @@ import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { BRAND_SLUG } from "../_shared/acervo.ts";
+import { carregarFatosAprovados, linhaCondicao } from "../_shared/fatos-comerciais.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -227,6 +228,9 @@ ${dbBrand ? `\nDIRETRIZES SALVAS DA MARCA:\n${dbBrand}` : ""}
 
 Gere a estrutura completa.`;
 
+    // Condição comercial só da tabela de fatos aprovados (VHA-51).
+    const fatos = await carregarFatosAprovados(admin);
+
     const aiResp = await fetch(`${GOOGLE_AI_BASE}/${MODEL_PLANNER}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": GOOGLE_AI_API_KEY, "Content-Type": "application/json" },
@@ -234,7 +238,9 @@ Gere a estrutura completa.`;
         // O Google não tem role "system": as instruções de marca vão em
         // systemInstruction, fora de contents. Dentro de contents elas viravam
         // só mais uma mensagem do usuário e o planner as tratava como sugestão.
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: {
+          parts: [{ text: SYSTEM_PROMPT.replace("{{CONDICAO_COMERCIAL}}", linhaCondicao(fatos)) }],
+        },
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         tools: [{
           functionDeclarations: [{
