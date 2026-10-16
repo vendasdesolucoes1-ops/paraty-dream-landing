@@ -25,6 +25,7 @@ import { fetchComRetry } from "./http.ts";
 import { handleLeadQualification } from "./lead-qualification.ts";
 import { handleVisitaAgendada } from "./lead-visita.ts";
 import { notificarResponsaveis } from "./notificar.ts";
+import { temTexto } from "./mensagem-entrada.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -115,6 +116,7 @@ async function finalizar(
     .select("id")
     .eq("lead_id", leadId)
     .eq("from_me", false)
+    .neq("content", "")
     .gt("created_at", inicio)
     .limit(1);
 
@@ -165,6 +167,9 @@ export async function responderLead(
         .select("id")
         .eq("lead_id", leadId)
         .eq("from_me", false)
+        // Mídia/áudio sem texto não dispara resposta (issue #55): não pode
+        // abortar a resposta a um texto anterior.
+        .neq("content", "")
         .gt("created_at", opcoes.recebidaEm)
         .limit(1);
       // A mensagem mais nova tem o próprio debounce: ela responde.
@@ -204,9 +209,17 @@ export async function responderLead(
     .select("content")
     .eq("lead_id", leadId)
     .eq("from_me", false)
+    .neq("content", "")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Nunca chama o modelo com mensagem vazia: a Sophia responderia a algo que
+  // não leu (áudio, mídia sem legenda). O webhook já trata esses casos.
+  if (!temTexto(ultima?.content)) {
+    await cancelar("mensagem sem texto");
+    return "abortado";
+  }
 
   const resposta = await fetchComRetry(
     `${SUPABASE_URL}/functions/v1/ai-agent-chat`,
@@ -218,7 +231,7 @@ export async function responderLead(
       },
       body: JSON.stringify({
         agent_id: agente.id,
-        message: ultima?.content ?? "",
+        message: String(ultima!.content).trim(),
         contact_phone: telefone,
         contact_name: lead.nome ?? null,
         lead_id: leadId,

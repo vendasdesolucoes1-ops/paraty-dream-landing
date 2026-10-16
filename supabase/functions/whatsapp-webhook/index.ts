@@ -8,7 +8,18 @@ import {
   isHumanTakeoverActive as takeoverAtivo,
   pauseAI as pausarIA,
 } from "../_shared/ai-takeover.ts";
-import { reconciliarEco } from "../_shared/envio-registrado.ts";
+import { enviarTextoRegistrado, reconciliarEco } from "../_shared/envio-registrado.ts";
+import { sendWhatsAppText } from "../_shared/evolution-send.ts";
+import { notificarResponsaveis } from "../_shared/notificar.ts";
+import {
+  base64NoPayload,
+  classificarMensagem,
+  descreverMidia,
+  extrairTexto,
+  resolverRemetente,
+  temTexto,
+} from "../_shared/mensagem-entrada.ts";
+import { transcreverAudio } from "../_shared/transcricao.ts";
 import {
   enfileirarResposta,
   responderLead,
@@ -24,28 +35,13 @@ declare const EdgeRuntime: { waitUntil(promessa: Promise<unknown>): void };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-function normalizePhone(remoteJid: string): string | null {
-  // @lid é um identificador interno do WhatsApp, não um telefone. Quando a
-  // Evolution ainda não resolveu remoteJidAlt após um novo QR, transformar os
-  // dígitos do LID em telefone criaria leads falsos no CRM.
-  if (remoteJid.includes("@lid")) return null;
-  const digitsOnly = remoteJid.replace(/@s\.whatsapp\.net|@g\.us/g, "").replace(/\D/g, "");
-  if (digitsOnly.length < 10 || digitsOnly.length > 15) return null;
-  if (digitsOnly.startsWith("55")) return digitsOnly;
-  return `55${digitsOnly}`;
-}
+// Telefone e texto da mensagem: ver _shared/mensagem-entrada.ts. Contatos @lid
+// só são descartados quando a Evolution não manda nenhum telefone alternativo
+// (remoteJidAlt/senderPn) — transformar os dígitos do LID em telefone criaria
+// leads falsos no CRM.
 
-function extractMessageText(message: Record<string, unknown> | undefined): string {
-  if (!message) return "";
-  const m = message as Record<string, any>;
-  return (
-    m.conversation ??
-    m.extendedTextMessage?.text ??
-    m.imageMessage?.caption ??
-    m.videoMessage?.caption ??
-    ""
-  );
-}
+const MENSAGEM_PEDIDO_TEXTO =
+  "Não consegui ouvir seu áudio por aqui 😅 Pode me mandar a mensagem por escrito, por favor?";
 
 async function findInstance(instanceName: string) {
   const { data } = await supabase
@@ -145,8 +141,7 @@ const pauseAIForHumanTakeover = (agentId: string | null, sessionId: string) =>
 
 async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
-  const remoteJid: string = data.key?.remoteJid;
-  if (!messageId || !remoteJid) return;
+  if (!messageId || !data.key?.remoteJid) return;
 
   // 2. Deduplication
   const { data: existingMessage } = await supabase
@@ -156,23 +151,31 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .maybeSingle();
   if (existingMessage) return;
 
-  // 3. Normalize phone
-  const phone = normalizePhone(remoteJid);
-  if (!phone) {
+  // 3. Normalize phone (@lid usa remoteJidAlt/senderPn quando houver)
+  const remetente = resolverRemetente(data);
+  if (!remetente) {
+    // Sem JID no log (LGPD): só se havia alternativa.
     console.warn("=== UNRESOLVED WHATSAPP JID ===", {
-      remoteJid,
-      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+      lid: String(data.key?.remoteJid).includes("@lid"),
+      temAlternativo: Boolean(
+        data.key?.remoteJidAlt ?? data.remoteJidAlt ?? data.key?.senderPn ?? data.senderPn,
+      ),
     });
     return;
   }
+  const phone = remetente.telefone;
+  const remoteJid = remetente.jid;
   const pushName: string | null = data.pushName ?? null;
-  const text = extractMessageText(data.message);
+  const tipoEntrada = classificarMensagem(data.message, data.messageType);
+  let text = extrairTexto(data.message);
 
   // Sem telefone nem texto no log (LGPD): só o tipo e o tamanho.
   console.log(
     "=== MESSAGE DATA ===",
     JSON.stringify({
       messageType: data.messageType,
+      tipoEntrada,
+      viaAlternativo: remetente.viaAlternativo,
       tamanho: text?.length ?? 0,
     }),
   );
@@ -196,6 +199,19 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
   // O lead escrever NÃO desfaz um opt-out: a Sophia responde quem escreveu,
   // mas o envio ativo (fila, campanhas) continua barrado até um desbloqueio
   // manual no painel. Antes o bloqueio caía sozinho a cada mensagem.
+
+  // Áudio: a transcrição vira o conteúdo da mensagem — é o que a Sophia lê e o
+  // que o vendedor vê no CRM. Falhou ou não há chave: segue sem texto.
+  let audioSemTranscricao = false;
+  if (tipoEntrada === "audio") {
+    const transcricao = await transcreverAudio(
+      instance as InstanciaWhatsapp,
+      data,
+      base64NoPayload(data),
+    );
+    if (temTexto(transcricao)) text = transcricao!;
+    else audioSemTranscricao = true;
+  }
 
   // 5. Save incoming message
   const { data: recebida } = await supabase
@@ -226,7 +242,18 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .maybeSingle();
   if (!agent) return;
 
-  // 7. Resposta durável: a linha na fila garante que, se este isolate morrer
+  // 7. Sem texto para o modelo: nunca chama a Sophia com mensagem vazia.
+  if (audioSemTranscricao) {
+    await pedirTextoAoLead(instance, lead.id, contact.id, phone);
+    return;
+  }
+  if (tipoEntrada === "midia_sem_legenda") {
+    await avisarMidiaSemLegenda(instance, lead.id, descreverMidia(data.message, data.messageType));
+    return;
+  }
+  if (!temTexto(text)) return;
+
+  // 8. Resposta durável: a linha na fila garante que, se este isolate morrer
   // durante o debounce, o cron responde. O caminho rápido abaixo responde em
   // ~30 s quando tudo corre bem (ver _shared/resposta-ia.ts).
   await enfileirarResposta(supabase, lead.id, phone, instance.id);
@@ -235,6 +262,60 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     recebidaEm: (recebida?.created_at as string | undefined) ?? new Date().toISOString(),
   });
   console.log("=== RESPOSTA ===", { leadId: lead.id, resultado });
+}
+
+/** Áudio não transcrito: a Sophia pede o texto e o vendedor fica sabendo. */
+async function pedirTextoAoLead(
+  instance: Record<string, any>,
+  leadId: string,
+  contactId: string | null,
+  phone: string,
+) {
+  await enviarTextoRegistrado(
+    supabase,
+    (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+    instance as InstanciaWhatsapp,
+    phone,
+    MENSAGEM_PEDIDO_TEXTO,
+    { lead_id: leadId, contact_id: contactId },
+  ).catch((e) => console.error("[webhook] pedido de texto não enviado:", (e as Error).message));
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "whatsapp",
+    conteudo:
+      "Lead mandou um áudio que não pôde ser transcrito. A Sophia pediu que ele escrevesse a mensagem.",
+  });
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "audio_nao_transcrito",
+      titulo: "Lead mandou áudio",
+      corpo: "Não foi possível transcrever o áudio. Ouça pelo WhatsApp se o lead não escrever.",
+    },
+    instance as InstanciaWhatsapp,
+  );
+}
+
+/** Mídia sem legenda: a Sophia não tem o que ler; quem decide é o vendedor. */
+async function avisarMidiaSemLegenda(instance: Record<string, any>, leadId: string, midia: string) {
+  await supabase.from("interacoes").insert({
+    lead_id: leadId,
+    tipo: "sistema",
+    canal: "whatsapp",
+    conteudo: `Lead mandou ${midia} sem legenda. A IA não respondeu; o vendedor foi avisado.`,
+  });
+  await notificarResponsaveis(
+    supabase,
+    leadId,
+    {
+      tipo: "midia_sem_legenda",
+      titulo: "Lead mandou mídia",
+      corpo: `O lead enviou ${midia} sem texto. Veja no WhatsApp e responda se precisar.`,
+    },
+    instance as InstanciaWhatsapp,
+  );
 }
 
 /** O telefone é de alguém da equipe de vendas (mesma chave de 10 dígitos)? */
@@ -251,8 +332,7 @@ async function ehTelefoneDeVendedor(phone: string): Promise<boolean> {
 
 async function handleOutgoingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
-  const remoteJid: string = data.key?.remoteJid;
-  if (!messageId || !remoteJid) return;
+  if (!messageId || !data.key?.remoteJid) return;
 
   // 1. If it already exists, it was sent by the AI agent — nothing to do
   const { data: existingMessage } = await supabase
@@ -263,15 +343,16 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
   if (existingMessage) return;
 
   // 2. Manual message sent by a human salesperson
-  const phone = normalizePhone(remoteJid);
-  if (!phone) {
+  const remetente = resolverRemetente(data);
+  if (!remetente) {
     console.warn("=== UNRESOLVED OUTGOING WHATSAPP JID ===", {
-      remoteJid,
-      remoteJidAlt: data.key?.remoteJidAlt ?? null,
+      lid: String(data.key?.remoteJid).includes("@lid"),
     });
     return;
   }
-  const text = extractMessageText(data.message);
+  const phone = remetente.telefone;
+  const remoteJid = remetente.jid;
+  const text = extrairTexto(data.message);
 
   // Segunda checagem, imune a timing: pode ser um envio NOSSO cujo message_id
   // real ainda não voltou da Evolution. Casa por conteúdo com a linha gravada

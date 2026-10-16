@@ -8,6 +8,7 @@ import { handleLeadQualification } from "../_shared/lead-qualification.ts";
 import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
 import { ehPedidoDeParada } from "../_shared/contato-bloqueado.ts";
+import { temTexto } from "../_shared/mensagem-entrada.ts";
 import { fetchComRetry } from "../_shared/http.ts";
 import { notificarResponsaveis } from "../_shared/notificar.ts";
 import { proximosDias } from "../_shared/data-br.ts";
@@ -700,6 +701,15 @@ Deno.serve(async (req) => {
 
     if (!apenasPreview && !OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
+    }
+
+    // Mensagem vazia (áudio, mídia sem legenda) não vai ao modelo: ele
+    // responderia a algo que não leu (issue #55).
+    if (!apenasPreview && !temTexto(message)) {
+      return new Response(JSON.stringify({ error: "mensagem sem texto" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { data: agent, error: agentError } = await supabase
