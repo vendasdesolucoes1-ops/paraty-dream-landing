@@ -11,11 +11,19 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Inbox, SearchX, Search, X } from "lucide-react";
+import { AlertCircle, Inbox, SearchX, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { LEAD_ORIGEM_OPTIONS, LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import {
+  TAMANHO_PAGINA_KANBAN,
+  leadsDaColuna,
+  limparTermoBusca,
+  type ContagensKanban,
+  type FiltrosKanban,
+} from "@/lib/kanban-leads";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Chip } from "@/components/ds/chip";
 import { QueryState } from "@/components/ds/query-state";
@@ -31,6 +39,14 @@ import { LeadDetailDrawer } from "@/components/dashboard/lead-detail-drawer";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { useProfile } from "@/hooks/use-profile";
+import {
+  aplicarLeadNoCache,
+  useColunaKanban,
+  useContagensKanban,
+  useLeadFicha,
+  useLeadsRealtime,
+  useResumoKanban,
+} from "@/hooks/use-kanban-leads";
 
 export const Route = createFileRoute("/dashboard/crm")({
   head: () => ({
@@ -59,23 +75,30 @@ export const Route = createFileRoute("/dashboard/crm")({
 
 const STATUS_LABEL_MAP = Object.fromEntries(LEAD_STATUS_COLUMNS.map((c) => [c.value, c.label]));
 
-/** Tira acento e caixa para a busca achar "Jose" em "José". */
-function normalizar(texto: string) {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+/** Segura o valor até a digitação parar, para não consultar o banco a cada tecla. */
+function useAtrasado<T>(valor: T, ms: number): T {
+  const [atrasado, setAtrasado] = useState(valor);
+  useEffect(() => {
+    const t = setTimeout(() => setAtrasado(valor), ms);
+    return () => clearTimeout(t);
+  }, [valor, ms]);
+  return atrasado;
 }
 
 function KanbanColumn({
   column,
   total,
+  vazia,
   indice,
+  rodape,
   children,
 }: {
   column: { value: LeadStatus; label: string };
   total: number;
+  /** Nada carregado e nada mais a carregar: mostra o "Sem leads". */
+  vazia: boolean;
   indice: number;
+  rodape?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver, active } = useDroppable({ id: column.value });
@@ -110,7 +133,7 @@ function KanbanColumn({
 
       <div className="flex flex-1 flex-col gap-2.5 px-2.5 pb-2.5">
         {children}
-        {total === 0 ? (
+        {vazia ? (
           <div
             className={cn(
               "flex min-h-24 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-3 py-6 text-center transition-colors duration-200",
@@ -125,6 +148,7 @@ function KanbanColumn({
             Solte para mover
           </div>
         ) : null}
+        {rodape}
       </div>
     </section>
   );
@@ -174,21 +198,7 @@ function QuadroEsqueleto() {
             <span className="text-[0.875rem] font-semibold text-muted-foreground">{c.label}</span>
           </div>
           <div className="space-y-2.5">
-            {Array.from({ length: i % 3 === 0 ? 3 : 2 }, (_, k) => (
-              <div
-                key={k}
-                className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-card)]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="skeleton-shimmer h-9 w-9 rounded-full bg-muted" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="skeleton-shimmer h-3 w-3/4 rounded bg-muted" />
-                    <div className="skeleton-shimmer h-2.5 w-1/2 rounded bg-muted" />
-                  </div>
-                </div>
-                <div className="skeleton-shimmer h-2.5 w-2/3 rounded bg-muted" />
-              </div>
-            ))}
+            <CartoesEsqueleto quantidade={i % 3 === 0 ? 3 : 2} />
           </div>
         </div>
       ))}
@@ -196,49 +206,118 @@ function QuadroEsqueleto() {
   );
 }
 
+function CartoesEsqueleto({ quantidade }: { quantidade: number }) {
+  return (
+    <>
+      {Array.from({ length: quantidade }, (_, k) => (
+        <div
+          key={k}
+          aria-hidden
+          className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-card)]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="skeleton-shimmer h-9 w-9 rounded-full bg-muted" />
+            <div className="flex-1 space-y-1.5">
+              <div className="skeleton-shimmer h-3 w-3/4 rounded bg-muted" />
+              <div className="skeleton-shimmer h-2.5 w-1/2 rounded bg-muted" />
+            </div>
+          </div>
+          <div className="skeleton-shimmer h-2.5 w-2/3 rounded bg-muted" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Uma etapa do quadro com a própria consulta paginada: 50 cartões por vez e
+ * "Carregar mais" no fim. O número do cabeçalho é o total da etapa no banco,
+ * não só o que está na tela.
+ */
+function ColunaDoQuadro({
+  column,
+  indice,
+  filtros,
+  habilitada,
+  total,
+  podeArrastar,
+  temAtendimentoHumano,
+  onAbrir,
+}: {
+  column: { value: LeadStatus; label: string };
+  indice: number;
+  filtros: FiltrosKanban;
+  habilitada: boolean;
+  total: number | undefined;
+  podeArrastar: (lead: Lead) => boolean;
+  temAtendimentoHumano: (lead: Lead) => boolean;
+  onAbrir: (id: string) => void;
+}) {
+  const coluna = useColunaKanban(column.value, filtros, habilitada);
+  const leads = useMemo(() => leadsDaColuna(coluna.data), [coluna.data]);
+  const totalEtapa = Math.max(total ?? 0, leads.length);
+  const vazia = !coluna.isLoading && !coluna.isError && leads.length === 0 && !coluna.hasNextPage;
+
+  let rodape: React.ReactNode = null;
+  if (coluna.isError && !coluna.isFetching) {
+    rodape = (
+      <div
+        role="alert"
+        className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border px-3 py-3 text-xs"
+      >
+        <span className="flex items-center gap-1.5 text-foreground">
+          <AlertCircle className="h-3.5 w-3.5 text-danger" aria-hidden />
+          Não foi possível carregar.
+        </span>
+        <Button type="button" variant="outline" size="sm" onClick={() => coluna.refetch()}>
+          Tentar de novo
+        </Button>
+      </div>
+    );
+  } else if (coluna.hasNextPage) {
+    rodape = (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={coluna.isFetchingNextPage}
+        onClick={() => coluna.fetchNextPage()}
+        className="w-full justify-center gap-1.5 text-[0.8125rem]"
+      >
+        {coluna.isFetchingNextPage ? "Carregando…" : "Carregar mais"}
+        <span className="num text-[0.72rem] text-muted-foreground">
+          {leads.length} de {totalEtapa}
+        </span>
+      </Button>
+    );
+  }
+
+  return (
+    <KanbanColumn column={column} total={totalEtapa} vazia={vazia} indice={indice} rodape={rodape}>
+      {coluna.isLoading ? <CartoesEsqueleto quantidade={2} /> : null}
+      {leads.map((lead, k) => (
+        <LeadCard
+          key={lead.id}
+          lead={lead}
+          indice={k % TAMANHO_PAGINA_KANBAN}
+          draggable={podeArrastar(lead)}
+          hasHumanTakeover={temAtendimentoHumano(lead)}
+          onClick={() => onAbrir(lead.id)}
+        />
+      ))}
+    </KanbanColumn>
+  );
+}
+
 function CrmPage() {
   const queryClient = useQueryClient();
   const { profile } = useProfile();
   const isVendedor = profile?.role === "vendedor";
+  const vendedorId = isVendedor ? (profile?.vendedor_id ?? null) : null;
+  const habilitado = !isVendedor || !!profile?.vendedor_id;
 
-  const leadsQueryKey = ["leads", isVendedor ? profile?.vendedor_id : "all"];
-
-  const {
-    data: leads,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-  } = useQuery({
-    queryKey: leadsQueryKey,
-    queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .is("deletado_em", null)
-        .order("created_at", { ascending: false });
-      if (isVendedor && profile?.vendedor_id) {
-        query = query.eq("vendedor_id", profile.vendedor_id);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Lead[];
-    },
-    enabled: !isVendedor || !!profile?.vendedor_id,
-  });
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("leads-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["leads"] });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Cada evento realtime mexe só no lead que mudou (ver use-kanban-leads.ts).
+  useLeadsRealtime();
 
   const { data: activeTakeoverPhones } = useQuery({
     queryKey: ["active-takeover-phones"],
@@ -258,26 +337,25 @@ function CrmPage() {
   // visão quando o funil real é o que importa.
   const [mostrarTestes, setMostrarTestes] = useState(true);
 
-  const totalTestes = useMemo(() => (leads ?? []).filter((l) => l.is_teste).length, [leads]);
-
   const [busca, setBusca] = useState("");
   const [origemFiltro, setOrigemFiltro] = useState<string>("todas");
+  // A busca vai para o banco (as colunas são paginadas lá), então espera a
+  // digitação parar. Como no banco, diferencia acento: "Jose" não acha "José".
+  const termo = limparTermoBusca(useAtrasado(busca, 300));
 
-  // Base do quadro: o que sobra depois do filtro de testes. As contagens de
-  // origem saem daqui para os chips mostrarem o que cada escolha traria.
-  const base = useMemo(
-    () => (leads ?? []).filter((l) => mostrarTestes || !l.is_teste),
-    [leads, mostrarTestes],
+  // Números dos chips: contados no banco com o filtro de testes, sem busca
+  // nem origem, para mostrarem o que cada escolha traria.
+  const resumo = useResumoKanban(vendedorId, mostrarTestes, habilitado);
+  const totalTestes = resumo.data?.testes ?? 0;
+
+  const origensDisponiveis = useMemo(
+    () =>
+      LEAD_ORIGEM_OPTIONS.filter((o) => (resumo.data?.porOrigem[o.value] ?? 0) > 0).map((o) => ({
+        ...o,
+        total: resumo.data?.porOrigem[o.value] ?? 0,
+      })),
+    [resumo.data],
   );
-
-  const origensDisponiveis = useMemo(() => {
-    const contagem = new Map<string, number>();
-    for (const l of base) if (l.origem) contagem.set(l.origem, (contagem.get(l.origem) ?? 0) + 1);
-    return LEAD_ORIGEM_OPTIONS.filter((o) => contagem.has(o.value)).map((o) => ({
-      ...o,
-      total: contagem.get(o.value) ?? 0,
-    }));
-  }, [base]);
 
   // Se a origem escolhida some (ex.: o filtro de testes a esvaziou), volta a "todas".
   const origemAtiva = origensDisponiveis.some((o) => o.value === origemFiltro)
@@ -285,35 +363,29 @@ function CrmPage() {
     : "todas";
   const filtrosAtivos = busca.trim() !== "" || origemAtiva !== "todas";
 
-  const columns = useMemo(() => {
-    const termo = normalizar(busca.trim());
-    const digitos = busca.replace(/\D/g, "");
-    const grouped = new Map<string, Lead[]>();
-    for (const column of LEAD_STATUS_COLUMNS) grouped.set(column.value, []);
-    for (const lead of base) {
-      if (origemAtiva !== "todas" && lead.origem !== origemAtiva) continue;
-      if (termo) {
-        const bate =
-          normalizar(lead.nome).includes(termo) ||
-          normalizar(lead.cidade ?? "").includes(termo) ||
-          normalizar(lead.email ?? "").includes(termo) ||
-          (digitos.length >= 3 && (lead.telefone ?? "").replace(/\D/g, "").includes(digitos));
-        if (!bate) continue;
-      }
-      grouped.get(lead.status_crm)?.push(lead);
-    }
-    return grouped;
-  }, [base, busca, origemAtiva]);
+  const filtros = useMemo<FiltrosKanban>(
+    () => ({
+      vendedorId,
+      mostrarTestes,
+      origem: origemAtiva === "todas" ? null : origemAtiva,
+      termo,
+    }),
+    [vendedorId, mostrarTestes, origemAtiva, termo],
+  );
 
-  const totalVisivel = useMemo(
-    () => Array.from(columns.values()).reduce((soma, lista) => soma + lista.length, 0),
-    [columns],
-  );
-  const contagemAnimada = useContagem(leads ? totalVisivel : null);
+  const contagens = useContagensKanban(filtros, habilitado);
   const contagensPorEtapa = useMemo(
-    () => new Map(Array.from(columns.entries()).map(([etapa, lista]) => [etapa, lista.length])),
-    [columns],
+    () =>
+      new Map<string, number>(
+        LEAD_STATUS_COLUMNS.map((c) => [c.value, contagens.data?.[c.value] ?? 0]),
+      ),
+    [contagens.data],
   );
+  const totalVisivel = useMemo(
+    () => Array.from(contagensPorEtapa.values()).reduce((soma, n) => soma + n, 0),
+    [contagensPorEtapa],
+  );
+  const contagemAnimada = useContagem(contagens.data ? totalVisivel : null);
 
   const { lead: leadDaUrl } = Route.useSearch();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leadDaUrl ?? null);
@@ -321,10 +393,7 @@ function CrmPage() {
   useEffect(() => {
     if (leadDaUrl) setSelectedLeadId(leadDaUrl);
   }, [leadDaUrl]);
-  const selectedLead = useMemo(
-    () => leads?.find((lead) => lead.id === selectedLeadId) ?? null,
-    [leads, selectedLeadId],
-  );
+  const selectedLead = useLeadFicha(selectedLeadId).data ?? null;
 
   // Lead being routed through the "Agendado" flow: dragged onto that column,
   // but status_crm only flips once VisitaFormDialog's own mutation succeeds.
@@ -351,16 +420,14 @@ function CrmPage() {
     });
   }
 
-  function moveLeadOptimistically(leadId: string, newStatus: LeadStatus) {
-    queryClient.setQueryData<Lead[]>(leadsQueryKey, (old) =>
-      old?.map((l) => (l.id === leadId ? { ...l, status_crm: newStatus } : l)),
-    );
+  // O movimento otimista passa pelo mesmo caminho do realtime: tira o cartão
+  // da coluna de origem, põe na de destino e ajusta as duas contagens.
+  function moveLeadOptimistically(lead: Lead, newStatus: LeadStatus) {
+    aplicarLeadNoCache(queryClient, lead.id, { ...lead, status_crm: newStatus }, lead);
   }
 
-  function revertLead(leadId: string, originalStatus: LeadStatus) {
-    queryClient.setQueryData<Lead[]>(leadsQueryKey, (old) =>
-      old?.map((l) => (l.id === leadId ? { ...l, status_crm: originalStatus } : l)),
-    );
+  function revertLead(lead: Lead, movedStatus: LeadStatus) {
+    aplicarLeadNoCache(queryClient, lead.id, lead, { ...lead, status_crm: movedStatus });
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -381,37 +448,46 @@ function CrmPage() {
 
     if (newStatus === "agendado") {
       // Optimistic move; only persisted once the visita is actually saved.
-      moveLeadOptimistically(lead.id, newStatus);
+      moveLeadOptimistically(lead, newStatus);
       agendamentoSavedRef.current = false;
       setPendingAgendamentoLead(lead);
       return;
     }
 
-    moveLeadOptimistically(lead.id, newStatus);
+    moveLeadOptimistically(lead, newStatus);
 
     try {
+      let salvo: Lead | undefined;
       if (newStatus === "qualificado" && !lead.vendedor_id) {
         const { data: nextVendedorId, error: rrError } = await supabase.rpc(
           "get_next_round_robin_salesperson",
         );
         if (rrError) throw rrError;
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("leads")
           .update({ status_crm: newStatus, vendedor_id: nextVendedorId })
-          .eq("id", lead.id);
+          .eq("id", lead.id)
+          .select();
         if (error) throw error;
+        salvo = data?.[0] as Lead | undefined;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("leads")
           .update({ status_crm: newStatus })
-          .eq("id", lead.id);
+          .eq("id", lead.id)
+          .select();
         if (error) throw error;
+        salvo = data?.[0] as Lead | undefined;
       }
 
+      // Em vez de recarregar o quadro, aplica a linha que o banco devolveu
+      // (traz o vendedor sorteado no rodízio, por exemplo).
+      if (salvo) {
+        aplicarLeadNoCache(queryClient, lead.id, salvo, { ...lead, status_crm: newStatus });
+      }
       await logStatusChange(lead, newStatus);
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
     } catch {
-      revertLead(lead.id, originalStatus);
+      revertLead(lead, newStatus);
       toast.error("Erro ao atualizar o status do lead.");
     }
   }
@@ -420,10 +496,11 @@ function CrmPage() {
     if (!open) {
       if (pendingAgendamentoLead && !agendamentoSavedRef.current) {
         // Dialog closed without saving — revert the optimistic move.
-        revertLead(pendingAgendamentoLead.id, pendingAgendamentoLead.status_crm);
+        revertLead(pendingAgendamentoLead, "agendado");
       }
+      // Salvo, o VisitaFormDialog já invalida ["leads"] e o realtime traz a
+      // mudança; sem salvar, desfazer o movimento otimista basta.
       setPendingAgendamentoLead(null);
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
     }
   }
 
@@ -478,7 +555,7 @@ function CrmPage() {
               <Chip
                 ativo={origemAtiva === "todas"}
                 onClick={() => setOrigemFiltro("todas")}
-                contagem={base.length}
+                contagem={resumo.data?.todas}
               >
                 Todas
               </Chip>
@@ -518,7 +595,13 @@ function CrmPage() {
       </Reveal>
 
       <QueryState
-        query={{ data: leads ?? [], isPending: isLoading, isError, refetch, isRefetching }}
+        query={{
+          data: contagens.data ?? ({} as ContagensKanban),
+          isPending: contagens.isLoading,
+          isError: contagens.isError,
+          refetch: contagens.refetch,
+          isRefetching: contagens.isRefetching,
+        }}
         skeleton={<QuadroEsqueleto />}
       >
         {() =>
@@ -558,30 +641,21 @@ function CrmPage() {
                 tabIndex={0}
                 className="-mx-1 flex snap-x snap-proximity gap-4 overflow-x-auto rounded-2xl px-1 pb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {LEAD_STATUS_COLUMNS.map((column, i) => {
-                  const columnLeads = columns.get(column.value) ?? [];
-                  return (
-                    <KanbanColumn
-                      key={column.value}
-                      column={column}
-                      total={columnLeads.length}
-                      indice={i}
-                    >
-                      {columnLeads.map((lead, k) => (
-                        <LeadCard
-                          key={lead.id}
-                          lead={lead}
-                          indice={k}
-                          draggable={canDrag(lead)}
-                          hasHumanTakeover={
-                            !!lead.telefone && activeTakeoverPhones?.has(lead.telefone)
-                          }
-                          onClick={() => setSelectedLeadId(lead.id)}
-                        />
-                      ))}
-                    </KanbanColumn>
-                  );
-                })}
+                {LEAD_STATUS_COLUMNS.map((column, i) => (
+                  <ColunaDoQuadro
+                    key={column.value}
+                    column={column}
+                    indice={i}
+                    filtros={filtros}
+                    habilitada={habilitado}
+                    total={contagens.data?.[column.value]}
+                    podeArrastar={canDrag}
+                    temAtendimentoHumano={(lead) =>
+                      !!lead.telefone && !!activeTakeoverPhones?.has(lead.telefone)
+                    }
+                    onAbrir={setSelectedLeadId}
+                  />
+                ))}
               </div>
               <DragOverlay
                 dropAnimation={{ duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }}

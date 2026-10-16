@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Paperclip, Send, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { parseContactsCsv, parseManualContacts } from "@/lib/csv";
+import { buscarEmLotes, buscarPorIds } from "@/lib/buscar-em-lotes";
 import type { Lead, LeadStatus, WhatsappInstance } from "@/lib/types";
 import { COLUNAS_INSTANCIA_PAINEL } from "@/lib/types";
 import { LEAD_STATUS_COLUMNS } from "@/lib/types";
@@ -134,18 +135,30 @@ export function MassDispatcherCard() {
     },
   });
 
-  const { data: crmLeads } = useQuery({
+  // Quantos leads do CRM já chegaram, para mostrar o andamento da leitura.
+  const [crmCarregados, setCrmCarregados] = useState(0);
+
+  // Em lotes: uma consulta só voltava no máximo 1.000 leads (teto do
+  // PostgREST) e o disparo saía para menos gente do que o filtro prometia.
+  const { data: crmLeads, isFetching: carregandoCrm } = useQuery({
     queryKey: ["ferramentas-crm-leads", crmStatusFilter],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .is("deletado_em", null)
-        .not("telefone", "is", null);
-      if (crmStatusFilter !== "todos") query = query.eq("status_crm", crmStatusFilter);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Lead[];
+      setCrmCarregados(0);
+      return buscarEmLotes<Pick<Lead, "id" | "nome" | "telefone">>(
+        (de, ate) => {
+          let query = supabase
+            .from("leads")
+            .select("id, nome, telefone")
+            .is("deletado_em", null)
+            .not("telefone", "is", null);
+          if (crmStatusFilter !== "todos") query = query.eq("status_crm", crmStatusFilter);
+          return query
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(de, ate);
+        },
+        { aoProgredir: setCrmCarregados },
+      );
     },
     enabled: source === "crm",
   });
@@ -159,12 +172,11 @@ export function MassDispatcherCard() {
     queryKey: ["disparador-leads-selecionados", [...selectedLeadIds].sort().join(",")],
     queryFn: async () => {
       if (selectedLeadIds.size === 0) return [];
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, nome, telefone")
-        .in("id", [...selectedLeadIds]);
-      if (error) throw error;
-      return data as Pick<Lead, "id" | "nome" | "telefone">[];
+      // Em pedaços: milhares de ids num `.in()` só estouram a URL e, mesmo
+      // cabendo, a resposta pararia nas 1.000 linhas do PostgREST.
+      return buscarPorIds<Pick<Lead, "id" | "nome" | "telefone">>([...selectedLeadIds], (ids) =>
+        supabase.from("leads").select("id, nome, telefone").in("id", ids),
+      );
     },
     enabled: source === "selecao" && selectedLeadIds.size > 0,
   });
@@ -602,10 +614,20 @@ export function MassDispatcherCard() {
               </Campo>
             )}
 
-            <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
-              <span className="num text-base font-semibold tabular-nums">{contacts.length}</span>
-              contatos serão impactados
-            </p>
+            {source === "crm" && carregandoCrm ? (
+              <p
+                role="status"
+                className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"
+              >
+                Carregando leads do CRM…
+                <span className="num tabular-nums">{crmCarregados}</span>
+              </p>
+            ) : (
+              <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
+                <span className="num text-base font-semibold tabular-nums">{contacts.length}</span>
+                contatos serão impactados
+              </p>
+            )}
           </Secao>
 
           {/* max-w-xl, não max-w-sm: com o toggle na mesma linha do rótulo, os
@@ -665,7 +687,14 @@ export function MassDispatcherCard() {
               {!isRunning ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button disabled={contacts.length === 0 || !message.trim() || !instanceId}>
+                    <Button
+                      disabled={
+                        contacts.length === 0 ||
+                        !message.trim() ||
+                        !instanceId ||
+                        (source === "crm" && carregandoCrm)
+                      }
+                    >
                       Iniciar Disparo
                     </Button>
                   </AlertDialogTrigger>
