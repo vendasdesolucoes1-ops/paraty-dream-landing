@@ -12,6 +12,7 @@ import {
   useUltimosLeads,
 } from "@/lib/dashboard-queries";
 import { inicioDoDia, somarDias } from "@/lib/format";
+import { useMinhasTarefasHoje, useSlaPorVendedor } from "@/lib/tarefas";
 import { Reveal } from "@/components/ds/reveal";
 import { Agenda } from "@/components/dashboard/inicio/agenda";
 import { Cabecalho } from "@/components/dashboard/inicio/cabecalho";
@@ -22,6 +23,8 @@ import { Forecast } from "@/components/dashboard/inicio/forecast";
 import { Funil } from "@/components/dashboard/inicio/funil";
 import { Indicadores } from "@/components/dashboard/inicio/indicadores";
 import { Recentes } from "@/components/dashboard/inicio/recentes";
+import { SlaPorVendedor } from "@/components/dashboard/inicio/sla";
+import { MinhasTarefas } from "@/components/dashboard/inicio/tarefas";
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({
@@ -76,6 +79,10 @@ function DashboardHome() {
   const fila = useFilaDeAcao(escopo, papel, pronto);
   const ultimos = useUltimosLeads(escopo, pronto);
   const lotes = useLotesDisponiveis(pronto);
+  // Vendedor: as próprias tarefas do dia. Gestão: o SLA de cada vendedor.
+  const gestao = papel === "admin" || papel === "gestor";
+  const tarefas = useMinhasTarefasHoje(pronto && papel === "vendedor");
+  const sla = useSlaPorVendedor(pronto && gestao);
 
   const hoje = inicioDoDia();
   const amanha = somarDias(hoje, 1);
@@ -118,7 +125,13 @@ function DashboardHome() {
         />
       </Reveal>
 
-      <Reveal ordem={3}>
+      {papel === "vendedor" || gestao ? (
+        <Reveal ordem={3}>
+          {gestao ? <SlaPorVendedor query={sla} /> : <MinhasTarefas query={tarefas} />}
+        </Reveal>
+      ) : null}
+
+      <Reveal ordem={4}>
         <div className="grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-12">
           <div className="min-w-0 lg:col-span-7">
             <Fila ref={filaRef} query={fila} />
@@ -130,17 +143,17 @@ function DashboardHome() {
         </div>
       </Reveal>
 
-      <Reveal ordem={4}>
+      <Reveal ordem={5}>
         <Funil query={resumo} />
       </Reveal>
 
       {veForecast ? (
-        <Reveal ordem={5}>
+        <Reveal ordem={6}>
           <Forecast enabled={pronto} />
         </Reveal>
       ) : null}
 
-      <Reveal ordem={veForecast ? 6 : 5}>
+      <Reveal ordem={veForecast ? 7 : 6}>
         <Entrada chegadas={chegadas} resumo={resumo} />
       </Reveal>
     </div>

@@ -13,6 +13,7 @@ import {
   FileText,
   Headset,
   History,
+  ListTodo,
   Mail,
   MapPin,
   MapPinned,
@@ -93,6 +94,7 @@ import { DocumentoCard } from "@/components/documentos/documento-card";
 import { DocumentoPreviewDialog } from "@/components/documentos/documento-preview-dialog";
 import { LeadClienteSection } from "@/components/clientes/lead-cliente-section";
 import { LeadPropostasTab } from "@/components/propostas/lead-propostas-tab";
+import { LeadTarefasTab } from "@/components/dashboard/lead-tarefas-tab";
 import { useProfile } from "@/hooks/use-profile";
 import type { DocumentoWithLead } from "@/lib/types";
 
@@ -1194,6 +1196,10 @@ export function LeadDetailDrawer({
                   <History className="h-3.5 w-3.5" aria-hidden />
                   Histórico
                 </TabsTrigger>
+                <TabsTrigger value="tarefas" className={TAB}>
+                  <ListTodo className="h-3.5 w-3.5" aria-hidden />
+                  Tarefas
+                </TabsTrigger>
                 <TabsTrigger value="whatsapp" className={TAB}>
                   <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                   Conversas WhatsApp
@@ -1223,6 +1229,9 @@ export function LeadDetailDrawer({
                 </TabsContent>
                 <TabsContent value="historico" className="mt-0">
                   <HistoricoTab leadId={lead.id} />
+                </TabsContent>
+                <TabsContent value="tarefas" className="mt-0">
+                  <LeadTarefasTab leadId={lead.id} />
                 </TabsContent>
                 <TabsContent value="whatsapp" className="mt-0">
                   <WhatsappTab leadId={lead.id} nome={lead.nome} telefone={lead.telefone} />
