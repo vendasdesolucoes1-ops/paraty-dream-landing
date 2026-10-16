@@ -1,6 +1,6 @@
 // Função legada desativada (auditoria de 15/10/2026, R-01).
 //
-// Não tinha tela no painel, não exigia login e chamava gpt-4o-mini e DALL·E 3
+// Não tinha tela no painel, não exigia login e chamava a OpenAI (texto e DALL·E 3)
 // sem teto de custo. O fluxo atual de conteúdo é o Imagery Engine
 // (imagery-plan-post → imagery-orchestrate → imagery-publish-instagram).
 //

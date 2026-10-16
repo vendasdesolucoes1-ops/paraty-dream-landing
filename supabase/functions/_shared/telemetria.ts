@@ -1,14 +1,8 @@
 // Registro de cada chamada de IA em `ai_chamadas` (auditoria R-24).
 //
-// Preço por 1M de tokens em USD. Conferir na página de preços do provedor ao
-// trocar de modelo: o custo registrado é estimativa a partir desta tabela.
+// A tabela de preço por 1M de tokens fica em modelos.ts, junto dos IDs.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const PRECO_POR_MILHAO: Record<string, { entrada: number; saida: number }> = {
-  "gpt-4o-mini": { entrada: 0.15, saida: 0.6 },
-  "gpt-4o": { entrada: 2.5, saida: 10 },
-  "text-embedding-3-small": { entrada: 0.02, saida: 0 },
-};
+import { PRECO_POR_MILHAO } from "./modelos.ts";
 
 export interface ChamadaIA {
   funcao: string;

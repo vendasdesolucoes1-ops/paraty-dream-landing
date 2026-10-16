@@ -5,14 +5,15 @@
 // lead que escreva e avisa o vendedor — nunca manda texto vazio ao modelo.
 
 import { fetchComRetry } from "./http.ts";
+import { MODELOS } from "./modelos.ts";
 
 const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
   .trim()
   .replace(/[\r\n\t]/g, "")
   .replace(/[^\x20-\x7E]/g, "");
 
-// Primeiro o modelo mais barato e recente; whisper-1 como reserva.
-const MODELOS = ["gpt-4o-mini-transcribe", "whisper-1"];
+// Primeiro o modelo mais barato e recente; o antigo como reserva.
+const MODELOS_TRANSCRICAO = [MODELOS.transcricao.id, MODELOS.transcricaoReserva.id];
 
 /** Limite da OpenAI para o arquivo de áudio. */
 const TAMANHO_MAXIMO_BYTES = 25 * 1024 * 1024;
@@ -96,7 +97,7 @@ export async function transcreverAudio(
       .trim();
     const arquivo = new Blob([bytes], { type: mime });
 
-    for (const modelo of MODELOS) {
+    for (const modelo of MODELOS_TRANSCRICAO) {
       const form = new FormData();
       form.append("file", arquivo, `audio.${extensaoDoMime(mime)}`);
       form.append("model", modelo);

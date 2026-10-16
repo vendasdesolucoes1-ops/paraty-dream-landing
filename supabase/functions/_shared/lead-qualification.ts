@@ -18,10 +18,11 @@ import { leadBloqueado } from "./contato-bloqueado.ts";
 import { fetchComRetry } from "./http.ts";
 import { enviarTextoRegistrado } from "./envio-registrado.ts";
 import { registrarChamadaIA } from "./telemetria.ts";
+import { MODELOS } from "./modelos.ts";
 
 // Extração é tarefa curta e mecânica — o modelo pequeno basta e mantém o custo
 // por lead qualificado irrelevante.
-const EXTRACTION_MODEL = "gpt-4o-mini";
+const EXTRACTION_MODEL = MODELOS.qualificacaoLead.id;
 
 // Destino do resumo quando o lead é de teste. O round-robin continua rodando
 // normalmente (a atribuição no CRM é parte do que se quer observar), mas o
@@ -98,7 +99,7 @@ async function extrairDadosQualificacao(
         },
         body: JSON.stringify({
           model: EXTRACTION_MODEL,
-          temperature: 0,
+          temperature: MODELOS.qualificacaoLead.temperatura,
           response_format: { type: "json_object" },
           messages: [
             {
@@ -121,7 +122,7 @@ async function extrairDadosQualificacao(
     const result = await response.json();
     await registrarChamadaIA(supabase, {
       funcao: "extracao_qualificacao",
-      modelo: "gpt-4o-mini",
+      modelo: EXTRACTION_MODEL,
       leadId,
       usage: result.usage,
       latenciaMs: Date.now() - inicioIA,

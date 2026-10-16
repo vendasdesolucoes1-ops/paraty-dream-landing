@@ -29,8 +29,9 @@ import {
 } from "./janela-visita.ts";
 import { notificarResponsaveis } from "./notificar.ts";
 import { registrarChamadaIA } from "./telemetria.ts";
+import { MODELOS } from "./modelos.ts";
 
-const EXTRACTION_MODEL = "gpt-4o-mini";
+const EXTRACTION_MODEL = MODELOS.extracaoVisita.id;
 
 // Janela de sanidade. Uma data fora disso é quase sempre erro de interpretação
 // ("ano que vem", data no passado, alucinação) — nesses casos é melhor uma
@@ -118,7 +119,7 @@ async function extrairDataVisita(
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
         body: JSON.stringify({
           model: EXTRACTION_MODEL,
-          temperature: 0,
+          temperature: MODELOS.extracaoVisita.temperatura,
           response_format: { type: "json_object" },
           messages: [
             {
@@ -150,7 +151,7 @@ async function extrairDataVisita(
     const resultado = await response.json();
     await registrarChamadaIA(supabase, {
       funcao: "extracao_visita",
-      modelo: "gpt-4o-mini",
+      modelo: EXTRACTION_MODEL,
       leadId,
       usage: resultado.usage,
       latenciaMs: Date.now() - inicioIA,

@@ -1,4 +1,4 @@
-// Supabase Edge Function — AI sales agent chat completion (OpenAI gpt-4o-mini).
+// Supabase Edge Function — AI sales agent chat completion (OpenAI; modelo em _shared/modelos.ts).
 // Qualifies leads and drives toward scheduling a site visit, never closing the sale in-chat.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -32,6 +32,8 @@ import {
   resolverConhecimento,
   type ConhecimentoParaPrompt,
 } from "../_shared/rag.ts";
+import { MODELOS, resolverModeloSophia } from "../_shared/modelos.ts";
+import { blocoEstiloAgente, type PreferenciasEstilo } from "../_shared/estilo-agente.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -42,8 +44,9 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const OPENAI_MODEL = "gpt-4o-mini";
-const OPENAI_FALLBACK_MODEL = (Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "").trim();
+// O modelo principal vem do agente (ai_agents.modelo, validado contra a lista
+// do registro); o fallback, do env OPENAI_FALLBACK_MODEL via registro.
+const OPENAI_FALLBACK_MODEL = MODELOS.sophiaFallback.id;
 const VISITA_AGENDADA_TAG = "[VISITA_AGENDADA]";
 const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
 // Mesma marca que whatsapp-webhook.ts procura para disparar a atribuição por
@@ -634,6 +637,7 @@ function montarPromptFinal(
   lead: LeadConhecido | null,
   agora: Date,
   janelas: JanelasVisita,
+  estilo: PreferenciasEstilo,
 ): string {
   const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
   // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
@@ -642,6 +646,8 @@ function montarPromptFinal(
   // não pode depender de o texto do painel lembrar de incluir.
   return [
     basePrompt,
+    // Logo após a base, cujas regras de estilo ele ajusta (tom, emoji, tamanho).
+    blocoEstiloAgente(estilo),
     blocoDataDeHoje(agora),
     blocoHorariosVisita(janelas),
     blocoLeadConhecido(lead),
@@ -894,6 +900,7 @@ Deno.serve(async (req) => {
       leadConhecido,
       new Date(),
       lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null),
+      agent,
     );
 
     if (apenasPreview) {
@@ -933,8 +940,8 @@ Deno.serve(async (req) => {
           ]),
           body: JSON.stringify({
             model: modelo,
-            max_tokens: 1000,
-            temperature: 0.4,
+            max_tokens: MODELOS.sophiaChat.maxTokens,
+            temperature: MODELOS.sophiaChat.temperatura,
             response_format: FORMATO_SAIDA,
             messages: [
               { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
@@ -946,13 +953,14 @@ Deno.serve(async (req) => {
         { timeoutMs: 20_000, retries: 1 },
       );
 
+    const modeloPrincipal = resolverModeloSophia(agent.modelo);
     const inicioModelo = Date.now();
-    let modeloUsado = OPENAI_MODEL;
-    let openaiResponse = await chamarModelo(OPENAI_MODEL).catch((e) => e as Error);
+    let modeloUsado: string = modeloPrincipal;
+    let openaiResponse = await chamarModelo(modeloPrincipal).catch((e) => e as Error);
     if (
       (openaiResponse instanceof Error || !openaiResponse.ok) &&
       OPENAI_FALLBACK_MODEL &&
-      OPENAI_FALLBACK_MODEL !== OPENAI_MODEL
+      OPENAI_FALLBACK_MODEL !== modeloPrincipal
     ) {
       console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
         erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,

@@ -8,20 +8,22 @@ import { DAILY_BUDGET_USD, estimatePostCost } from "../_shared/imagery-cost.ts";
 import { BRAND_BIBLE, CONTENT_PLAYBOOK, VISUAL_DIRECTION } from "../_shared/brand.ts";
 import { BRAND_SLUG } from "../_shared/acervo.ts";
 import { carregarFatosAprovados, linhaCondicao } from "../_shared/fatos-comerciais.ts";
+import { MODELOS } from "../_shared/modelos.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const GOOGLE_AI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL_PLANNER = "gemini-3-flash-preview";
+const MODEL_PLANNER = MODELOS.planejamentoImagem.id;
 
-// Google list price oficial, gemini-3-flash-preview, verificado 2026-07-29.
-const PLANNER_IN_PER_1M = 0.5;
-const PLANNER_OUT_PER_1M = 3.0;
+// Google list price oficial do Flash 2.5 estável (texto/imagem de entrada;
+// saída inclui thinking). Saiu da versão preview na issue #61.
+const PLANNER_IN_PER_1M = 0.3;
+const PLANNER_OUT_PER_1M = 2.5;
 
 /**
- * Custo real da chamada a partir do usageMetadata. A família Gemini 3 também
+ * Custo real da chamada a partir do usageMetadata. O Flash 2.5 também
  * raciocina: thoughtsTokenCount é cobrado como output e costuma superar a
  * resposta em si, então ignorá-lo subestimaria o gasto por larga margem.
  */
