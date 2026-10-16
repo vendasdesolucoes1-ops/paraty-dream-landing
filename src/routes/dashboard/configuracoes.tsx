@@ -11,6 +11,7 @@ import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
 import { TeamPanel } from "@/components/dashboard/team-panel";
 import { JanelasVisitaCard } from "@/components/dashboard/janelas-visita-card";
+import { CondicoesComerciaisCard } from "@/components/dashboard/condicoes-comerciais-card";
 import { Button } from "@/components/ui/button";
 import { Bloco } from "@/components/ds/bloco";
 import { SkeletonRows } from "@/components/ds/query-state";
@@ -112,6 +113,14 @@ function ConfiguracoesPage() {
         divisor
       >
         <JanelasVisitaCard />
+      </Bloco>
+
+      <Bloco
+        titulo="Condições comerciais"
+        descricao="Entrada e prazo de pagamento. A condição vigente aparece na landing e nas peças do Imagery."
+        divisor
+      >
+        <CondicoesComerciaisCard />
       </Bloco>
     </div>
   );

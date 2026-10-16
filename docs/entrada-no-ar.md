@@ -8,9 +8,9 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 
 | # | Decisão | Onde pesa | Padrão no código |
 | --- | --- | --- | --- |
-| D1 | Condições comerciais oficiais (prazo de parcelamento, entrada) | `fatos_comerciais` começa como `pendente`; nada com condição é publicado até aprovar | bloqueado |
-| D2 | Identidade da Sophia (assistente virtual declarada ou não) — #46 | prompt da Sophia | sem mudança |
-| D3 | Texto do consentimento do formulário (revisão jurídica) e RIPD/DPA — #48 | `LeadForm` (`VERSAO_CONSENTIMENTO`) | texto provisório |
+| D1 | ~~Condições comerciais oficiais~~ **Resolvido:** a gestão cria, edita e escolhe a vigente em Configurações → Condições comerciais | landing e Imagery | começa vigente "Condição de lançamento" (10% + 240x), igual ao que a landing já mostra |
+| D2 | ~~Identidade da Sophia~~ **Resolvido (18/10):** não se apresenta como virtual; se perguntarem diretamente, não mente (diz que é a assistente digital da equipe e oferece um consultor) | prompt da Sophia | aplicado |
+| D3 | ~~Texto do consentimento~~ **Aprovado (18/10).** Falta o RIPD/DPA com os provedores — #48 | `LeadForm` | texto atual |
 | D4 | Campanha exige base legal (consentimento ou conversa iniciada pelo lead)? | Configurações → Cadências → Regras de envio | **exige** (leads só raspados do Google Maps não recebem campanha) |
 | D5 | Limite diário por número, rampa de aquecimento, máx. de tentativas, limite de opt-out | Regras de envio | 150/dia, rampa 20→150 em 21 dias só para número novo, 2 tentativas, pausa com opt-out > 5% (mín. 20 envios) |
 | D6 | Ligar as cadências "Lembretes de visita" e "Sem resposta ao primeiro contato" (revisar o texto antes) | Cadências | **desligadas** |
@@ -75,7 +75,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 > o site novo usa RPCs e colunas que só existem depois das migrations.
 
 1. **Pausar a IA** no painel (desliga respostas, fila e cadências).
-2. **Migrations** (23 arquivos, de `20261016000000` a `20261018000600`):
+2. **Migrations** (24 arquivos, de `20261016000000` a `20261018000700`):
    `supabase db push` com o projeto de produção linkado. Se o Lovable aplicar
    migrations por conta própria ao sincronizar, confirme no editor do Lovable
    que todas rodaram, na ordem, sem erro.
@@ -123,7 +123,7 @@ como voltar atrás. Nada aqui foi aplicado no Supabase de produção.
 
 - CI: typecheck, testes unitários (Edge Functions e app), lint dos arquivos
   alterados, build, `deno check` de todas as funções, auditoria de dependências.
-- Banco: `scripts/db/testar-migrations.sh` aplica as 73 migrations num Postgres
+- Banco: `scripts/db/testar-migrations.sh` aplica as 74 migrations num Postgres
   limpo e roda os testes SQL (cadências, campanhas, métricas, alerta, busca,
   opt-out).
 - **Não verificado:** comportamento real de pg_cron, pg_net, Vault e pgvector

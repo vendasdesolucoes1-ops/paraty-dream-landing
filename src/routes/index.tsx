@@ -8,6 +8,7 @@ import {
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
 import { LeadForm } from "@/components/landing/LeadForm";
+import { useCondicaoVigente } from "@/components/landing/condicao-vigente";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
 import {
   Banknote,
@@ -350,12 +351,16 @@ const INFRAESTRUTURA = [
 ] as const;
 
 /**
- * Condição comercial — o "herói" das peças de feed: 10% de entrada e saldo
- * em até 240x direto com a loteadora. Mesmo bloco do componente "Card de
- * Oferta" do design system: números em Playfair dourado dentro de moldura
- * dourada sobre o verde.
+ * Condição comercial — o "herói" das peças de feed: entrada e saldo direto
+ * com a loteadora. Os números vêm da condição vigente escolhida no painel
+ * (Configurações → Condições comerciais); sem vigente, o bloco não cita
+ * números. Mesmo bloco do componente "Card de Oferta" do design system:
+ * números em Playfair dourado dentro de moldura dourada sobre o verde.
  */
 function CondicoesEspeciais() {
+  const condicao = useCondicaoVigente();
+  // Enquanto carrega, o espaço fica reservado (sem pulo de layout).
+  const oculto = condicao === undefined ? "invisible" : "";
   return (
     <section id="condicoes" className="bg-secondary py-24 sm:py-32">
       <div className="container-x grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-center">
@@ -393,18 +398,34 @@ function CondicoesEspeciais() {
                 className="pointer-events-none absolute inset-3 sm:inset-4 rounded-[20px] border border-gold/70"
               />
               <div className="relative grid items-center gap-8 sm:grid-cols-[1fr_auto_1fr] text-center">
-                <div>
-                  <p className="eyebrow text-ivory/80">A partir de</p>
+                <div className={oculto}>
+                  <p className="eyebrow text-ivory/80">{condicao ? "A partir de" : "Entrada"}</p>
                   <p className="lp-num mt-3 text-gold text-[5.5rem] sm:text-[7rem]">
-                    10<span className="text-[0.55em] align-top">%</span>
+                    {condicao ? (
+                      <>
+                        {condicao.entrada}
+                        <span className="text-[0.55em] align-top">%</span>
+                      </>
+                    ) : (
+                      <span className="text-[0.45em]">facilitada</span>
+                    )}
                   </p>
-                  <p className="font-display mt-2 text-2xl sm:text-3xl">de entrada</p>
+                  <p className="font-display mt-2 text-2xl sm:text-3xl">
+                    {condicao ? "de entrada" : "direto com a loteadora"}
+                  </p>
                 </div>
                 <div aria-hidden="true" className="mx-auto h-px w-2/3 bg-gold/70 sm:h-40 sm:w-px" />
-                <div>
-                  <p className="eyebrow text-ivory/80">Saldo em até</p>
+                <div className={oculto}>
+                  <p className="eyebrow text-ivory/80">{condicao ? "Saldo em até" : "Saldo"}</p>
                   <p className="lp-num mt-3 text-gold text-[5.5rem] sm:text-[7rem]">
-                    240<span className="text-[0.55em]">x</span>
+                    {condicao ? (
+                      <>
+                        {condicao.parcelas}
+                        <span className="text-[0.55em]">x</span>
+                      </>
+                    ) : (
+                      <span className="text-[0.45em]">parcelado</span>
+                    )}
                   </p>
                   <p className="eyebrow mt-3 text-sand leading-relaxed">
                     Direto com
