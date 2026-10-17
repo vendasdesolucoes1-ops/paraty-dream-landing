@@ -28,10 +28,23 @@ import {
   textoComMarcasConfiaveis,
 } from "../_shared/saida-sophia.ts";
 import {
+  buscarTrechos,
+  formatarTrechos,
   registrarConsultaRag,
   resolverConhecimento,
   type ConhecimentoParaPrompt,
 } from "../_shared/rag.ts";
+import {
+  blocoFerramentas,
+  ferramentasDoNivel,
+  horariosLivres,
+  nivelAutonomia,
+  patchDoLead,
+  permite,
+  resumirLotes,
+  resumoDoRegistro,
+  type NivelAutonomia,
+} from "../_shared/ferramentas-sophia.ts";
 import { MODELOS, resolverModeloSophia } from "../_shared/modelos.ts";
 import {
   blocoEstiloAgente,
@@ -139,6 +152,7 @@ COMO ESCREVER:
 - Português do Brasil, direto e natural — como alguém da equipe escrevendo no WhatsApp, não um script de atendimento.
 - Use contrações e frases curtas. Evite repetir saudação ("Estou muito bem, obrigada...") a cada mensagem.
 - NUNCA pergunte de novo algo que o lead já respondeu nesta conversa — releia o histórico antes de perguntar qualquer coisa. Se não tiver certeza se algo já foi dito, prossiga sem perguntar de novo em vez de arriscar repetir.
+- Se o lead responder "não sei", "ainda não", "tanto faz" ou devolver a pergunta ("quais são as opções?"), NÃO repita a pergunta: ajude-o a decidir mostrando opções concretas (consulte os lotes) e explicando a diferença entre elas.
 - Markdown é o do WhatsApp, não o padrão de blog: *negrito* com UM asterisco de cada lado (nunca **dois**), _itálico_ com underscore. Nunca use listas numeradas ("1. 2. 3.") — para listar, quebre linha e use • no início, nunca números.
 
 ═══ EMOJIS — NUNCA USE (regra dura) ═══
@@ -167,12 +181,12 @@ nome, cidade onde mora, objetivo (moradia/investimento/temporada), tamanho de te
 NÃO pergunte forma de pagamento — isso é conversa da visita, não do WhatsApp.
 
 DISPONIBILIDADE:
-- Só afirme que existe terreno de determinado tamanho se ele aparecer no bloco "LOTES REALMENTE DISPONÍVEIS AGORA". Esse bloco é a única fonte válida sobre o que está livre.
-- Se o tamanho pedido não estiver lá, não diga que não existe: diga que vai confirmar a disponibilidade atualizada com a equipe, e siga puxando a visita — exceto se o lead já tiver recusado a visita, caso em que vale a regra "QUANDO O LEAD NÃO QUER".
+- O estoque real vem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA" e da ferramenta consultar_lotes. Só afirme que existe terreno de um tamanho se ele aparecer ali.
+- Se o tamanho pedido não estiver lá, mostre o que existe de mais próximo. Se o estoque estiver vazio, siga a orientação do bloco de lotes: apresente o empreendimento pela base de conhecimento, sem travar a conversa.
 - Nunca cite número de lote específico.
 
-═══ ORDEM DA CONVERSA (siga nesta sequência) ═══
-A conversa tem três momentos, nesta ordem. Não pule nenhum e não inverta.
+═══ COMO CONDUZIR A CONVERSA ═══
+A conversa tem três momentos: entender, apresentar e convidar. É um roteiro, não uma trava: se o lead pedir as opções antes de você saber tudo, MOSTRE as opções na hora (consultar_lotes) e depois continue entendendo o que ele procura. Quem pergunta e recebe "deixa eu ver com a equipe" desiste.
 
 1) ENTENDER — descubra as quatro informações ao longo do papo, UMA pergunta por vez, sem parecer interrogatório: nome, cidade onde mora, objetivo e tamanho de terreno.
    O NOME VEM PRIMEIRO. Sua primeira pergunta da conversa é o nome dele, sempre — antes de perguntar objetivo, tamanho ou qualquer outra coisa. Peça de um jeito leve, emendado na apresentação, nunca como um campo a preencher.
@@ -182,14 +196,12 @@ A conversa tem três momentos, nesta ordem. Não pule nenhum e não inverta.
    Se ele não mencionar, pergunte UMA vez, em algum ponto natural — nunca como primeira nem como última coisa, e nunca emendada em outra pergunta. Exemplo: "Ah, deixa eu te perguntar: como você acabou conhecendo a gente?"
    Se ele desconversar ou não responder, siga em frente e não insista: é a única que não vale travar a conversa.
 
-2) APRESENTAR — só depois de ter as quatro, mostre pelo menos UMA opção concreta que combine com o que a pessoa contou: a metragem, a quadra e um diferencial de verdade (a parte do loteamento onde fica, área verde por perto, infraestrutura pronta). A metragem e a quadra saem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA"; o diferencial sai da base de conhecimento. Nunca cite número de lote e nunca cite preço.
+2) APRESENTAR — assim que souber o objetivo ou o tamanho (ou quando o lead pedir), mostre pelo menos UMA opção concreta que combine com o que a pessoa contou: a metragem, a quadra e um diferencial de verdade (a parte do loteamento onde fica, área verde por perto, infraestrutura pronta). A metragem e a quadra saem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA"; o diferencial sai da base de conhecimento. Nunca cite número de lote e nunca cite preço.
    Exemplo: "Pelo que você me contou, acho que tenho a cara do que você procura. || Tem terreno de 250m² na quadra 3, numa parte bem tranquila do loteamento. || Rua pavimentada, água e luz já prontas."
 
 3) CONVIDAR — só depois de apresentar a opção, proponha a visita.
 
-NÃO proponha visita, data ou horário antes de completar 1 e 2. Convidar cedo demais soa como pressão de vendedor: a pessoa precisa enxergar que existe algo concreto pra ela antes de topar reservar um sábado.
-Se o próprio lead pedir para agendar antes disso, acolha o interesse mas complete o que falta primeiro. Exemplo:
-"Que ótimo! || Só me conta rapidinho: você é aqui de Paraty mesmo ou vem de fora? || Aí já te mostro as opções e a gente marca."
+Não proponha visita antes de apresentar pelo menos uma opção: convidar cedo demais soa como pressão. Mas se o próprio lead pedir para agendar, acolha e agende — no máximo, pergunte junto o que for essencial (o nome, se ainda não souber).
 
 ═══ QUANDO O LEAD NÃO QUER (regra dura, vale acima de todas as anteriores) ═══
 
@@ -294,9 +306,14 @@ function blocoLotesDisponiveis(lotes: LoteDisponivel[]): string {
     return `---
 LOTES REALMENTE DISPONÍVEIS AGORA (consultado em tempo real)
 
-Nenhum lote disponível retornado pela consulta. NÃO afirme que existe ou que
-não existe terreno de qualquer tamanho: diga que vai confirmar a
-disponibilidade atualizada com a equipe e siga puxando a visita.`;
+Nenhum lote está marcado como disponível no cadastro neste momento (o
+cadastro pode estar desatualizado). Não trave a conversa e não fique dizendo
+que vai confirmar com a equipe:
+- apresente o empreendimento pelo que está na base de conhecimento (tamanhos
+  de lote previstos no projeto, localização, infraestrutura, diferenciais),
+  deixando claro que a disponibilidade exata o consultor confirma na visita;
+- continue entendendo o que o lead procura e convide para a visita;
+- nunca diga que não há lotes nem invente quadra.`;
   }
 
   // chave: "metragem|tipo" -> quadras distintas e total
@@ -335,8 +352,8 @@ Esta é a ÚNICA fonte válida sobre o que está livre. Ignore o que a base
 estática disser sobre quais lotes existem ou estão disponíveis — ela descreve
 o projeto, não o estoque de hoje.
 Só confirme que existe terreno de um tamanho se ele aparecer nesta lista. Se
-não aparecer, diga que vai confirmar a disponibilidade atualizada com a
-equipe. Nunca cite número de lote específico.
+o tamanho pedido não aparecer, ofereça o mais próximo que aparece. Nunca cite
+número de lote específico.
 
 ${linhas.join("\n")}`;
 }
@@ -642,6 +659,7 @@ function montarPromptFinal(
   agora: Date,
   janelas: JanelasVisita,
   estilo: PreferenciasEstilo,
+  nivel: NivelAutonomia,
 ): string {
   const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
   // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
@@ -653,6 +671,7 @@ function montarPromptFinal(
     // Logo após a base, cujas regras de estilo ele ajusta (tom, emoji, tamanho).
     blocoEstiloAgente(estilo),
     blocoInstrucoesEquipe(estilo.instrucoes_extras),
+    blocoFerramentas(nivel),
     blocoDataDeHoje(agora),
     blocoHorariosVisita(janelas),
     blocoLeadConhecido(lead),
@@ -897,6 +916,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const nivel = nivelAutonomia(agent.autonomia);
+    const janelas = lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null);
     const systemPrompt = montarPromptFinal(
       agent.system_prompt,
       conhecimento,
@@ -904,8 +925,9 @@ Deno.serve(async (req) => {
       agent.mensagem_boas_vindas ?? null,
       leadConhecido,
       new Date(),
-      lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null),
+      janelas,
       agent,
+      nivel,
     );
 
     if (apenasPreview) {
@@ -931,10 +953,133 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Ações executadas pelas ferramentas nesta resposta: vão para o painel de
+    // teste e para o log.
+    const acoes: { ferramenta: string; resumo: string }[] = [];
+
+    /** Executa uma ferramenta pedida pelo modelo. Nunca lança: erro vira texto. */
+    async function executarFerramenta(nome: string, argsTexto: string): Promise<string> {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(argsTexto || "{}");
+      } catch {
+        return JSON.stringify({ erro: "argumentos inválidos" });
+      }
+      try {
+        if (nome === "consultar_lotes") {
+          const grupos = resumirLotes(lotesDisponiveis, {
+            metragem_min: (args.metragem_min as number | null) ?? null,
+            metragem_max: (args.metragem_max as number | null) ?? null,
+            quadra: (args.quadra as string | null) ?? null,
+          });
+          acoes.push({
+            ferramenta: nome,
+            resumo: `Consultou lotes: ${grupos.length ? `${grupos.length} opção(ões)` : "nenhuma no filtro"}`,
+          });
+          return JSON.stringify({
+            total_disponiveis_no_cadastro: lotesDisponiveis.length,
+            opcoes: grupos,
+            ...(lotesDisponiveis.length === 0
+              ? {
+                  aviso:
+                    "Nenhum lote marcado como disponível no cadastro. Apresente o empreendimento pela base, sem garantir disponibilidade, e convide para a visita.",
+                }
+              : grupos.length === 0
+                ? {
+                    aviso:
+                      "Nada nesse filtro. Mostre as opções mais próximas (consulte sem filtro).",
+                  }
+                : {}),
+          });
+        }
+
+        if (nome === "buscar_informacao") {
+          const pergunta = String(args.pergunta ?? "").slice(0, 300);
+          const r = OPENAI_API_KEY
+            ? await buscarTrechos(supabase, OPENAI_API_KEY, pergunta)
+            : { ok: false as const, trechos: [] };
+          acoes.push({ ferramenta: nome, resumo: `Buscou na base: "${pergunta.slice(0, 60)}"` });
+          if (r.trechos.length) return JSON.stringify({ trechos: formatarTrechos(r.trechos) });
+          // Sem índice (ou nada relevante): a base inteira resolve, limitada.
+          return JSON.stringify({ base: knowledgeBase.slice(0, 12_000) });
+        }
+
+        if (nome === "registrar_dados_lead") {
+          if (!permite(nivel, "qualificar"))
+            return JSON.stringify({ erro: "não permitido neste nível" });
+          if (!lead_id) return JSON.stringify({ ok: false, motivo: "conversa sem lead" });
+          const { data: atual } = await supabase
+            .from("leads")
+            .select("nome, telefone")
+            .eq("id", lead_id)
+            .maybeSingle();
+          const patch = patchDoLead(args, atual ?? {});
+          const observacao = (args.observacao as string | null) ?? null;
+          if (Object.keys(patch).length) {
+            const { error } = await supabase.from("leads").update(patch).eq("id", lead_id);
+            if (error) return JSON.stringify({ ok: false, erro: error.message });
+          }
+          const resumo = resumoDoRegistro(patch, observacao);
+          if (resumo) {
+            await supabase.from("interacoes").insert({
+              lead_id,
+              tipo: "sistema",
+              canal: "sophia",
+              conteudo: `Sophia registrou: ${resumo}`,
+            });
+            acoes.push({ ferramenta: nome, resumo: `Registrou no CRM: ${resumo}` });
+          }
+          return JSON.stringify({ ok: true, registrado: patch });
+        }
+
+        if (nome === "ver_horarios_visita") {
+          if (!permite(nivel, "agendar"))
+            return JSON.stringify({ erro: "não permitido neste nível" });
+          let ocupados: Date[] = [];
+          if (lead_id) {
+            const { data: dono } = await supabase
+              .from("leads")
+              .select("vendedor_id")
+              .eq("id", lead_id)
+              .maybeSingle();
+            if (dono?.vendedor_id) {
+              const { data: agenda } = await supabase
+                .from("visitas")
+                .select("data_hora")
+                .eq("vendedor_id", dono.vendedor_id)
+                .in("status", ["agendada", "a_confirmar", "confirmada"])
+                .gte("data_hora", new Date().toISOString());
+              ocupados = (agenda ?? []).map((v) => new Date(String(v.data_hora)));
+            }
+          }
+          const livres = horariosLivres(new Date(), janelas, ocupados, {
+            data: (args.data as string | null) ?? null,
+          });
+          acoes.push({
+            ferramenta: nome,
+            resumo: `Viu horários livres: ${livres.map((d) => `${d.dia_semana} ${d.data.slice(8)}/${d.data.slice(5, 7)}`).join(", ") || "nenhum"}`,
+          });
+          return JSON.stringify({ horarios_livres: livres, duracao_min: janelas.duracao_min });
+        }
+
+        return JSON.stringify({ erro: `ferramenta desconhecida: ${nome}` });
+      } catch (e) {
+        console.error(`[ai-agent-chat] ferramenta ${nome} falhou:`, e);
+        return JSON.stringify({ erro: "falha ao executar; siga a conversa sem esse dado" });
+      }
+    }
+
     // Timeout e uma nova tentativa no modelo principal; se ainda falhar e
     // houver OPENAI_FALLBACK_MODEL configurado, uma tentativa nele. Quem chama
     // (whatsapp-webhook) trata a falha final com uma resposta segura.
-    const chamarModelo = (modelo: string) =>
+    // Mensagens no formato da OpenAI (inclui tool_calls e respostas de ferramenta).
+    const conversa: Record<string, unknown>[] = [
+      { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
+      ...history,
+      { role: "user", content: message },
+    ];
+    const ferramentas = ferramentasDoNivel(nivel);
+    const chamarModelo = (modelo: string, comFerramentas: boolean) =>
       fetchComRetry(
         "https://api.openai.com/v1/chat/completions",
         {
@@ -948,60 +1093,85 @@ Deno.serve(async (req) => {
             max_tokens: MODELOS.sophiaChat.maxTokens,
             temperature: temperaturaAgente(agent.temperatura, MODELOS.sophiaChat.temperatura),
             response_format: FORMATO_SAIDA,
-            messages: [
-              { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
-              ...history,
-              { role: "user", content: message },
-            ],
+            ...(comFerramentas ? { tools: ferramentas, parallel_tool_calls: false } : {}),
+            messages: conversa,
           }),
         },
         { timeoutMs: 20_000, retries: 1 },
       );
 
     const modeloPrincipal = resolverModeloSophia(agent.modelo);
-    const inicioModelo = Date.now();
     let modeloUsado: string = modeloPrincipal;
-    let openaiResponse = await chamarModelo(modeloPrincipal).catch((e) => e as Error);
-    if (
-      (openaiResponse instanceof Error || !openaiResponse.ok) &&
-      OPENAI_FALLBACK_MODEL &&
-      OPENAI_FALLBACK_MODEL !== modeloPrincipal
-    ) {
-      console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
-        erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,
-      });
-      modeloUsado = OPENAI_FALLBACK_MODEL;
-      openaiResponse = await chamarModelo(OPENAI_FALLBACK_MODEL).catch((e) => e as Error);
-    }
-    if (openaiResponse instanceof Error) throw openaiResponse;
-    if (!openaiResponse.ok) {
-      const errText = await openaiResponse.text();
+    let conteudoModelo = "";
+
+    // Até MAX_RODADAS idas ao modelo: nas primeiras ele pode pedir ferramentas;
+    // a última é sempre sem ferramentas, para garantir uma resposta ao lead.
+    const MAX_RODADAS = 5;
+    for (let rodada = 1; rodada <= MAX_RODADAS; rodada++) {
+      const comFerramentas = rodada < MAX_RODADAS;
+      const inicioModelo = Date.now();
+      let openaiResponse = await chamarModelo(modeloUsado, comFerramentas).catch((e) => e as Error);
+      if (
+        (openaiResponse instanceof Error || !openaiResponse.ok) &&
+        OPENAI_FALLBACK_MODEL &&
+        OPENAI_FALLBACK_MODEL !== modeloUsado
+      ) {
+        console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
+          erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,
+        });
+        modeloUsado = OPENAI_FALLBACK_MODEL;
+        openaiResponse = await chamarModelo(modeloUsado, comFerramentas).catch((e) => e as Error);
+      }
+      if (openaiResponse instanceof Error) throw openaiResponse;
+      if (!openaiResponse.ok) {
+        const errText = await openaiResponse.text();
+        await registrarChamadaIA(supabase, {
+          funcao: "sophia",
+          modelo: modeloUsado,
+          leadId: lead_id,
+          latenciaMs: Date.now() - inicioModelo,
+          erro: `HTTP ${openaiResponse.status}: ${errText.slice(0, 200)}`,
+        });
+        throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
+      }
+
+      const openaiResult = await openaiResponse.json();
       await registrarChamadaIA(supabase, {
         funcao: "sophia",
         modelo: modeloUsado,
         leadId: lead_id,
+        usage: openaiResult.usage,
         latenciaMs: Date.now() - inicioModelo,
-        erro: `HTTP ${openaiResponse.status}: ${errText.slice(0, 200)}`,
       });
-      throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
+      const resposta = openaiResult.choices?.[0]?.message;
+      const pedidos = (resposta?.tool_calls ?? []) as {
+        id: string;
+        function: { name: string; arguments: string };
+      }[];
+      if (!pedidos.length) {
+        conteudoModelo = resposta?.content ?? "";
+        break;
+      }
+      conversa.push({ role: "assistant", content: resposta.content ?? null, tool_calls: pedidos });
+      const resultados = await Promise.all(
+        pedidos.map((c) => executarFerramenta(c.function?.name, c.function?.arguments)),
+      );
+      pedidos.forEach((c, i) =>
+        conversa.push({ role: "tool", tool_call_id: c.id, content: resultados[i] }),
+      );
     }
-
-    const openaiResult = await openaiResponse.json();
-    await registrarChamadaIA(supabase, {
-      funcao: "sophia",
-      modelo: modeloUsado,
-      leadId: lead_id,
-      usage: openaiResult.usage,
-      latenciaMs: Date.now() - inicioModelo,
-    });
-    const conteudoModelo: string = openaiResult.choices?.[0]?.message?.content ?? "";
+    if (acoes.length) console.log("=== AÇÕES DA SOPHIA ===", JSON.stringify({ lead_id, acoes }));
     // Saída estruturada: sinais só do campo `sinais`; marcas no texto são
     // descartadas. Se o JSON vier quebrado, cai na leitura antiga por marcas.
     const estruturada = lerSaidaEstruturada(conteudoModelo);
     if (!estruturada) console.warn("[ai-agent-chat] saída fora do schema; lendo marcas do texto");
     const rawText = estruturada ? textoComMarcasConfiaveis(estruturada) : conteudoModelo;
 
-    const hasVisitaAgendada = rawText.includes(VISITA_AGENDADA_TAG);
+    // O nível de autonomia decide o que os sinais podem fazer: abaixo de
+    // "agendar" a visita não é criada (o vendedor é avisado para combinar), e
+    // abaixo de "qualificar" o card não anda nem dispara a pós-qualificação.
+    const pediuVisita = rawText.includes(VISITA_AGENDADA_TAG);
+    const hasVisitaAgendada = pediuVisita && permite(nivel, "agendar");
     const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
     const hasLeadQualificado = rawText.includes(LEAD_QUALIFICADO_TAG);
     const hasRecusouVisita = rawText.includes(RECUSOU_VISITA_TAG);
@@ -1012,7 +1182,7 @@ Deno.serve(async (req) => {
     // mesmo fôlego: "moro em Ubatuba, quero 450 pra investir, mas não quero
     // visitar"). Sem isto o vendedor receberia no WhatsApp o resumo animado de
     // um lead que acabou de mandar parar.
-    const qualificaAgora = hasLeadQualificado && !hasSemInteresse;
+    const qualificaAgora = hasLeadQualificado && !hasSemInteresse && permite(nivel, "qualificar");
 
     // Log dedicado às marcas. O `=== AI RESPONSE ===` da whatsapp-webhook corta
     // em 300 caracteres e as flags ficam no FIM do JSON, depois das mensagens —
@@ -1104,6 +1274,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (pediuVisita && !hasVisitaAgendada && lead_id) {
+      await supabase.from("interacoes").insert({
+        lead_id,
+        tipo: "sistema",
+        canal: "sophia",
+        conteudo:
+          "Lead quer visitar o terreno. A Sophia não agenda nesta conta: combine o dia com ele.",
+      });
+      await notificarResponsaveis(supabase, lead_id, {
+        tipo: "visita_pedida",
+        titulo: "Lead quer agendar visita",
+        corpo: "Combine o dia e o horário com ele pelo CRM.",
+      });
+    }
+
     // pauseAI em vez de insert direto: o insert cru empilhava uma linha de
     // takeover por mensagem, e a checagem com maybeSingle() erra com mais de
     // uma — mesmo bug já corrigido na whatsapp-webhook.
@@ -1166,6 +1351,8 @@ Deno.serve(async (req) => {
         // devolvê-los agora evita ter que mexer duas vezes na assinatura.
         recusou_visita: hasRecusouVisita,
         sem_interesse: hasSemInteresse,
+        // O que a Sophia fez com as ferramentas (painel de teste).
+        acoes,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

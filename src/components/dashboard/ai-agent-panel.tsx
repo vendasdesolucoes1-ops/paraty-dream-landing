@@ -21,7 +21,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
 import { ChatBubble } from "@/components/whatsapp/chat-ui";
-import type { AiAgent, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
+import type { AiAgent, AiAgentAutonomia, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -99,6 +99,40 @@ const TONS_AGENTE: { valor: AiAgentTomVoz; rotulo: string; exemplo: string }[] =
     valor: "informal",
     rotulo: "Informal",
     exemplo: "Opa, Mariana! Tem uns lotes massa na quadra C, bora marcar uma visita?",
+  },
+];
+
+// ai_agents.autonomia (supabase/functions/_shared/ferramentas-sophia.ts).
+const AUTONOMIAS: { valor: AiAgentAutonomia; rotulo: string; resumo: string; faz: string[] }[] = [
+  {
+    valor: "responder",
+    rotulo: "Só conversa",
+    resumo: "Atende, tira dúvidas e pré-qualifica. Não mexe no CRM.",
+    faz: [
+      "Responde dúvidas consultando lotes e a base",
+      "Descobre nome, cidade, objetivo e tamanho na conversa",
+      "Quem quer visitar: avisa o vendedor para combinar",
+    ],
+  },
+  {
+    valor: "qualificar",
+    rotulo: "Qualifica e registra",
+    resumo: "Tudo do anterior, e grava no CRM o que o lead conta.",
+    faz: [
+      "Preenche cidade, objetivo, tamanho e canal no card do lead",
+      "Marca o lead como qualificado e avisa o vendedor com um resumo",
+      "Quem quer visitar: avisa o vendedor para combinar",
+    ],
+  },
+  {
+    valor: "agendar",
+    rotulo: "Qualifica, registra e agenda (padrão)",
+    resumo: "Tudo do anterior, e marca a visita sozinha.",
+    faz: [
+      "Vê horários livres na agenda, dentro dos horários de visita",
+      "Oferece 2 ou 3 opções e confirma a visita no CRM",
+      "Fora do horário ou em conflito, a visita fica a confirmar",
+    ],
   },
 ];
 
@@ -428,6 +462,86 @@ function Indicador({
   );
 }
 
+/** O que a Sophia precisa para atender bem: estoque, base e horários. */
+function SaudeSophia() {
+  const { data } = useQuery({
+    queryKey: ["saude-sophia"],
+    queryFn: async () => {
+      const [lotes, config] = await Promise.all([
+        supabase
+          .from("lotes")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "disponivel"),
+        supabase
+          .from("configuracoes")
+          .select("chave, valor")
+          .in("chave", [RAG_KEY, "janelas_visita"]),
+      ]);
+      const porChave = new Map((config.data ?? []).map((c) => [c.chave, c.valor ?? ""]));
+      return {
+        lotes: lotes.error ? null : (lotes.count ?? 0),
+        base: (porChave.get(RAG_KEY) ?? "").trim().length,
+        horarios: porChave.has("janelas_visita"),
+      };
+    },
+  });
+  if (!data) return null;
+
+  const itens = [
+    {
+      ok: (data.lotes ?? 0) > 0,
+      titulo:
+        data.lotes == null
+          ? "Não foi possível ler os lotes"
+          : data.lotes > 0
+            ? `${data.lotes} lotes disponíveis no cadastro`
+            : "Nenhum lote disponível no cadastro",
+      dica: "Sem estoque, a Sophia não consegue oferecer opções concretas. Atualize em Lotes.",
+    },
+    {
+      ok: data.base >= 500,
+      titulo:
+        data.base >= 500
+          ? `Base de conhecimento com ${data.base.toLocaleString("pt-BR")} caracteres`
+          : data.base > 0
+            ? "Base de conhecimento muito curta"
+            : "Base de conhecimento vazia",
+      dica: "É de onde ela tira localização, infraestrutura e diferenciais. Preencha na aba Base de conhecimento.",
+    },
+    {
+      ok: data.horarios,
+      titulo: data.horarios ? "Horários de visita configurados" : "Horários de visita no padrão",
+      dica: "Ajuste em Horários de visita, nesta página, para ela só oferecer horários reais.",
+    },
+  ];
+  const problemas = itens.filter((i) => !i.ok);
+
+  return (
+    <div
+      className={`space-y-2 rounded-xl border p-4 ${problemas.length ? "border-warning/40 bg-warning-soft" : "border-border bg-background"}`}
+    >
+      <p className="text-sm font-medium">
+        {problemas.length
+          ? `${problemas.length} ${problemas.length === 1 ? "ponto deixa" : "pontos deixam"} a Sophia menos útil`
+          : "A Sophia tem o que precisa para atender"}
+      </p>
+      <ul className="space-y-1.5">
+        {itens.map((i) => (
+          <li key={i.titulo} className="flex gap-2 text-sm">
+            <span aria-hidden className={i.ok ? "text-success" : "text-warning"}>
+              {i.ok ? "✓" : "!"}
+            </span>
+            <span>
+              {i.titulo}
+              {!i.ok ? <span className="block text-xs text-muted-foreground">{i.dica}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function VisaoGeralTab({ agent }: { agent: AiAgent }) {
   const [dias, setDias] = useState(7);
 
@@ -514,6 +628,12 @@ function VisaoGeralTab({ agent }: { agent: AiAgent }) {
           }
           controle={
             <div className="flex flex-wrap justify-end gap-1.5">
+              <Pill>
+                {AUTONOMIAS.find((a) => a.valor === agent.autonomia)?.rotulo.replace(
+                  " (padrão)",
+                  "",
+                ) ?? "Agenda"}
+              </Pill>
               <Pill>{agent.modelo}</Pill>
               <Pill>
                 {TONS_AGENTE.find((t) => t.valor === agent.tom_voz)?.rotulo.replace(
@@ -525,6 +645,8 @@ function VisaoGeralTab({ agent }: { agent: AiAgent }) {
           }
         />
       </div>
+
+      <SaudeSophia />
 
       <Secao titulo="Desempenho">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -718,6 +840,7 @@ function ComportamentoTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
       ser_breve: agent.ser_breve,
       criatividade: criatividadeDe(agent.temperatura),
       instrucoes_extras: agent.instrucoes_extras ?? "",
+      autonomia: agent.autonomia ?? "agendar",
     }),
     [agent],
   );
@@ -738,6 +861,7 @@ function ComportamentoTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
           temperatura:
             CRIATIVIDADES.find((c) => c.valor === form.criatividade)?.temperatura ?? null,
           instrucoes_extras: form.instrucoes_extras.trim() || null,
+          autonomia: form.autonomia,
         } as never)
         .eq("id", agent.id);
       if (error) throw error;
@@ -755,6 +879,43 @@ function ComportamentoTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
 
   return (
     <div className="max-w-2xl space-y-8">
+      <Secao
+        titulo="Autonomia"
+        descricao="O quanto a Sophia age sozinha. Pedido para sair e transferência para uma pessoa funcionam em todos os níveis."
+      >
+        <div role="radiogroup" aria-label="Autonomia" className="grid gap-3">
+          {AUTONOMIAS.map((a) => {
+            const ativo = form.autonomia === a.valor;
+            return (
+              <button
+                key={a.valor}
+                type="button"
+                role="radio"
+                aria-checked={ativo}
+                onClick={() => setForm((f) => ({ ...f, autonomia: a.valor }))}
+                className={`rounded-xl border p-4 text-left transition-colors ${ativo ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-background hover:bg-muted/50"}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className={`flex h-4 w-4 items-center justify-center rounded-full border ${ativo ? "border-primary" : "border-muted-foreground/50"}`}
+                  >
+                    {ativo ? <span className="h-2 w-2 rounded-full bg-primary" /> : null}
+                  </span>
+                  <span className="text-sm font-medium">{a.rotulo}</span>
+                </div>
+                <p className="mt-1 pl-6 text-[0.8125rem] text-muted-foreground">{a.resumo}</p>
+                <ul className="mt-2 space-y-0.5 pl-6 text-xs text-muted-foreground">
+                  {a.faz.map((f) => (
+                    <li key={f}>• {f}</li>
+                  ))}
+                </ul>
+              </button>
+            );
+          })}
+        </div>
+      </Secao>
+
       <Secao
         titulo="Apresentação"
         descricao="Como a Sophia abre a conversa. Ela usa o espírito do texto e adapta ao que o lead escreveu; não copia palavra por palavra."
@@ -1062,7 +1223,8 @@ function formatHoraTeste(iso: string) {
 }
 
 interface ChatMessage {
-  role: "user" | "agent";
+  /** "acao": o que a Sophia fez com as ferramentas (só no painel, fora do histórico). */
+  role: "user" | "agent" | "acao";
   text: string;
   /** ISO do envio, para o carimbo de hora na bolha. Ausente em conversas
       salvas antes deste campo existir. */
@@ -1408,10 +1570,12 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
       // Sem lead_id real, ai-agent-chat não tem como buscar histórico no banco
       // (.eq("lead_id", null) nunca casa nada em Postgres) — por isso o painel
       // manda a própria conversa local como histórico explícito.
-      const history = messages.map((m) => ({
-        role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-        content: m.text,
-      }));
+      const history = messages
+        .filter((m) => m.role !== "acao")
+        .map((m) => ({
+          role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+          content: m.text,
+        }));
       const { data, error } = await supabase.functions.invoke("ai-agent-chat", {
         body: {
           agent_id: agent.id,
@@ -1424,7 +1588,14 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
         },
       });
       if (error) throw error;
-      const result = data as { messages: string[] };
+      const result = data as { messages: string[]; acoes?: { resumo: string }[] };
+
+      if (result.acoes?.length) {
+        setMessages((prev) => [
+          ...prev,
+          ...result.acoes!.map((a) => ({ role: "acao" as const, text: a.resumo })),
+        ]);
+      }
 
       // Anexa cada bolha com o mesmo intervalo do envio real, em vez de
       // devolver tudo de uma vez — mutationFn só resolve depois da última.
@@ -1497,14 +1668,23 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
           </p>
         ) : (
           <div className="space-y-1">
-            {messages.map((m, i) => (
-              <ChatBubble
-                key={i}
-                texto={m.text}
-                nossa={m.role === "user"}
-                horario={m.at ? formatHoraTeste(m.at) : ""}
-              />
-            ))}
+            {messages.map((m, i) =>
+              m.role === "acao" ? (
+                <p
+                  key={i}
+                  className="mx-auto my-1 w-fit max-w-[90%] rounded-md bg-background/85 px-2.5 py-1 text-center text-[0.7rem] text-muted-foreground"
+                >
+                  ⚙ {m.text}
+                </p>
+              ) : (
+                <ChatBubble
+                  key={i}
+                  texto={m.text}
+                  nossa={m.role === "user"}
+                  horario={m.at ? formatHoraTeste(m.at) : ""}
+                />
+              ),
+            )}
           </div>
         )}
         {sendMutation.isPending ? (
@@ -1548,7 +1728,8 @@ function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: strin
 
       <p className="text-xs text-muted-foreground">
         Ambiente de teste: nada é enviado pelo WhatsApp do lead. A conversa cria um card marcado
-        como TESTE no CRM, para você acompanhar a movimentação automática.
+        como TESTE no CRM, para você acompanhar a movimentação automática. As linhas com ⚙ mostram o
+        que a Sophia consultou ou registrou (o lead não vê).
       </p>
     </div>
   );
