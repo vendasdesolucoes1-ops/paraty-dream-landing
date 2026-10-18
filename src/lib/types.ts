@@ -341,20 +341,6 @@ export interface AiAgent {
   created_at: string;
 }
 
-export type PostMarketingStatus = "rascunho" | "publicado" | "agendado" | "erro";
-
-export interface PostMarketing {
-  id: string;
-  titulo: string | null;
-  copy_texto: string;
-  hashtags: string | null;
-  imagem_url: string | null;
-  status: PostMarketingStatus;
-  instagram_post_id: string | null;
-  publicado_em: string | null;
-  created_at: string;
-}
-
 export type DisparoFonteContatos = "crm" | "csv" | "manual";
 export type DisparoCampanhaStatus = "em_andamento" | "concluido" | "interrompido";
 export type DisparoItemStatus = "pendente" | "enviado" | "falhou";
