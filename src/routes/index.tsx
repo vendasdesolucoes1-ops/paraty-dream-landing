@@ -233,7 +233,7 @@ const DIFERENCIAIS = [
  */
 function SemComplicacao() {
   return (
-    <section className="bg-forest-deep text-ivory py-24 sm:py-32">
+    <section className="bg-forest-deep text-ivory py-24 sm:py-36">
       <div className="container-x">
         <Reveal>
           <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] max-w-3xl">
@@ -362,7 +362,7 @@ function CondicoesEspeciais() {
   // Enquanto carrega, o espaço fica reservado (sem pulo de layout).
   const oculto = condicao === undefined ? "invisible" : "";
   return (
-    <section id="condicoes" className="bg-secondary py-24 sm:py-32">
+    <section id="condicoes" className="bg-secondary py-24 sm:py-36">
       <div className="container-x grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-center">
         <div className="lg:col-span-5">
           <Reveal>
@@ -397,42 +397,54 @@ function CondicoesEspeciais() {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-3 sm:inset-4 rounded-[20px] border border-gold/70"
               />
-              <div className="relative grid items-center gap-8 sm:grid-cols-[1fr_auto_1fr] text-center">
+              {/* As duas colunas têm a MESMA forma: rótulo, valor, e nada mais.
+                  Antes, "direto com a loteadora" aparecia duas vezes no card em
+                  tipografias diferentes — serifa grande à esquerda, caixa-alta
+                  espaçada à direita — o que fazia duas informações de mesmo
+                  peso parecerem de níveis diferentes. A frase é uma só e vale
+                  para os dois lados, então saiu das colunas e virou a linha
+                  compartilhada abaixo. */}
+              <div className="relative grid items-start gap-8 sm:grid-cols-[1fr_auto_1fr] text-center">
                 <div className={oculto}>
-                  <p className="eyebrow text-ivory/80">{condicao ? "A partir de" : "Entrada"}</p>
-                  <p className="lp-num mt-3 text-gold text-[5.5rem] sm:text-[7rem]">
+                  <p className="eyebrow text-ivory/80">
+                    {condicao ? "Entrada a partir de" : "Entrada"}
+                  </p>
+                  {/* Altura reservada: sem ela o card encolhe quando a condição
+                      real chega e empurra o resto da página. */}
+                  <div className="mt-3 flex min-h-[5.5rem] sm:min-h-[7rem] items-center justify-center">
                     {condicao ? (
-                      <>
+                      <p className="lp-num text-gold text-[5.5rem] sm:text-[7rem] leading-none">
                         {condicao.entrada}
                         <span className="text-[0.55em] align-top">%</span>
-                      </>
+                      </p>
                     ) : (
-                      <span className="text-[0.45em]">facilitada</span>
+                      <p className="font-display text-gold text-5xl sm:text-6xl leading-none">
+                        Facilitada
+                      </p>
                     )}
-                  </p>
-                  <p className="font-display mt-2 text-2xl sm:text-3xl">
-                    {condicao ? "de entrada" : "direto com a loteadora"}
-                  </p>
+                  </div>
                 </div>
                 <div aria-hidden="true" className="mx-auto h-px w-2/3 bg-gold/70 sm:h-40 sm:w-px" />
                 <div className={oculto}>
                   <p className="eyebrow text-ivory/80">{condicao ? "Saldo em até" : "Saldo"}</p>
-                  <p className="lp-num mt-3 text-gold text-[5.5rem] sm:text-[7rem]">
+                  <div className="mt-3 flex min-h-[5.5rem] sm:min-h-[7rem] items-center justify-center">
                     {condicao ? (
-                      <>
+                      <p className="lp-num text-gold text-[5.5rem] sm:text-[7rem] leading-none">
                         {condicao.parcelas}
                         <span className="text-[0.55em]">x</span>
-                      </>
+                      </p>
                     ) : (
-                      <span className="text-[0.45em]">parcelado</span>
+                      <p className="font-display text-gold text-5xl sm:text-6xl leading-none">
+                        Parcelado
+                      </p>
                     )}
-                  </p>
-                  <p className="eyebrow mt-3 text-sand leading-relaxed">
-                    Direto com
-                    <br />a loteadora
-                  </p>
+                  </div>
                 </div>
               </div>
+
+              <p className="relative mt-6 text-center font-display text-2xl sm:text-3xl text-ivory">
+                Direto com a loteadora, sem banco.
+              </p>
 
               <DivisorMarca className="relative mx-auto mt-10 max-w-md" />
 
@@ -620,7 +632,7 @@ function Hero() {
         </div>
 
         <div
-          className="lp-fade mt-14 sm:mt-20 grid grid-cols-3 gap-4 sm:gap-6 max-w-2xl border-t border-ivory/20 pt-7 sm:pt-8"
+          className="lp-fade mt-14 sm:mt-20 grid grid-cols-3 gap-4 sm:gap-6 max-w-4xl border-t border-ivory/20 pt-7 sm:pt-8"
           style={atraso(600)}
         >
           <Stat n="9 min" l="do Centro Histórico" />
@@ -642,7 +654,12 @@ function Stat({ n, l }: { n: string; l: string }) {
       <div className="font-display text-ivory text-xl sm:text-4xl whitespace-nowrap [font-variant-numeric:lining-nums]">
         {n}
       </div>
-      <div className="eyebrow text-ivory/70 mt-2 text-[0.6rem] sm:text-[0.65rem] tracking-[0.12em] sm:tracking-[0.28em] leading-snug">
+      {/* tracking menor no desktop do que o eyebrow padrão (0.28em): com ele,
+          "m² · residenciais e comerciais" não cabia na coluna e quebrava em
+          duas linhas, deixando só um dos três números com rótulo duplo e a
+          fileira visivelmente torta. 0.18em mantém o ar de caixa-alta e cabe
+          nos três. */}
+      <div className="eyebrow text-ivory/70 mt-2 text-[0.6rem] sm:text-[0.65rem] tracking-[0.12em] sm:tracking-[0.18em] leading-snug">
         {l}
       </div>
     </div>
