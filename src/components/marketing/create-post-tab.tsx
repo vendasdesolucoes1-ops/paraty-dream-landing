@@ -18,7 +18,8 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Pill, type Tone } from "@/components/ds/pill";
+import { Pill } from "@/components/ds/pill";
+import { SLIDE_STATUS_LABEL, SLIDE_STATUS_TONE } from "@/lib/imagery-status";
 import { Campo } from "@/components/ajustes/campos";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { atraso } from "@/components/ds/reveal";
@@ -92,26 +93,6 @@ type MarketingErrorState = {
   title: string;
   message: string;
   requestId?: string;
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Na fila",
-  queued: "Na fila",
-  generating: "Gerando foto",
-  validating: "Validando",
-  composing: "Montando arte",
-  ready: "Pronto",
-  failed: "Falhou",
-};
-
-const STATUS_TONE: Record<string, Tone> = {
-  pending: "neutral",
-  queued: "neutral",
-  generating: "info",
-  validating: "info",
-  composing: "info",
-  ready: "success",
-  failed: "danger",
 };
 
 const ETAPAS = ["Briefing", "Plano", "Artes", "Publicar"] as const;
@@ -600,11 +581,11 @@ export function CreatePostTab() {
                         <Skeleton className="h-full w-full rounded-none" />
                       )}
                       <Pill
-                        tone={STATUS_TONE[slide.status] ?? "neutral"}
+                        tone={SLIDE_STATUS_TONE[slide.status] ?? "neutral"}
                         dot
                         className="absolute left-3 top-3 shadow-sm"
                       >
-                        {slide.slide_n} · {STATUS_LABEL[slide.status] ?? slide.status}
+                        {slide.slide_n} · {SLIDE_STATUS_LABEL[slide.status] ?? slide.status}
                       </Pill>
                     </div>
                     <CardContent className="space-y-1 p-4">

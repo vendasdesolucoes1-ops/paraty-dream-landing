@@ -15,7 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Pill, type Tone } from "@/components/ds/pill";
+import { Pill } from "@/components/ds/pill";
+import { POST_STATUS_LABEL, POST_STATUS_TONE } from "@/lib/imagery-status";
 import { Bloco } from "@/components/ds/bloco";
 import { Chip } from "@/components/ds/chip";
 import { atraso } from "@/components/ds/reveal";
@@ -58,15 +59,6 @@ type SlideRow = {
   raw_image_url: string | null;
 };
 
-const STATUS_TONE: Record<string, Tone> = {
-  planning: "neutral",
-  draft: "neutral",
-  generating: "warning",
-  ready: "success",
-  published: "info",
-  failed: "danger",
-};
-
 type Filtro = "todos" | "prontos" | "publicados" | "falhas";
 
 /** Indicador do topo da galeria: o número sobe na primeira carga. */
@@ -94,15 +86,6 @@ function Kpi({
     </div>
   );
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  planning: "Planejando",
-  draft: "Rascunho",
-  generating: "Gerando",
-  ready: "Pronto",
-  published: "Publicado",
-  failed: "Falhou",
-};
 
 export function PostsGalleryTab() {
   const queryClient = useQueryClient();
@@ -390,11 +373,11 @@ export function PostsGalleryTab() {
                           </span>
                         )}
                         <Pill
-                          tone={STATUS_TONE[post.status] ?? "neutral"}
+                          tone={POST_STATUS_TONE[post.status] ?? "neutral"}
                           dot
                           className="absolute left-3 top-3 shadow-sm"
                         >
-                          {STATUS_LABEL[post.status] ?? post.status}
+                          {POST_STATUS_LABEL[post.status] ?? post.status}
                         </Pill>
                         <span
                           aria-hidden
