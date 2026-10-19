@@ -6,6 +6,7 @@ import {
   DivisorMarca,
 } from "@/components/landing/BrandMark";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
+import { HeroVideo } from "@/components/landing/HeroVideo";
 import { Reveal } from "@/components/landing/Reveal";
 import { SecaoHeader } from "@/components/landing/SecaoHeader";
 import { LeadForm } from "@/components/landing/LeadForm";
@@ -33,7 +34,10 @@ function img(nome: string) {
   return { src, srcSet };
 }
 
-const HERO = foto("hero-aerial-paraty");
+// Primeiro quadro do vídeo do hero, servido como imagem responsiva: é o que
+// pinta o LCP e o que fica no lugar do vídeo onde ele não é baixado.
+const HERO = foto("hero-drone-paraty");
+const HERO_VIDEO = "/video/hero-drone-paraty.mp4";
 // O hero ocupa a tela inteira; no celular, a altura manda (a foto é paisagem e
 // é cortada nas laterais), então a largura útil é ~1,8x a da tela.
 const HERO_SIZES = "(max-aspect-ratio: 1/1) 180vw, 100vw";
@@ -603,22 +607,15 @@ function Hero() {
   return (
     <section id="top" className="relative min-h-[100svh] w-full overflow-hidden">
       <div className="absolute inset-0 bg-primary">
-        <div className="lp-hero-media absolute inset-0">
-          <img
-            src={HERO.src}
-            srcSet={HERO.srcSet}
-            sizes={HERO_SIZES}
-            // Imagem aspiracional (o estilo de vida que o lote permite
-            // construir), não foto do empreendimento: por isso o alt fala em
-            // ilustração. A obra real aparece na faixa seguinte.
-            alt="Ilustração de uma rua do bairro com casa contemporânea, família e muito verde"
-            className="w-full h-full object-cover"
-            width={HERO.width}
-            height={Math.round((HERO.width * 768) / 1376)}
-            fetchPriority="high"
-            decoding="async"
-          />
-        </div>
+        <HeroVideo
+          posterSrc={HERO.src}
+          posterSrcSet={HERO.srcSet}
+          posterSizes={HERO_SIZES}
+          posterWidth={HERO.width}
+          posterHeight={Math.round((HERO.width * 9) / 16)}
+          alt="Vista aérea de Paraty: a baía com veleiros, o casario colonial e a Serra do Mar ao fundo"
+          videoSrc={HERO_VIDEO}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0f1f16]/60 via-[#0f1f16]/25 to-[#0f1f16]/90" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#0f1f16]/55 via-[#0f1f16]/15 to-transparent" />
       </div>
