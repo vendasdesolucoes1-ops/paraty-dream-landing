@@ -63,6 +63,9 @@ export function HeroVideo({
     // hero continua com uma tela de altura — senão quem não baixa o vídeo
     // rolaria duas telas e meia de imagem parada.
     secao.classList.add("hero-trilha");
+    // O sentinela do cabeçalho vive fora da seção e precisa saber onde o hero
+    // termina de verdade; sem isto ele continuaria disparando em 100svh.
+    document.documentElement.style.setProperty("--hero-altura", "250svh");
 
     // O src só é atribuído aqui — com ele no JSX, o navegador baixaria os 2 MB
     // também no celular, antes de qualquer checagem.
@@ -90,7 +93,7 @@ export function HeroVideo({
 
       // Serve ao texto do hero, que desaparece antes de o logotipo do fim do
       // vídeo entrar em quadro.
-      secao.style.setProperty("--hero-p", String(Math.round(p * 1000) / 1000));
+      document.documentElement.style.setProperty("--hero-p", String(Math.round(p * 1000) / 1000));
 
       // Deriva de −5% a +5% da altura do palco. O scale dá a folga: sem ele, o
       // deslocamento descobriria a borda, porque o palco é sticky e a mídia
@@ -133,7 +136,8 @@ export function HeroVideo({
 
     return () => {
       secao.classList.remove("hero-trilha");
-      secao.style.removeProperty("--hero-p");
+      document.documentElement.style.removeProperty("--hero-altura");
+      document.documentElement.style.removeProperty("--hero-p");
       if (quadro) cancelAnimationFrame(quadro);
       video.removeEventListener("loadedmetadata", aoCarregar);
       window.removeEventListener("scroll", agendar);

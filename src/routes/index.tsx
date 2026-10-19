@@ -240,29 +240,28 @@ function SemComplicacao() {
   return (
     <section className="bg-forest-deep text-ivory py-24 sm:py-36">
       <div className="container-x">
-        <Reveal>
-          <SecaoHeader
-            tom="escuro"
-            tamanho="grande"
-            className="max-w-3xl"
-            titulo={
-              <>
-                Sua casa em Paraty,
-                <br />
-                <em className="not-italic text-sand">sem complicação.</em>
-              </>
-            }
-          />
-        </Reveal>
+        {/* Uma grade só, com o título DENTRO da coluna da esquerda. Antes ele
+            ocupava uma linha inteira acima, com a metade direita vazia, e o
+            carrossel começava 350px abaixo do topo da seção sem nada por
+            perto a que se alinhar. */}
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-start">
+          <div className="lg:col-span-6">
+            <Reveal>
+              <SecaoHeader
+                tom="escuro"
+                tamanho="grande"
+                titulo={
+                  <>
+                    Sua casa em Paraty,
+                    <br />
+                    <em className="not-italic text-sand">sem complicação.</em>
+                  </>
+                }
+              />
+            </Reveal>
 
-        {/* Duas colunas no desktop: os diferenciais ocupam a esquerda e o
-            carrossel a direita, em vez de empilhados. Empilhado, o carrossel
-            sozinho passava de 800px de altura e deixava metade da faixa vazia
-            à direita. */}
-        <div className="mt-14 grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-center">
-          <div>
             <Reveal delay={150}>
-              <ul className="grid gap-y-7">
+              <ul className="mt-12 grid gap-y-7">
                 {DIFERENCIAIS.map(({ Icon, titulo, texto }) => (
                   <li key={titulo} className="flex gap-5 items-start">
                     <IconeMarca Icon={Icon} />
@@ -289,7 +288,7 @@ function SemComplicacao() {
           </div>
 
           {obraSlides.length > 0 && (
-            <Reveal delay={300}>
+            <Reveal delay={300} className="lg:col-span-6">
               <Carousel
                 slides={obraSlides}
                 aspect="aspect-[4/3]"
@@ -375,7 +374,7 @@ function CondicoesEspeciais() {
   const oculto = condicao === undefined ? "invisible" : "";
   return (
     <section id="condicoes" className="bg-secondary py-24 sm:py-36">
-      <div className="container-x grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-center">
+      <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-center">
         <div className="lg:col-span-5">
           <Reveal>
             <SecaoHeader
@@ -539,23 +538,32 @@ function Nav() {
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setSolid(!entry.isIntersecting));
+    const io = new IntersectionObserver(([entry]) =>
+      // boundingClientRect.top < 0 distingue "ja rolou para cima" de "ainda
+      // esta la embaixo". Sem isso, com o sentinela no fim da trilha de
+      // 250svh o header nascia opaco no topo da pagina e ficava
+      // transparente justamente depois do hero — o inverso do desejado.
+      setSolid(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+    );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
   return (
     <>
-      {/* Marcador invisível no fim do hero: quando sai da tela, o header fica sólido. */}
+      {/* Marcador no fim REAL do hero. Ficava em 100svh, de quando o hero tinha
+          uma tela; com a trilha de 250svh do vídeo, o header virava faixa
+          opaca ainda no meio do voo e tapava justamente o que se quer ver.
+          Agora acompanha a altura da seção. */}
       <div
         ref={sentinel}
         aria-hidden="true"
-        className="absolute top-[calc(100svh-96px)] left-0 h-px w-px"
+        className="absolute top-[calc(var(--hero-altura,100svh)-96px)] left-0 h-px w-px"
       />
       <header
         className={`fixed top-0 inset-x-0 z-40 transition-[background-color,box-shadow,border-color] duration-300 motion-reduce:transition-none border-b ${
           solid
-            ? "bg-ivory/90 backdrop-blur-md border-border/60 shadow-[0_8px_30px_-24px_rgba(0,0,0,0.35)]"
+            ? "bg-ivory/45 backdrop-blur-2xl backdrop-saturate-150 border-ivory/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_32px_-26px_rgba(0,0,0,0.45)]"
             : "border-transparent"
         }`}
       >
@@ -564,10 +572,15 @@ function Nav() {
             solid ? "py-2.5" : "py-5"
           }`}
         >
+          {/* Sobre o hero a marca do header sai junto com o texto: o vídeo
+              termina na própria assinatura, em tela cheia, e duas marcas ao
+              mesmo tempo é uma competindo com a outra. Com o header em vidro
+              (depois do hero) ela volta inteira. */}
           <a
             href="#top"
             className="flex items-center leading-none"
             aria-label="Moradas de Paraty — início"
+            style={solid ? undefined : { opacity: "calc((0.7 - var(--hero-p, 0)) * 5)" }}
           >
             {/* Assinatura da identidade visual: sobre a foto, nome em marfim com
                 sombra para segurar a leitura; com o header sólido (fundo
@@ -622,8 +635,17 @@ function Hero() {
             alt="Vista aérea de Paraty: a baía com veleiros, o casario colonial e a Serra do Mar ao fundo"
             videoSrc={HERO_VIDEO}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0f1f16]/60 via-[#0f1f16]/25 to-[#0f1f16]/90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0f1f16]/55 via-[#0f1f16]/15 to-transparent" />
+          {/* O escurecimento existe para o texto do hero ser legível sobre o
+              vídeo. Quando o texto some, ele perde a função — e era ele, não o
+              vídeo, que deixava o fecho com o logotipo apagado. Abre um pouco
+              depois do texto, para a assinatura chegar com a imagem limpa. */}
+          <div
+            className="absolute inset-0"
+            style={{ opacity: "calc((0.95 - var(--hero-p, 0)) * 2.2)" }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0f1f16]/60 via-[#0f1f16]/25 to-[#0f1f16]/90" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0f1f16]/55 via-[#0f1f16]/15 to-transparent" />
+          </div>
         </div>
 
         {/* O texto some conforme o voo avança: o vídeo termina na assinatura da
@@ -713,7 +735,7 @@ function Stat({ n, l }: { n: string; l: string }) {
 function Localizacao() {
   return (
     <section className="py-24 sm:py-36 border-t border-border/70">
-      <div className="container-x grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+      <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-start">
         <div className="lg:col-span-5">
           <Reveal>
             <SecaoHeader
@@ -787,7 +809,7 @@ function Localizacao() {
 function EstiloDeVida() {
   return (
     <section className="bg-secondary py-24 sm:py-36">
-      <div className="container-x grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+      <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-center">
         <div className="lg:col-span-6 order-2 lg:order-1">
           <Reveal>
             <Carousel
@@ -859,7 +881,7 @@ function Maquete() {
 function Formulario() {
   return (
     <section id="formulario" className="bg-primary text-ivory py-24 sm:py-36">
-      <div className="container-x grid lg:grid-cols-12 gap-12 lg:gap-20">
+      <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-start">
         <div className="lg:col-span-5">
           <Reveal>
             <SecaoHeader
