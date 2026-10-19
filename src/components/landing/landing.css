@@ -116,6 +116,16 @@
   display: block;
 }
 
+/* Trilha de rolagem do hero com vídeo.
+   A classe é posta pelo HeroVideo, e só quando o vídeo de fato vai rodar:
+   2,5 telas de altura dão ao voo distância para terminar antes de a próxima
+   seção entrar. Quem não baixa o vídeo (celular, "reduzir movimento") fica
+   com o min-h de uma tela e não rola nada à toa. */
+.hero-trilha {
+  height: 250svh;
+}
+
+
 @media (prefers-reduced-motion: no-preference) {
   /* ── Abertura do hero ────────────────────────────────────────────── */
 

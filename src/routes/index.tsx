@@ -605,69 +605,83 @@ function Hero() {
   // CSS (landing.css). Antes cada bloco esperava o JavaScript carregar com
   // opacity 0 — num celular lento, o título levava 5 segundos para surgir.
   return (
-    <section id="top" className="relative min-h-[100svh] w-full overflow-hidden">
-      <div className="absolute inset-0 bg-primary">
-        <HeroVideo
-          posterSrc={HERO.src}
-          posterSrcSet={HERO.srcSet}
-          posterSizes={HERO_SIZES}
-          posterWidth={HERO.width}
-          posterHeight={Math.round((HERO.width * 9) / 16)}
-          alt="Vista aérea de Paraty: a baía com veleiros, o casario colonial e a Serra do Mar ao fundo"
-          videoSrc={HERO_VIDEO}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0f1f16]/60 via-[#0f1f16]/25 to-[#0f1f16]/90" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0f1f16]/55 via-[#0f1f16]/15 to-transparent" />
-      </div>
-
-      <div className="relative container-x min-h-[100svh] flex flex-col justify-end pb-14 sm:pb-20 pt-32">
-        {/* Nome comercial, não a razão social. "Sophia Saíde" continua no
-            rodapé, junto com matrícula e incorporadora — que é onde a
-            informação legal pertence. */}
-        <p className="lp-nudge eyebrow text-ivory/85 mb-6 tracking-[0.2em] sm:tracking-[0.28em]">
-          Loteamento Residencial Moradas de Paraty · RJ
-        </p>
-        <h1 className="font-display text-ivory text-5xl sm:text-7xl lg:text-8xl leading-[0.95] max-w-5xl tracking-tight">
-          <span className="lp-line" style={atraso(80)}>
-            <span>Invista em Paraty</span>
-          </span>
-          <span className="lp-line" style={atraso(180)}>
-            <span>
-              <em className="not-italic text-sand">com tranquilidade.</em>
-            </span>
-          </span>
-        </h1>
-        <p
-          className="lp-nudge font-script mt-4 text-sand text-3xl sm:text-4xl leading-none"
-          style={atraso(220)}
-        >
-          Seu lugar. Seu futuro. Sua história.
-        </p>
-        <p
-          className="lp-nudge mt-7 text-ivory/85 text-lg sm:text-xl max-w-xl font-light"
-          style={atraso(260)}
-        >
-          Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico. Um lugar para viver,
-          construir e valorizar.
-        </p>
-        <div className="lp-nudge mt-10 flex flex-wrap gap-4 items-center" style={atraso(340)}>
-          <a
-            href="#formulario"
-            className="group inline-flex items-center gap-3 bg-gold text-primary hover:bg-sand px-8 py-4 rounded-full eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-[background-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
-          >
-            Agendar uma visita
-            <span className="transition-transform group-hover:translate-x-1">→</span>
-          </a>
-          <BotaoWhatsApp variante="contorno" />
+    // Sem overflow-hidden na seção: ele quebraria o sticky do palco. O corte
+    // da mídia passou para o palco, que é quem precisa dele.
+    <section id="top" className="relative min-h-[100svh] w-full">
+      {/* Palco fixo enquanto a trilha rola. É isto que dá ao vídeo distância
+          para terminar o voo antes de a próxima seção entrar — com uma tela
+          só de rolagem, o voo era cortado no meio. */}
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden">
+        <div className="absolute inset-0 bg-primary">
+          <HeroVideo
+            posterSrc={HERO.src}
+            posterSrcSet={HERO.srcSet}
+            posterSizes={HERO_SIZES}
+            posterWidth={HERO.width}
+            posterHeight={Math.round((HERO.width * 9) / 16)}
+            alt="Vista aérea de Paraty: a baía com veleiros, o casario colonial e a Serra do Mar ao fundo"
+            videoSrc={HERO_VIDEO}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0f1f16]/60 via-[#0f1f16]/25 to-[#0f1f16]/90" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0f1f16]/55 via-[#0f1f16]/15 to-transparent" />
         </div>
 
+        {/* O texto some conforme o voo avança: o vídeo termina na assinatura da
+          marca, centralizada no quadro, e título sobre logotipo seria uma
+          sobreposição de duas marcas. opacity fora de 0–1 é fixada pelo
+          próprio navegador, então a conta dispensa clamp. */}
         <div
-          className="lp-fade mt-14 sm:mt-20 grid grid-cols-3 gap-4 sm:gap-6 max-w-4xl border-t border-ivory/20 pt-7 sm:pt-8"
-          style={atraso(600)}
+          className="relative container-x flex h-full flex-col justify-end pb-14 sm:pb-20 pt-32"
+          style={{ opacity: "calc((0.7 - var(--hero-p, 0)) * 5)" }}
         >
-          <Stat n="9 min" l="do Centro Histórico" />
-          <Stat n="250 – 450" l="m² · residenciais e comerciais" />
-          <Stat n="100%" l="cercado de natureza" />
+          {/* Nome comercial, não a razão social. "Sophia Saíde" continua no
+            rodapé, junto com matrícula e incorporadora — que é onde a
+            informação legal pertence. */}
+          <p className="lp-nudge eyebrow text-ivory/85 mb-6 tracking-[0.2em] sm:tracking-[0.28em]">
+            Loteamento Residencial Moradas de Paraty · RJ
+          </p>
+          <h1 className="font-display text-ivory text-4xl sm:text-6xl lg:text-7xl leading-[0.98] max-w-4xl tracking-tight">
+            <span className="lp-line" style={atraso(80)}>
+              <span>Invista em Paraty</span>
+            </span>
+            <span className="lp-line" style={atraso(180)}>
+              <span>
+                <em className="not-italic text-sand">com tranquilidade.</em>
+              </span>
+            </span>
+          </h1>
+          <p
+            className="lp-nudge font-script mt-4 text-sand text-3xl sm:text-4xl leading-none"
+            style={atraso(220)}
+          >
+            Seu lugar. Seu futuro. Sua história.
+          </p>
+          <p
+            className="lp-nudge mt-7 text-ivory/85 text-lg sm:text-xl max-w-xl font-light"
+            style={atraso(260)}
+          >
+            Lotes de alto padrão entre a Mata Atlântica e o Centro Histórico. Um lugar para viver,
+            construir e valorizar.
+          </p>
+          <div className="lp-nudge mt-10 flex flex-wrap gap-4 items-center" style={atraso(340)}>
+            <a
+              href="#formulario"
+              className="group inline-flex items-center gap-3 bg-gold text-primary hover:bg-sand px-8 py-4 rounded-full eyebrow shadow-[0_14px_40px_-18px_rgba(0,0,0,0.55)] hover:shadow-[0_20px_48px_-18px_rgba(0,0,0,0.6)] hover:-translate-y-0.5 transition-[background-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            >
+              Agendar uma visita
+              <span className="transition-transform group-hover:translate-x-1">→</span>
+            </a>
+            <BotaoWhatsApp variante="contorno" />
+          </div>
+
+          <div
+            className="lp-fade mt-14 sm:mt-20 grid grid-cols-3 gap-4 sm:gap-6 max-w-4xl border-t border-ivory/20 pt-7 sm:pt-8"
+            style={atraso(600)}
+          >
+            <Stat n="9 min" l="do Centro Histórico" />
+            <Stat n="250 – 450" l="m² · residenciais e comerciais" />
+            <Stat n="100%" l="cercado de natureza" />
+          </div>
         </div>
       </div>
     </section>

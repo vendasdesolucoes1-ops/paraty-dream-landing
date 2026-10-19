@@ -21,8 +21,8 @@ import { useEffect, useRef } from "react";
  * silenciosa: é a mesma imagem que o vídeo mostraria parado.
  */
 
-/** Quanto a mídia se desloca, em fração da altura rolada. 0 = sem paralaxe. */
-const PARALAXE = 0.25;
+/** Deriva da mídia, em fração da altura do palco. O scale(1.14) dá a folga. */
+const PARALAXE = 0.1;
 
 /** Suavização do avanço do vídeo (0–1). Mais baixo, mais macio e mais lento. */
 const SUAVIDADE = 0.12;
@@ -56,6 +56,14 @@ export function HeroVideo({
     const telaGrande = window.matchMedia("(min-width: 1024px)").matches;
     if (!querMovimento || !telaGrande) return;
 
+    const secao = camada.closest("section");
+    if (!secao) return;
+
+    // A trilha longa só existe quando o vídeo vai mesmo rodar. Sem a classe, o
+    // hero continua com uma tela de altura — senão quem não baixa o vídeo
+    // rolaria duas telas e meia de imagem parada.
+    secao.classList.add("hero-trilha");
+
     // O src só é atribuído aqui — com ele no JSX, o navegador baixaria os 2 MB
     // também no celular, antes de qualquer checagem.
     video.src = videoSrc;
@@ -67,16 +75,29 @@ export function HeroVideo({
     let duracao = 0;
 
     const progresso = () => {
-      const alturaHero = camada.parentElement?.offsetHeight ?? window.innerHeight;
-      // Vai de 0 (topo) a 1 quando o hero termina de sair da tela.
-      return Math.min(1, Math.max(0, window.scrollY / alturaHero));
+      // Distância rolável DA SEÇÃO, não a altura de uma tela: o palco é
+      // sticky, então o vídeo tem toda a trilha para terminar antes de a
+      // próxima seção aparecer. Com a altura de uma tela só, o vídeo era
+      // interrompido no meio do voo.
+      const curso = secao.offsetHeight - window.innerHeight;
+      if (curso <= 0) return 0;
+      return Math.min(1, Math.max(0, (window.scrollY - secao.offsetTop) / curso));
     };
 
     const passo = () => {
       quadro = 0;
       const p = progresso();
 
-      camada.style.transform = `translate3d(0, ${(p * (camada.parentElement?.offsetHeight ?? 0) * PARALAXE).toFixed(1)}px, 0)`;
+      // Serve ao texto do hero, que desaparece antes de o logotipo do fim do
+      // vídeo entrar em quadro.
+      secao.style.setProperty("--hero-p", String(Math.round(p * 1000) / 1000));
+
+      // Deriva de −5% a +5% da altura do palco. O scale dá a folga: sem ele, o
+      // deslocamento descobriria a borda, porque o palco é sticky e a mídia
+      // não sai de cena junto com a rolagem.
+      const palco = camada.offsetHeight || window.innerHeight;
+      const desloca = (p - 0.5) * palco * PARALAXE;
+      camada.style.transform = `translate3d(0, ${desloca.toFixed(1)}px, 0) scale(1.14)`;
 
       if (duracao > 0) {
         alvo = p * duracao;
@@ -111,6 +132,8 @@ export function HeroVideo({
     window.addEventListener("resize", agendar, { passive: true });
 
     return () => {
+      secao.classList.remove("hero-trilha");
+      secao.style.removeProperty("--hero-p");
       if (quadro) cancelAnimationFrame(quadro);
       video.removeEventListener("loadedmetadata", aoCarregar);
       window.removeEventListener("scroll", agendar);
