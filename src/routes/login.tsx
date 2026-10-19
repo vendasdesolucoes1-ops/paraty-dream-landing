@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Logo } from "@/components/logo";
+import { FlorParaty, MarcaEmpilhada } from "@/components/marca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,10 @@ function LoginPage() {
           ))}
         </svg>
 
-        <Logo variante="completo" className="h-24 w-auto animate-swap" />
+        {/* w-fit: o <aside> é flex-column e estica os filhos, o que fazia o
+            divisor da marca atravessar o painel inteiro em vez de acompanhar
+            a largura do nome. */}
+        <MarcaEmpilhada className="w-fit animate-swap text-[1.5rem] text-ivory" />
 
         <div className="max-w-md">
           <p className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gold animate-swap [animation-delay:200ms]">
@@ -95,7 +98,7 @@ function LoginPage() {
       <main className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm animate-swap space-y-8">
           <div className="space-y-2">
-            <Logo variante="emblema" className="mb-6 h-12 w-12 lg:hidden" />
+            <FlorParaty className="mb-6 h-12 w-12 text-gold lg:hidden" />
             <p className="flex items-center gap-2 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               <span aria-hidden className="h-px w-5 bg-accent" />
               Acesso restrito

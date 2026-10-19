@@ -26,38 +26,8 @@
  * (variáveis no peso). Allura não tem preload: só aparece abaixo da dobra
  * e em uma linha do hero, e o swap para a fonte de sistema é aceitável ali. */
 
-@font-face {
-  font-family: "Playfair Display";
-  font-style: normal;
-  font-weight: 500 800;
-  font-display: swap;
-  src: url("/fonts/playfair-display-latin-var.woff") format("woff");
-}
-
-@font-face {
-  font-family: "Montserrat";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/montserrat-latin-var.woff") format("woff");
-}
-
-@font-face {
-  font-family: "Nunito Sans";
-  font-style: normal;
-  font-weight: 300 800;
-  font-display: swap;
-  src: url("/fonts/nunito-sans-latin-var.woff") format("woff");
-}
-
-@font-face {
-  font-family: "Allura";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/allura-latin.woff") format("woff");
-}
-
+/* As @font-face da identidade vivem em styles.css: a marca aparece também
+   no login e na barra lateral do painel, que não carregam este arquivo. */
 .lp-brand {
   /* Paleta da marca (mesmos valores das variáveis do Figma). */
   --mp-green-950: #0f1f16; /* Verde Noite */

@@ -1,4 +1,4 @@
-import { Logo } from "@/components/logo";
+import { FlorParaty } from "@/components/marca";
 
 /**
  * Abertura do painel: o emblema aparece dentro de um anel que se desenha e
@@ -36,17 +36,16 @@ export function Splash() {
             className="motion-safe:animate-[ring-draw_1.4s_var(--ease-out)_both]"
           />
         </svg>
-        <Logo
-          variante="emblema"
-          className="h-14 w-14 motion-safe:animate-[fade-up-soft_700ms_var(--ease-out)_200ms_both]"
-        />
+        <FlorParaty className="h-14 w-14 text-gold motion-safe:animate-[fade-up-soft_700ms_var(--ease-out)_200ms_both]" />
       </div>
       <div className="text-center motion-safe:animate-[fade-up-soft_700ms_var(--ease-out)_450ms_both]">
-        <p className="font-display text-[1.75rem] font-medium tracking-wide text-foreground">
-          Moradas
+        {/* Mesmo par tipográfico da marca (Montserrat + Playfair), não o
+            font-display do painel — aqui é assinatura, não título de tela. */}
+        <p className="marca-rotulo text-[0.6rem] tracking-[0.34em] text-muted-foreground">
+          Moradas de
         </p>
-        <p className="mt-1 text-[0.6rem] font-medium uppercase tracking-[0.34em] text-muted-foreground">
-          de Paraty
+        <p className="marca-display mt-1 text-[1.75rem] font-bold tracking-[0.03em] text-foreground">
+          PARATY
         </p>
       </div>
     </div>

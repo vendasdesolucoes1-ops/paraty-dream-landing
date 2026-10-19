@@ -29,6 +29,59 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Identidade visual Moradas de Paraty (2026) ──────────────────────────
+   Playfair Display no nome, Montserrat nos rótulos em caixa alta. Ficam aqui,
+   e não em landing.css, porque a assinatura da marca aparece também no login
+   e na barra lateral do painel — que não carregam o CSS da landing. Uma
+   @font-face só é baixada quando a família é usada, então telas que não
+   mostram a marca não pagam nada por isto. */
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url("/fonts/playfair-display-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/montserrat-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-latin-var.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Allura";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/allura-latin.woff") format("woff");
+}
+
+/* Usadas pela assinatura da marca em qualquer tela, dentro ou fora da
+   landing. Não dependem do escopo .lp-brand de propósito: o painel não pode
+   receber aquele escopo, que redefine --primary e pintaria a barra lateral
+   de verde. */
+@utility marca-display {
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+@utility marca-rotulo {
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

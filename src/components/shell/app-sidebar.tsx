@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { FlorParaty, MarcaHorizontal } from "@/components/marca";
 import { Kbd } from "@/components/ds/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { itemAtivo, navDoPerfil, type NavItem } from "@/components/dashboard/nav";
@@ -145,16 +145,10 @@ export function Marca({ recolhida }: { recolhida: boolean }) {
         recolhida && "justify-center px-0",
       )}
     >
-      <Logo variante="emblema" className="h-9 w-9 shrink-0" />
-      {recolhida ? null : (
-        <span className="min-w-0 leading-none">
-          <span className="block font-display text-[1.4rem] font-medium tracking-wide text-sidebar-foreground">
-            Moradas
-          </span>
-          <span className="mt-1 block text-[0.58rem] font-medium uppercase tracking-[0.3em] text-sidebar-muted">
-            de Paraty
-          </span>
-        </span>
+      {recolhida ? (
+        <FlorParaty className="h-8 w-8 shrink-0 text-gold" />
+      ) : (
+        <MarcaHorizontal className="min-w-0 text-[0.92rem] text-sidebar-foreground" />
       )}
     </Link>
   );
