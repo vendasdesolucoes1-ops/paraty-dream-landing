@@ -862,9 +862,13 @@ function Maquete() {
             beforeSrcSet={img("empreendimento-antes").srcSet}
             afterSrc={img("empreendimento-depois").src}
             afterSrcSet={img("empreendimento-depois").srcSet}
-            sizes="(min-width: 1280px) 1232px, 100vw"
+            sizes="(min-width: 1024px) 896px, 100vw"
             alt="Loteamento Moradas de Paraty"
-            className="mt-14 aspect-video bg-primary rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
+            // max-w-4xl: ocupava os 1280px do container e, em 16:9, 720px de
+            // altura — quase o dobro da área de qualquer outra mídia da página
+            // (os carrosséis ficam em 600-740px de largura). Continua sendo a
+            // peça maior da página, que é o papel dela, sem engolir a tela.
+            className="mx-auto mt-12 aspect-video max-w-4xl rounded-[4px] bg-primary shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
           />
         </Reveal>
       </div>
