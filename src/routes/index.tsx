@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AssinaturaHorizontal, DivisorMarca } from "@/components/landing/BrandMark";
 import { MarcaHorizontal } from "@/components/marca";
+import { RedesSociais } from "@/components/landing/RedesSociais";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { HeroVideo } from "@/components/landing/HeroVideo";
 import { Reveal } from "@/components/landing/Reveal";
@@ -873,7 +874,7 @@ function Maquete() {
 
 function Formulario() {
   return (
-    <section id="formulario" className="bg-primary text-ivory py-24 sm:py-36">
+    <section id="formulario" className="bg-primary text-ivory py-20 sm:py-28">
       <div className="container-x grid gap-10 lg:grid-cols-12 lg:gap-16 lg:items-start">
         <div className="lg:col-span-5">
           <Reveal>
@@ -889,17 +890,18 @@ function Formulario() {
               }
               texto="Preencha o formulário e nossa equipe fala com você no WhatsApp com os lotes disponíveis e as datas de visita."
             />
-            <div className="mt-12 pt-8 border-t border-ivory/15">
+            <div className="mt-10 border-t border-ivory/15 pt-6">
               <p className="eyebrow text-ivory/60 mb-3">Atendimento</p>
               <p className="text-ivory">Rod. Paraty–Cunha, 489</p>
               <p className="text-ivory/80">Pantanal · Paraty / RJ</p>
+              <RedesSociais className="mt-5" />
             </div>
           </Reveal>
         </div>
 
         <div className="lg:col-span-7">
           <Reveal delay={150}>
-            <div className="bg-ivory text-foreground p-9 sm:p-13 rounded-[5px] shadow-[0_40px_90px_-45px_rgba(0,0,0,0.5)]">
+            <div className="rounded-[5px] bg-ivory p-8 text-foreground shadow-[0_40px_90px_-45px_rgba(0,0,0,0.5)] sm:p-10">
               <LeadForm />
             </div>
           </Reveal>
@@ -924,6 +926,7 @@ function Rodape() {
             <br />
             Pantanal — Paraty / RJ
           </p>
+          <RedesSociais className="mt-5" />
         </div>
         <div>
           <p className="eyebrow text-ivory/60 mb-3">Registro</p>
