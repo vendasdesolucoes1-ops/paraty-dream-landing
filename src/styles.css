@@ -149,21 +149,34 @@
 :root {
   --radius: 0.625rem;
 
-  /* Premium palette — deep navy, sand, ivory, soft gold.
-     forest-deep/forest mantêm o nome histórico (evita renomear toda a base
-     de classes bg-forest-deep/text-forest espalhada no projeto), mas agora
-     são tons de azul-marinho — hue deslocado de ~150-155 (verde) para ~252-255
-     (azul), luminosidade/chroma preservando a mesma relação clara/escura que
-     já existia entre os dois tokens. */
-  --forest-deep: oklch(0.26 0.085 255);
-  --forest: oklch(0.36 0.09 252);
+  /* ── Paleta da marca (valores do Figma) ───────────────────────────────
+     Moravam só dentro de .lp-brand, no CSS da landing, e era essa a origem
+     da divergência: o site público usava o verde da marca e o painel um
+     azul-marinho que não existe em peça nenhuma. Agora vivem aqui, e os dois
+     escopos bebem da mesma fonte. */
+  --mp-green-950: #0f1f16; /* Verde Noite */
+  --mp-green-800: #1f3a2b; /* Verde Floresta */
+  --mp-green-700: #2b4a37; /* Verde Mata */
+  --mp-gold-700: #9c7a3c; /* Dourado escuro: texto dourado sobre creme */
+  --mp-gold-500: #c9a45c; /* Dourado */
+  --mp-gold-300: #e3c88a; /* Dourado Claro */
+  --mp-cream-200: #eae0cc;
+  --mp-cream-100: #f5efe3; /* Creme */
+  --mp-cream-50: #fbf8f1; /* Papel */
+  --mp-ink-900: #1e2a22; /* Tinta */
+  --mp-ink-600: #4a554d;
+
+  /* forest-deep/forest mantêm o nome histórico: renomear trocaria
+     bg-forest-deep/text-forest em dezenas de arquivos sem ganho nenhum. */
+  --forest-deep: var(--mp-green-800);
+  --forest: var(--mp-green-700);
   --sand: oklch(0.78 0.04 75);
-  --sand-light: oklch(0.93 0.02 80);
-  --ivory: oklch(0.975 0.008 85);
-  --gold: oklch(0.72 0.11 75);
+  --sand-light: var(--mp-cream-100);
+  --ivory: var(--mp-cream-50);
+  --gold: var(--mp-gold-500);
 
   --background: var(--ivory);
-  --foreground: oklch(0.22 0.03 250);
+  --foreground: var(--mp-ink-900);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
@@ -173,12 +186,12 @@
   --secondary: var(--sand-light);
   --secondary-foreground: var(--forest-deep);
   --muted: oklch(0.95 0.012 80);
-  --muted-foreground: oklch(0.48 0.02 250);
+  --muted-foreground: var(--mp-ink-600);
   --accent: var(--gold);
   --accent-foreground: var(--forest-deep);
   --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.915 0.012 80);
+  --border: var(--mp-cream-200);
   --input: oklch(0.9 0.012 80);
   --ring: var(--forest);
 
@@ -203,20 +216,20 @@
   --chart-muted: oklch(0.82 0.015 80);
   --chart-track: oklch(0.94 0.012 80);
 
-  /* Barra lateral: um azul mais fundo que o da marca, para o conteúdo ser o
-     claro da página e a navegação recuar. */
+  /* Barra lateral: creme um pouco mais fundo que a página, para o conteúdo
+     ser o claro e a navegação recuar. */
   --sidebar: var(--canvas);
-  --sidebar-foreground: oklch(0.22 0.03 250);
-  --sidebar-muted: oklch(0.47 0.02 250);
-  --sidebar-hover: oklch(0.2 0.03 250 / 0.055);
+  --sidebar-foreground: var(--mp-ink-900);
+  --sidebar-muted: var(--mp-ink-600);
+  --sidebar-hover: oklch(0.22 0.03 155 / 0.055);
   --sidebar-active: oklch(1 0 0);
-  --sidebar-line: oklch(0.2 0.03 250 / 0.09);
+  --sidebar-line: oklch(0.22 0.03 155 / 0.09);
 
   /* Elevação do card: borda faz o contorno, a sombra só sugere profundidade. */
-  --shadow-card: 0 1px 2px oklch(0.2 0.03 250 / 0.05), 0 8px 24px -16px oklch(0.2 0.03 250 / 0.16);
+  --shadow-card: 0 1px 2px oklch(0.2 0.03 155 / 0.05), 0 8px 24px -16px oklch(0.2 0.03 155 / 0.16);
   --shadow-pop:
-    0 0 0 1px oklch(0.2 0.03 250 / 0.06), 0 4px 8px -2px oklch(0.2 0.03 250 / 0.08),
-    0 24px 48px -12px oklch(0.2 0.03 250 / 0.26);
+    0 0 0 1px oklch(0.2 0.03 155 / 0.06), 0 4px 8px -2px oklch(0.2 0.03 155 / 0.08),
+    0 24px 48px -12px oklch(0.2 0.03 155 / 0.26);
 
   /* Fundo do painel: um creme um pouco mais fundo que o da landing, para o
      card branco se destacar sem precisar de sombra pesada. */
