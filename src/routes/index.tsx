@@ -7,6 +7,7 @@ import {
 } from "@/components/landing/BrandMark";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Reveal } from "@/components/landing/Reveal";
+import { SecaoHeader } from "@/components/landing/SecaoHeader";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { useCondicaoVigente } from "@/components/landing/condicao-vigente";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
@@ -236,11 +237,18 @@ function SemComplicacao() {
     <section className="bg-forest-deep text-ivory py-24 sm:py-36">
       <div className="container-x">
         <Reveal>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] max-w-3xl">
-            Sua casa em Paraty,
-            <br />
-            <em className="not-italic text-sand">sem complicação.</em>
-          </h2>
+          <SecaoHeader
+            tom="escuro"
+            tamanho="grande"
+            className="max-w-3xl"
+            titulo={
+              <>
+                Sua casa em Paraty,
+                <br />
+                <em className="not-italic text-sand">sem complicação.</em>
+              </>
+            }
+          />
         </Reveal>
 
         {/* Duas colunas no desktop: os diferenciais ocupam a esquerda e o
@@ -366,18 +374,18 @@ function CondicoesEspeciais() {
       <div className="container-x grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-center">
         <div className="lg:col-span-5">
           <Reveal>
-            <span className="eyebrow inline-block rounded-lg bg-gold px-5 py-2 text-primary">
-              Condições especiais
-            </span>
-            <h2 className="mt-7 text-4xl sm:text-5xl text-primary leading-[1.08]">
-              Seu terreno. Sua casa.
-              <br />
-              <em className="not-italic text-accent">Sua liberdade.</em>
-            </h2>
-            <p className="mt-7 text-muted-foreground text-lg font-light leading-relaxed">
-              Lotes a partir de 250 m² em um loteamento 100% regularizado, com negociação direta com
-              a loteadora — sem banco e sem burocracia.
-            </p>
+            <SecaoHeader
+              eyebrow="Condições especiais"
+              eyebrowPilula
+              titulo={
+                <>
+                  Seu terreno. Sua casa.
+                  <br />
+                  <em className="not-italic text-accent">Sua liberdade.</em>
+                </>
+              }
+              texto="Lotes a partir de 250 m² em um loteamento 100% regularizado, com negociação direta com a loteadora — sem banco e sem burocracia."
+            />
             <ul className="mt-10 grid gap-5 sm:grid-cols-2">
               {INFRAESTRUTURA.map(({ Icon, titulo }) => (
                 <li key={titulo} className="flex items-center gap-4">
@@ -469,6 +477,29 @@ function CondicoesEspeciais() {
   );
 }
 
+/**
+ * Emenda entre duas seções de fundos diferentes.
+ *
+ * As trocas claro↔escuro da página eram um corte reto: a faixa verde da seção
+ * "sem complicação" terminava no pixel seguinte em creme, e o mesmo acontecia
+ * ao entrar no formulário. Numa página que fala de serra, mata e fim de tarde,
+ * a transição dissolvida lê como luz mudando; o corte reto lê como duas
+ * páginas coladas.
+ *
+ * Fica fora da seção, e não como overlay dentro dela, porque a emenda pertence
+ * às duas — assim cada seção continua um bloco de uma cor só, e trocar a cor
+ * de uma não exige lembrar de ajustar a sombra da outra.
+ */
+function Costura({ de, para }: { de: string; para: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-16 sm:h-24"
+      style={{ backgroundImage: `linear-gradient(to bottom, ${de}, ${para})` }}
+    />
+  );
+}
+
 function Landing() {
   return (
     <div className="lp-ease lp-brand bg-background text-foreground">
@@ -481,10 +512,12 @@ function Landing() {
       <Nav />
       <Hero />
       <SemComplicacao />
+      <Costura de="var(--forest-deep)" para="var(--secondary)" />
       <CondicoesEspeciais />
       <Localizacao />
       <EstiloDeVida />
       <Maquete />
+      <Costura de="var(--background)" para="var(--primary)" />
       <Formulario />
       <Rodape />
     </div>
@@ -668,19 +701,20 @@ function Stat({ n, l }: { n: string; l: string }) {
 
 function Localizacao() {
   return (
-    <section className="py-24 sm:py-36 container-x">
-      <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+    <section className="py-24 sm:py-36 border-t border-border/70">
+      <div className="container-x grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
         <div className="lg:col-span-5">
           <Reveal>
-            <p className="eyebrow text-accent mb-6">Localização</p>
-            <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
-              A nove minutos do <em className="not-italic text-accent">coração colonial</em> de
-              Paraty.
-            </h2>
-            <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
-              Entre as ruas de pedra do Centro Histórico e o silêncio da Serra do Mar, o Moradas de
-              Paraty oferece o raro equilíbrio entre cultura, natureza e praticidade.
-            </p>
+            <SecaoHeader
+              eyebrow="Localização"
+              titulo={
+                <>
+                  A nove minutos do <em className="not-italic text-accent">coração colonial</em> de
+                  Paraty.
+                </>
+              }
+              texto="Entre as ruas de pedra do Centro Histórico e o silêncio da Serra do Mar, o Moradas de Paraty oferece o raro equilíbrio entre cultura, natureza e praticidade."
+            />
             <ul className="mt-10 space-y-4 text-foreground">
               {[
                 "Acesso direto pela Rod. Paraty–Cunha",
@@ -756,15 +790,11 @@ function EstiloDeVida() {
 
         <div className="lg:col-span-6 order-1 lg:order-2">
           <Reveal delay={150}>
-            <p className="eyebrow text-accent mb-6">Estilo de vida</p>
-            <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
-              Onde o cotidiano se reencontra com a natureza.
-            </h2>
-            <p className="mt-8 text-muted-foreground text-lg font-light leading-relaxed">
-              Lotes prontos para construir, cercados por cachoeiras, trilhas e mirantes. Um endereço
-              para quem busca qualidade de vida sem abrir mão de praticidade, segurança e
-              valorização patrimonial.
-            </p>
+            <SecaoHeader
+              eyebrow="Estilo de vida"
+              titulo="Onde o cotidiano se reencontra com a natureza."
+              texto="Lotes prontos para construir, cercados por cachoeiras, trilhas e mirantes. Um endereço para quem busca qualidade de vida sem abrir mão de praticidade, segurança e valorização patrimonial."
+            />
 
             <div className="mt-12 grid grid-cols-2 gap-x-8 gap-y-10">
               {[
@@ -788,31 +818,29 @@ function EstiloDeVida() {
 
 function Maquete() {
   return (
-    <section className="py-24 sm:py-36 container-x">
-      <Reveal>
-        <div className="max-w-2xl">
-          <p className="eyebrow text-accent mb-6">O empreendimento</p>
-          <h2 className="text-4xl sm:text-5xl text-primary leading-tight tracking-tight">
-            Conheça o Moradas de Paraty.
-          </h2>
-          <p className="mt-6 text-muted-foreground text-lg font-light">
-            Uma visão imersiva sobre o desenho do loteamento, suas vias, áreas comuns e a integração
-            com o relevo natural.
-          </p>
-        </div>
-      </Reveal>
+    <section className="py-24 sm:py-36 border-t border-border/70">
+      <div className="container-x">
+        <Reveal>
+          <SecaoHeader
+            className="max-w-2xl"
+            eyebrow="O empreendimento"
+            titulo="Conheça o Moradas de Paraty."
+            texto="Uma visão imersiva sobre o desenho do loteamento, suas vias, áreas comuns e a integração com o relevo natural."
+          />
+        </Reveal>
 
-      <Reveal delay={200}>
-        <BeforeAfterSlider
-          beforeSrc={img("empreendimento-antes").src}
-          beforeSrcSet={img("empreendimento-antes").srcSet}
-          afterSrc={img("empreendimento-depois").src}
-          afterSrcSet={img("empreendimento-depois").srcSet}
-          sizes="(min-width: 1280px) 1232px, 100vw"
-          alt="Loteamento Moradas de Paraty"
-          className="mt-14 aspect-video bg-primary rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
-        />
-      </Reveal>
+        <Reveal delay={200}>
+          <BeforeAfterSlider
+            beforeSrc={img("empreendimento-antes").src}
+            beforeSrcSet={img("empreendimento-antes").srcSet}
+            afterSrc={img("empreendimento-depois").src}
+            afterSrcSet={img("empreendimento-depois").srcSet}
+            sizes="(min-width: 1280px) 1232px, 100vw"
+            alt="Loteamento Moradas de Paraty"
+            className="mt-14 aspect-video bg-primary rounded-[4px] shadow-[0_30px_70px_-40px_rgba(20,40,30,0.55)]"
+          />
+        </Reveal>
+      </div>
     </section>
   );
 }
@@ -823,16 +851,18 @@ function Formulario() {
       <div className="container-x grid lg:grid-cols-12 gap-12 lg:gap-20">
         <div className="lg:col-span-5">
           <Reveal>
-            <p className="eyebrow text-sand mb-6">Receba a apresentação</p>
-            <h2 className="font-display text-4xl sm:text-5xl text-ivory leading-tight tracking-tight">
-              Receba a apresentação
-              <br />
-              <em className="not-italic text-sand">completa.</em>
-            </h2>
-            <p className="mt-8 text-ivory/75 font-light text-lg leading-relaxed">
-              Preencha o formulário e nossa equipe fala com você no WhatsApp com os lotes
-              disponíveis e as datas de visita.
-            </p>
+            <SecaoHeader
+              tom="escuro"
+              eyebrow="Contato"
+              titulo={
+                <>
+                  Receba a apresentação
+                  <br />
+                  <em className="not-italic text-sand">completa.</em>
+                </>
+              }
+              texto="Preencha o formulário e nossa equipe fala com você no WhatsApp com os lotes disponíveis e as datas de visita."
+            />
             <div className="mt-12 pt-8 border-t border-ivory/15">
               <p className="eyebrow text-ivory/60 mb-3">Atendimento</p>
               <p className="text-ivory">Rod. Paraty–Cunha, 489</p>
