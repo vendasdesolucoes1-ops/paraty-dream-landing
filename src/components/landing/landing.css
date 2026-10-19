@@ -173,7 +173,27 @@
       animation-range-end: entry calc(var(--reveal-offset, 0px) + 280px);
     }
   }
+
+  /* ── Tira rotativa ───────────────────────────────────────────────── */
+
+  /* O trilho tem duas cópias da lista lado a lado; correr até -50% leva a
+     segunda exatamente para onde a primeira começou, então o laço reinicia
+     sem salto visível. Fica dentro do bloco de "no-preference": com "reduzir
+     movimento" ligado a tira simplesmente não anda. */
+  .lp-tira-trilho {
+    animation: lp-tira 42s linear infinite;
+  }
 }
+
+@keyframes lp-tira {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 
 @keyframes lp-settle {
   from {

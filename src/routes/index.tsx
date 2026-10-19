@@ -9,6 +9,7 @@ import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { HeroVideo } from "@/components/landing/HeroVideo";
 import { Reveal } from "@/components/landing/Reveal";
 import { SecaoHeader } from "@/components/landing/SecaoHeader";
+import { TiraInformativa } from "@/components/landing/TiraInformativa";
 import { LeadForm } from "@/components/landing/LeadForm";
 import { useCondicaoVigente } from "@/components/landing/condicao-vigente";
 import { Carousel, type CarouselSlide } from "@/components/landing/Carousel";
@@ -21,6 +22,9 @@ import {
   Droplets,
   ShieldCheck,
   TreePine,
+  MapPin,
+  Ruler,
+  FileCheck2,
 } from "lucide-react";
 import { foto } from "@/lib/landing-images";
 import "@/components/landing/landing.css";
@@ -207,6 +211,20 @@ const obraSlides: CarouselSlide[] = [
     descricao: "Acesso arborizado e stand de vendas aberto para visita.",
   },
 ];
+
+/**
+ * Tira entre o hero e a primeira seção. Cada item já é afirmado em outro
+ * ponto da página (números do hero, infraestrutura, condições) — a tira
+ * resume, não acrescenta.
+ */
+const TIRA = [
+  { Icon: MapPin, texto: "9 min do Centro Histórico" },
+  { Icon: Ruler, texto: "Lotes de 250 a 450 m²" },
+  { Icon: PlugZap, texto: "Água, luz e ruas prontas" },
+  { Icon: Banknote, texto: "Financiamento direto com a loteadora" },
+  { Icon: FileCheck2, texto: "Loteamento 100% regularizado" },
+  { Icon: TreePine, texto: "Cercado de Mata Atlântica" },
+] as const;
 
 const DIFERENCIAIS = [
   {
@@ -514,6 +532,10 @@ function Landing() {
       </a>
       <Nav />
       <Hero />
+      <TiraInformativa itens={TIRA} />
+      {/* Do creme da tira para o verde da seção: sem a costura, o corte seco
+          entre os dois faria a tira parecer destacada da página. */}
+      <Costura de="var(--secondary)" para="var(--forest-deep)" />
       <SemComplicacao />
       <Costura de="var(--forest-deep)" para="var(--secondary)" />
       <CondicoesEspeciais />
