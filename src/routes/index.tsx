@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  AssinaturaHorizontal,
-  AssinaturaMarca,
-  DivisorMarca,
-} from "@/components/landing/BrandMark";
+import { AssinaturaHorizontal, DivisorMarca } from "@/components/landing/BrandMark";
+import { MarcaHorizontal } from "@/components/marca";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { HeroVideo } from "@/components/landing/HeroVideo";
 import { Reveal } from "@/components/landing/Reveal";
@@ -498,29 +495,6 @@ function CondicoesEspeciais() {
   );
 }
 
-/**
- * Emenda entre duas seções de fundos diferentes.
- *
- * As trocas claro↔escuro da página eram um corte reto: a faixa verde da seção
- * "sem complicação" terminava no pixel seguinte em creme, e o mesmo acontecia
- * ao entrar no formulário. Numa página que fala de serra, mata e fim de tarde,
- * a transição dissolvida lê como luz mudando; o corte reto lê como duas
- * páginas coladas.
- *
- * Fica fora da seção, e não como overlay dentro dela, porque a emenda pertence
- * às duas — assim cada seção continua um bloco de uma cor só, e trocar a cor
- * de uma não exige lembrar de ajustar a sombra da outra.
- */
-function Costura({ de, para }: { de: string; para: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-16 sm:h-24"
-      style={{ backgroundImage: `linear-gradient(to bottom, ${de}, ${para})` }}
-    />
-  );
-}
-
 function Landing() {
   return (
     <div className="lp-ease lp-brand bg-background text-foreground">
@@ -535,14 +509,11 @@ function Landing() {
       <TiraInformativa itens={TIRA} />
       {/* Do creme da tira para o verde da seção: sem a costura, o corte seco
           entre os dois faria a tira parecer destacada da página. */}
-      <Costura de="var(--secondary)" para="var(--forest-deep)" />
       <SemComplicacao />
-      <Costura de="var(--forest-deep)" para="var(--secondary)" />
       <CondicoesEspeciais />
       <Localizacao />
       <EstiloDeVida />
       <Maquete />
-      <Costura de="var(--background)" para="var(--primary)" />
       <Formulario />
       <Rodape />
     </div>
@@ -941,18 +912,21 @@ function Formulario() {
 function Rodape() {
   return (
     <footer className="bg-primary text-ivory/80">
-      <div className="container-x py-16 grid md:grid-cols-3 gap-10 text-sm">
+      {/* Assinatura horizontal, não a empilhada: a empilhada (flor sobre nome
+          sobre divisor) é alta e sozinha respondia por boa parte da altura do
+          rodapé. Aqui a marca é referência, não abertura. */}
+      <div className="container-x grid gap-8 py-10 text-sm md:grid-cols-3">
         <div>
-          <AssinaturaMarca tom="claro" className="text-[22px]" />
-          <p className="eyebrow text-ivory/60 mt-5">Loteamento Sophia Saíde</p>
-          <p className="mt-6 leading-relaxed">
+          <MarcaHorizontal className="text-[15px] text-ivory" />
+          <p className="eyebrow text-ivory/60 mt-4">Loteamento Sophia Saíde</p>
+          <p className="mt-3 leading-relaxed">
             Rod. Paraty–Cunha, 489
             <br />
             Pantanal — Paraty / RJ
           </p>
         </div>
         <div>
-          <p className="eyebrow text-ivory/60 mb-4">Registro</p>
+          <p className="eyebrow text-ivory/60 mb-3">Registro</p>
           <p className="leading-relaxed">
             Loteamento Residencial Sophia Saíde
             <br />
@@ -962,7 +936,7 @@ function Rodape() {
           </p>
         </div>
         <div>
-          <p className="eyebrow text-ivory/60 mb-4">Incorporação</p>
+          <p className="eyebrow text-ivory/60 mb-3">Incorporação</p>
           <p className="leading-relaxed">
             Incorporadora Sophia Saíde
             <br />
@@ -973,7 +947,7 @@ function Rodape() {
         </div>
       </div>
       <div className="border-t border-ivory/10">
-        <div className="container-x py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ivory/55">
+        <div className="container-x flex flex-col items-center justify-between gap-2 py-4 text-xs text-ivory/55 sm:flex-row">
           <span>
             © {new Date().getFullYear()} Moradas de Paraty. Todos os direitos reservados. Imagens
             meramente ilustrativas.
