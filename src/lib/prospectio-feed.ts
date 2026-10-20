@@ -62,16 +62,47 @@ export class ErroFeedProspectio extends Error {
 
 export const chaveFeedProspectio = ["prospectio-feed"] as const;
 
+export const URL_PADRAO_PROSPECTIO = "https://prospectio.com.br/api/integracoes/marketing/posts";
+
+/**
+ * Busca o feed direto do Prospectio, com o token salvo em configuracoes
+ * (chave sensível: só a gestão lê — a mesma que vê esta aba). O endpoint do
+ * Prospectio libera CORS e não usa cookie; quem autentica é só o token.
+ */
+async function buscarFeed(): Promise<FeedProspectio> {
+  const config = await lerConfigProspectio();
+  if (!config.token) {
+    throw new ErroFeedProspectio(
+      "Cole o token do Prospectio em “Conexão com o Prospectio”, logo abaixo.",
+      true,
+    );
+  }
+  let resposta: Response;
+  try {
+    resposta = await fetch(config.url || URL_PADRAO_PROSPECTIO, {
+      headers: { Authorization: `Bearer ${config.token}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("Não foi possível falar com o Prospectio agora.");
+  }
+  if (resposta.status === 401) {
+    throw new ErroFeedProspectio(
+      "O Prospectio recusou o token (revogado ou trocado). Gere um novo e cole abaixo.",
+    );
+  }
+  const corpo = await resposta.json().catch(() => null);
+  if (!resposta.ok || !corpo?.ok) {
+    throw new Error(corpo?.error ?? `O Prospectio não respondeu (HTTP ${resposta.status}).`);
+  }
+  return corpo as FeedProspectio;
+}
+
 /** Atualiza sozinho a cada minuto — publicação e métricas aparecem sem recarregar. */
 export function useFeedProspectio() {
   return useQuery({
     queryKey: chaveFeedProspectio,
-    queryFn: async (): Promise<FeedProspectio> => {
-      const { data, error } = await supabase.functions.invoke("prospectio-feed", { method: "GET" });
-      if (error) throw new Error("Não foi possível carregar a agenda do Prospectio.");
-      if (data?.error) throw new ErroFeedProspectio(data.error, data.configurado === false);
-      return data as FeedProspectio;
-    },
+    queryFn: buscarFeed,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     // Token recusado ou ausente não melhora tentando de novo.
@@ -81,22 +112,21 @@ export function useFeedProspectio() {
 
 export const chaveConfigProspectio = ["prospectio-config"] as const;
 
+async function lerConfigProspectio() {
+  const { data, error } = await supabase
+    .from("configuracoes")
+    .select("chave, valor")
+    .in("chave", ["prospectio_feed_token", "prospectio_feed_url"]);
+  if (error) throw error;
+  const map = Object.fromEntries((data ?? []).map((row) => [row.chave, row.valor ?? ""]));
+  return {
+    token: (map.prospectio_feed_token ?? "").trim(),
+    url: (map.prospectio_feed_url ?? "").trim(),
+  };
+}
+
 export function useConfigProspectio() {
-  return useQuery({
-    queryKey: chaveConfigProspectio,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("configuracoes")
-        .select("chave, valor")
-        .in("chave", ["prospectio_feed_token", "prospectio_feed_url"]);
-      if (error) throw error;
-      const map = Object.fromEntries((data ?? []).map((row) => [row.chave, row.valor ?? ""]));
-      return {
-        token: map.prospectio_feed_token ?? "",
-        url: map.prospectio_feed_url ?? "",
-      };
-    },
-  });
+  return useQuery({ queryKey: chaveConfigProspectio, queryFn: lerConfigProspectio });
 }
 
 const FUSO = "America/Sao_Paulo";

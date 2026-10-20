@@ -357,7 +357,7 @@ function ConexaoProspectioCard({ defaultOpen }: { defaultOpen: boolean }) {
             <p className="text-xs leading-relaxed text-muted-foreground">
               No Prospectio, entre com a conta do Moradas de Paraty e vá em Marketing → Meu
               Instagram → Integração externa → Gerar token. Cole o token aqui; ele fica guardado no
-              servidor e só a gestão vê.
+              banco do Moradas e só a gestão vê.
             </p>
           </CardContent>
         </CollapsibleContent>
@@ -407,7 +407,8 @@ export function ProspectioAgendaTab() {
           icon={CalendarClock}
           title={naoConfigurado ? "Conecte o Prospectio" : "Não foi possível carregar a agenda"}
           description={
-            erro?.message ?? "Tente de novo em instantes. Se persistir, confira a conexão abaixo."
+            feed.error?.message ||
+            "Tente de novo em instantes. Se persistir, confira a conexão abaixo."
           }
           action={
             naoConfigurado ? undefined : (
