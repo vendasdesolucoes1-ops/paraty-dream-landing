@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CreatePostTab } from "@/components/marketing/create-post-tab";
 import { PostsGalleryTab } from "@/components/marketing/posts-gallery-tab";
+import { ProspectioAgendaTab } from "@/components/marketing/prospectio-agenda-tab";
 import { BrandAssetsPanel } from "@/components/marketing/brand-assets-panel";
 import { AcervoPanel } from "@/components/marketing/acervo-panel";
 import { InstagramSettingsCard } from "@/components/marketing/instagram-settings-card";
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleGuard } from "@/components/dashboard/role-guard";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Reveal } from "@/components/ds/reveal";
-import { LayoutGrid, Palette, Wand2 } from "lucide-react";
+import { CalendarClock, LayoutGrid, Palette, Wand2 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/marketing")({
   head: () => ({
@@ -54,6 +55,10 @@ function MarketingPage() {
                 <LayoutGrid className="h-4 w-4" aria-hidden />
                 Galeria
               </TabsTrigger>
+              <TabsTrigger value="agenda">
+                <CalendarClock className="h-4 w-4" aria-hidden />
+                Agenda
+              </TabsTrigger>
               <TabsTrigger value="marca">
                 <Palette className="h-4 w-4" aria-hidden />
                 Marca
@@ -66,6 +71,10 @@ function MarketingPage() {
 
             <TabsContent value="galeria" className="mt-8">
               <PostsGalleryTab />
+            </TabsContent>
+
+            <TabsContent value="agenda" className="mt-8">
+              <ProspectioAgendaTab />
             </TabsContent>
 
             <TabsContent value="marca" className="mt-8 space-y-8">
