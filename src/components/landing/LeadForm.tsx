@@ -63,11 +63,14 @@ function parseMetragem(value: Lead["metragem"]): number | null {
  * grava a versão aceita em `consentimentos`, e é ela que prova o consentimento.
  * Revisar com o jurídico antes de publicar uma versão nova.
  */
-const VERSAO_CONSENTIMENTO = "2026-10-16";
+const VERSAO_CONSENTIMENTO = "2026-10-27";
 const TEXTO_CONSENTIMENTO =
   "Concordo em receber contato da equipe do Moradas de Paraty por WhatsApp sobre este empreendimento, " +
   "inclusive mensagens de acompanhamento e atendimento inicial por assistente virtual. Meus dados podem " +
   "ser processados por provedores de tecnologia, inclusive fora do Brasil. Posso pedir para parar a qualquer momento.";
+
+/** Frase final do aceite, com o link da política (faz parte da versão acima). */
+const CHAMADA_POLITICA = "Leia nossa ";
 
 export function LeadForm() {
   const [lead, setLead] = useState<Lead>(empty);
@@ -367,7 +370,18 @@ export function LeadForm() {
             className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
             required
           />
-          <span>{TEXTO_CONSENTIMENTO}</span>
+          <span>
+            {TEXTO_CONSENTIMENTO} {CHAMADA_POLITICA}
+            <a
+              href="/politica-de-privacidade"
+              target="_blank"
+              rel="noopener"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Política de Privacidade
+            </a>
+            .
+          </span>
         </label>
       </div>
     </form>

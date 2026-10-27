@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardAgendaRouteImport } from './routes/dashboard/agenda'
 import { Route as DashboardCadenciasRouteImport } from './routes/dashboard/cadencias'
@@ -37,6 +38,11 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaDePrivacidadeRoute = PoliticaDePrivacidadeRouteImport.update({
+  id: '/politica-de-privacidade',
+  path: '/politica-de-privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/dashboard/agenda': typeof DashboardAgendaRoute
   '/dashboard/cadencias': typeof DashboardCadenciasRoute
   '/dashboard/clientes': typeof DashboardClientesRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/politica-de-privacidade'
     | '/dashboard/agenda'
     | '/dashboard/cadencias'
     | '/dashboard/clientes'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/politica-de-privacidade'
     | '/dashboard/agenda'
     | '/dashboard/cadencias'
     | '/dashboard/clientes'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/politica-de-privacidade'
     | '/dashboard/agenda'
     | '/dashboard/cadencias'
     | '/dashboard/clientes'
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-de-privacidade': {
+      id: '/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PoliticaDePrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
