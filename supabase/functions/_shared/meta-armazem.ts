@@ -24,6 +24,9 @@ export interface Armazem {
   upsert(tabela: string, linhas: Linha[], conflito: string): Promise<number>;
   iniciarExecucao(job: string): Promise<string>;
   finalizarExecucao(id: string, resultado: ResultadoExecucao): Promise<void>;
+  /** Estado persistido de um job (cursor da carga inicial, relatório em andamento). */
+  lerEstado(chave: string): Promise<Record<string, unknown> | null>;
+  salvarEstado(chave: string, valor: Record<string, unknown>): Promise<void>;
 }
 
 /** Tamanho do lote por requisição ao PostgREST. */
@@ -57,6 +60,23 @@ export function armazemSupabase(supabase: SupabaseClient): Armazem {
         gravadas += lote.length;
       }
       return gravadas;
+    },
+
+    async lerEstado(chave) {
+      const { data, error } = await supabase
+        .from("meta_sync_estado")
+        .select("valor")
+        .eq("chave", chave)
+        .maybeSingle();
+      if (error) throw new Error(`não foi possível ler o estado ${chave}: ${error.message}`);
+      return (data?.valor as Record<string, unknown> | undefined) ?? null;
+    },
+
+    async salvarEstado(chave, valor) {
+      const { error } = await supabase
+        .from("meta_sync_estado")
+        .upsert({ chave, valor, atualizado_em: new Date().toISOString() }, { onConflict: "chave" });
+      if (error) throw new Error(`não foi possível salvar o estado ${chave}: ${error.message}`);
     },
 
     async iniciarExecucao(job) {

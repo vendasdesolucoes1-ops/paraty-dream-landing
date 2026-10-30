@@ -14,33 +14,12 @@ import {
   mapearConjunto,
   sincronizarEstruturaAds,
 } from "./meta-ads-estrutura.ts";
-import { deduplicar, emLotes, type Armazem, type Linha, type ResultadoExecucao } from "./meta-armazem.ts";
+import { deduplicar, emLotes } from "./meta-armazem.ts";
+import { armazemEmMemoria } from "./meta-teste-util.ts";
 import { GRAPH_VERSION, MetaGraphClient, MetaRateLimitError, MetaTokenInvalidoError } from "./meta-graph.ts";
 import { executarJob } from "./meta-sync-run.ts";
 
 // --- dublês ------------------------------------------------------------------
-
-function armazemEmMemoria() {
-  const tabelas = new Map<string, Map<string, Linha>>();
-  const execucoes: { id: string; job: string; resultado?: ResultadoExecucao }[] = [];
-  const armazem: Armazem = {
-    async upsert(tabela, linhas, conflito) {
-      const t = tabelas.get(tabela) ?? new Map<string, Linha>();
-      tabelas.set(tabela, t);
-      for (const l of deduplicar(linhas, conflito)) t.set(String(l[conflito]), { ...(t.get(String(l[conflito])) ?? {}), ...l });
-      return linhas.length;
-    },
-    async iniciarExecucao(job) {
-      const id = `exec-${execucoes.length + 1}`;
-      execucoes.push({ id, job });
-      return id;
-    },
-    async finalizarExecucao(id, resultado) {
-      execucoes.find((e) => e.id === id)!.resultado = resultado;
-    },
-  };
-  return { armazem, tabelas, execucoes };
-}
 
 const paginaMeta = (data: unknown[], next?: string) =>
   new Response(JSON.stringify({ data, ...(next ? { paging: { next } } : {}) }), { status: 200 });
