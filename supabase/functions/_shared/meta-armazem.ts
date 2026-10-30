@@ -27,6 +27,10 @@ export interface Armazem {
   /** Estado persistido de um job (cursor da carga inicial, relatório em andamento). */
   lerEstado(chave: string): Promise<Record<string, unknown> | null>;
   salvarEstado(chave: string, valor: Record<string, unknown>): Promise<void>;
+  /** Houve execução com sucesso do job nas últimas `horas` horas? (guarda dos crons com retomada) */
+  execucaoRecente(job: string, horas: number): Promise<boolean>;
+  /** Alerta de token inválido (erro 190) para a gestão; a dedupe fica no banco. */
+  alertarTokenInvalido(detalhe: string): Promise<void>;
 }
 
 /** Tamanho do lote por requisição ao PostgREST. */
@@ -77,6 +81,23 @@ export function armazemSupabase(supabase: SupabaseClient): Armazem {
         .from("meta_sync_estado")
         .upsert({ chave, valor, atualizado_em: new Date().toISOString() }, { onConflict: "chave" });
       if (error) throw new Error(`não foi possível salvar o estado ${chave}: ${error.message}`);
+    },
+
+    async execucaoRecente(job, horas) {
+      const desde = new Date(Date.now() - horas * 3_600_000).toISOString();
+      const { count, error } = await supabase
+        .from("meta_sync_execucoes")
+        .select("id", { count: "exact", head: true })
+        .eq("job", job)
+        .eq("status", "sucesso")
+        .gte("iniciado_em", desde);
+      if (error) throw new Error(`não foi possível consultar execuções de ${job}: ${error.message}`);
+      return (count ?? 0) > 0;
+    },
+
+    async alertarTokenInvalido(detalhe) {
+      const { error } = await supabase.rpc("alertar_token_meta", { p_detalhe: detalhe.slice(0, 300) });
+      if (error) throw new Error(`alertar_token_meta falhou: ${error.message}`);
     },
 
     async iniciarExecucao(job) {

@@ -7,6 +7,7 @@ export function armazemEmMemoria() {
   const estados = new Map<string, Record<string, unknown>>();
   const execucoes: { id: string; job: string; resultado?: ResultadoExecucao }[] = [];
   const upserts: { tabela: string; linhas: number }[] = [];
+  const alertas: string[] = [];
   const armazem: Armazem = {
     async upsert(tabela, linhas, conflito) {
       const colunas = conflito.split(",").map((c) => c.trim());
@@ -25,6 +26,12 @@ export function armazemEmMemoria() {
     async finalizarExecucao(id, resultado) {
       execucoes.find((e) => e.id === id)!.resultado = resultado;
     },
+    async execucaoRecente(job) {
+      return execucoes.some((e) => e.job === job && e.resultado?.status === "sucesso");
+    },
+    async alertarTokenInvalido(detalhe) {
+      alertas.push(detalhe);
+    },
     async lerEstado(chave) {
       const v = estados.get(chave);
       return v ? structuredClone(v) : null;
@@ -33,7 +40,7 @@ export function armazemEmMemoria() {
       estados.set(chave, structuredClone(valor));
     },
   };
-  return { armazem, tabelas, estados, execucoes, upserts };
+  return { armazem, tabelas, estados, execucoes, upserts, alertas };
 }
 
 export const contagens = (tabelas: Map<string, Map<string, Linha>>) =>

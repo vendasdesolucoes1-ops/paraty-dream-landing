@@ -11,3 +11,18 @@ verify_jwt = false
 
 [functions.rag-admin]
 verify_jwt = false
+
+# Integração Meta: o cron (pg_net) manda x-internal-secret (cron_meta_secret) e
+# execuções manuais usam o JWT de um admin. Cada função confere o próprio
+# segredo (_shared/auth.ts), então o gateway não deve recusar antes (401).
+[functions.meta-sync-ads]
+verify_jwt = false
+
+[functions.meta-sync-instagram]
+verify_jwt = false
+
+[functions.meta-sync-stories]
+verify_jwt = false
+
+[functions.meta-backfill]
+verify_jwt = false

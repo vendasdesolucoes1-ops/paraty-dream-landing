@@ -32,7 +32,11 @@ export const PAPEIS_GESTAO: Papel[] = ["admin", "gestor"];
 export const TODOS_OS_PAPEIS: Papel[] = ["admin", "gestor", "vendedor"];
 
 /** Nomes de segredo aceitos por `segredo_interno_valido` (ver a migration). */
-export type NomeSegredo = "cron_fila_secret" | "evolution_webhook_secret" | "ai_agent_chat_secret";
+export type NomeSegredo =
+  | "cron_fila_secret"
+  | "evolution_webhook_secret"
+  | "ai_agent_chat_secret"
+  | "cron_meta_secret";
 
 export const HEADER_SEGREDO = "x-internal-secret";
 
