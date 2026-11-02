@@ -6,7 +6,13 @@ import { Chip } from "@/components/ds/chip";
 import { Pill } from "@/components/ds/pill";
 import { PanelEmpty, QueryState, SkeletonRows } from "@/components/ds/query-state";
 import { Barras, GraficoSerie, Miniatura } from "@/components/marketing/meta/pecas";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   derivadas,
   formatMoeda,
@@ -123,7 +129,9 @@ function Conteudo({
           <div className="min-w-0 space-y-1">
             <p className="font-medium text-foreground">{item.titulo ?? "Sem título"}</p>
             {item.corpo ? (
-              <p className="line-clamp-5 whitespace-pre-line text-[0.8125rem] text-muted-foreground">{item.corpo}</p>
+              <p className="line-clamp-5 whitespace-pre-line text-[0.8125rem] text-muted-foreground">
+                {item.corpo}
+              </p>
             ) : (
               <p className="text-[0.8125rem] text-muted-foreground">Sem texto no criativo.</p>
             )}

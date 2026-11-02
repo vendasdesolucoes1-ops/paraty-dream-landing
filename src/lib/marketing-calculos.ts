@@ -174,7 +174,10 @@ export interface Variacao {
 }
 
 /** Comparação com o período anterior. Sem valor anterior (ou zero) não há %. */
-export function variacao(atual: number | null | undefined, anterior: number | null | undefined): Variacao {
+export function variacao(
+  atual: number | null | undefined,
+  anterior: number | null | undefined,
+): Variacao {
   const a = atual ?? 0;
   const b = anterior ?? 0;
   const direcao: Direcao = a > b ? "sobe" : a < b ? "desce" : "igual";
@@ -231,7 +234,8 @@ export function formatTaxa(v: number | null | undefined, casas = 2): string {
 
 /** Variação para o rodapé do indicador: "+12% vs. período anterior". */
 export function formatVariacao(v: Variacao): string {
-  if (v.pct === null) return v.direcao === "igual" ? "igual ao período anterior" : "sem base anterior";
+  if (v.pct === null)
+    return v.direcao === "igual" ? "igual ao período anterior" : "sem base anterior";
   if (v.direcao === "igual" || Math.abs(v.pct) < 0.005) return "igual ao período anterior";
   const pct = Math.round(Math.abs(v.pct) * 100);
   return `${v.direcao === "sobe" ? "+" : "−"}${pct}% vs. período anterior`;
@@ -289,7 +293,10 @@ const STATUS_ANUNCIO: Record<string, { label: string; tone: Tom }> = {
   DISAPPROVED: { label: "Reprovado", tone: "danger" },
 };
 
-export function statusAnuncio(effectiveStatus: string | null | undefined): { label: string; tone: Tom } {
+export function statusAnuncio(effectiveStatus: string | null | undefined): {
+  label: string;
+  tone: Tom;
+} {
   if (!effectiveStatus) return { label: "—", tone: "neutral" };
   return STATUS_ANUNCIO[effectiveStatus] ?? { label: humanizar(effectiveStatus), tone: "neutral" };
 }
@@ -318,7 +325,11 @@ export function rotuloObjetivo(objetivo: string | null | undefined): string {
 
 /** "AUDIENCE_NETWORK" → "Audience network". */
 export function humanizar(texto: string): string {
-  const t = texto.replace(/^OUTCOME_/, "").replace(/[_-]+/g, " ").trim().toLowerCase();
+  const t = texto
+    .replace(/^OUTCOME_/, "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
@@ -372,7 +383,8 @@ export function rotuloGenero(chave: string): string {
 
 /** Rótulo de uma linha de breakdown de anúncios. */
 export function rotuloBreakdown(tipo: TipoBreakdown, dim1: string, dim2: string): string {
-  if (tipo === "idade_genero") return `${dim1 === "Unknown" ? "Idade não informada" : dim1} · ${rotuloGenero(dim2)}`;
+  if (tipo === "idade_genero")
+    return `${dim1 === "Unknown" ? "Idade não informada" : dim1} · ${rotuloGenero(dim2)}`;
   if (tipo === "plataforma_posicao") {
     return `${PLATAFORMA[dim1] ?? humanizar(dim1)} · ${POSICAO[dim2] ?? humanizar(dim2)}`;
   }
@@ -447,7 +459,10 @@ export function metricaIg(resumo: ResumoIg[], metrica: string): ResumoIg | null 
 // ── Destaques ─────────────────────────────────────────────────────────────────
 
 /** Anúncios que geraram lead, do menor custo por lead para o maior. */
-export function melhoresAnuncios(linhas: LinhaAnuncio[], n = 5): (LinhaAnuncio & { cpl: number })[] {
+export function melhoresAnuncios(
+  linhas: LinhaAnuncio[],
+  n = 5,
+): (LinhaAnuncio & { cpl: number })[] {
   return linhas
     .filter((l) => l.leads > 0 && l.investimento > 0)
     .map((l) => ({ ...l, cpl: l.investimento / l.leads }))
@@ -459,7 +474,9 @@ export function melhoresAnuncios(linhas: LinhaAnuncio[], n = 5): (LinhaAnuncio &
 export function melhoresPosts(midias: MidiaIg[], n = 5): MidiaIg[] {
   return midias
     .filter((m) => m.media_product_type !== "STORY" && (m.interacoes ?? 0) > 0)
-    .sort((a, b) => (b.interacoes ?? 0) - (a.interacoes ?? 0) || (b.alcance ?? 0) - (a.alcance ?? 0))
+    .sort(
+      (a, b) => (b.interacoes ?? 0) - (a.interacoes ?? 0) || (b.alcance ?? 0) - (a.alcance ?? 0),
+    )
     .slice(0, n);
 }
 
@@ -501,7 +518,8 @@ export function saudeIntegracao(jobs: StatusJob[], agora: Date = new Date()): Sa
     return {
       nivel: "sem_dados",
       titulo: "A integração com a Meta ainda não rodou",
-      detalhe: "Assim que a primeira sincronização terminar, os dados de anúncios e do Instagram aparecem aqui.",
+      detalhe:
+        "Assim que a primeira sincronização terminar, os dados de anúncios e do Instagram aparecem aqui.",
     };
   }
   const token = jobs.find((j) => j.ultimo_status === "erro" && j.codigo_erro === 190);
@@ -509,7 +527,8 @@ export function saudeIntegracao(jobs: StatusJob[], agora: Date = new Date()): Sa
     return {
       nivel: "erro",
       titulo: "Token da Meta expirado ou revogado",
-      detalhe: "A sincronização parou. Gere um novo token do usuário do sistema e atualize META_ACCESS_TOKEN.",
+      detalhe:
+        "A sincronização parou. Gere um novo token do usuário do sistema e atualize META_ACCESS_TOKEN.",
     };
   }
   const problemas: string[] = [];
@@ -524,7 +543,11 @@ export function saudeIntegracao(jobs: StatusJob[], agora: Date = new Date()): Sa
     }
   }
   if (problemas.length) {
-    return { nivel: "atencao", titulo: "Sincronização com pendências", detalhe: problemas.join(" · ") };
+    return {
+      nivel: "atencao",
+      titulo: "Sincronização com pendências",
+      detalhe: problemas.join(" · "),
+    };
   }
   const ultima = jobs
     .filter((j) => JOBS_DIARIOS.includes(j.job) && j.ultimo_sucesso_em)
@@ -533,6 +556,8 @@ export function saudeIntegracao(jobs: StatusJob[], agora: Date = new Date()): Sa
   return {
     nivel: "ok",
     titulo: "Dados da Meta em dia",
-    detalhe: ultima ? `Última sincronização completa em ${new Date(ultima).toLocaleString("pt-BR")}` : "Sincronização em dia",
+    detalhe: ultima
+      ? `Última sincronização completa em ${new Date(ultima).toLocaleString("pt-BR")}`
+      : "Sincronização em dia",
   };
 }

@@ -39,7 +39,10 @@ function numeros<T>(linha: Record<string, unknown>, campos: readonly string[]): 
   return saida as T;
 }
 
-async function rpc(funcao: string, params: Record<string, unknown>): Promise<Record<string, unknown>[]> {
+async function rpc(
+  funcao: string,
+  params: Record<string, unknown>,
+): Promise<Record<string, unknown>[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)(funcao, params);
   if (error) throw error;
@@ -47,18 +50,43 @@ async function rpc(funcao: string, params: Record<string, unknown>): Promise<Rec
 }
 
 const CAMPOS_RESUMO_ADS = [
-  "investimento", "impressoes", "alcance_soma", "cliques", "cliques_link", "leads",
-  "mensagens", "compras", "valor_compras", "reservas", "anuncios_com_gasto",
+  "investimento",
+  "impressoes",
+  "alcance_soma",
+  "cliques",
+  "cliques_link",
+  "leads",
+  "mensagens",
+  "compras",
+  "valor_compras",
+  "reservas",
+  "anuncios_com_gasto",
 ] as const;
 
 const CAMPOS_ANUNCIO = [
-  "orcamento_diario", "orcamento_total", "investimento", "impressoes", "alcance_soma",
-  "cliques", "cliques_link", "leads", "mensagens", "compras", "reservas",
+  "orcamento_diario",
+  "orcamento_total",
+  "investimento",
+  "impressoes",
+  "alcance_soma",
+  "cliques",
+  "cliques_link",
+  "leads",
+  "mensagens",
+  "compras",
+  "reservas",
 ] as const;
 
 const CAMPOS_MIDIA = [
-  "curtidas", "comentarios", "alcance", "views", "salvos", "compartilhamentos",
-  "interacoes", "tempo_medio_ms", "respostas",
+  "curtidas",
+  "comentarios",
+  "alcance",
+  "views",
+  "salvos",
+  "compartilhamentos",
+  "interacoes",
+  "tempo_medio_ms",
+  "respostas",
 ] as const;
 
 // ── Ads ──────────────────────────────────────────────────────────────────────
@@ -67,7 +95,10 @@ export function useResumoAds(periodo: Periodo) {
   return useQuery({
     queryKey: [...chaveMarketing, "ads-resumo", periodo.inicio, periodo.fim],
     queryFn: async () => {
-      const linhas = await rpc("marketing_ads_resumo", { p_inicio: periodo.inicio, p_fim: periodo.fim });
+      const linhas = await rpc("marketing_ads_resumo", {
+        p_inicio: periodo.inicio,
+        p_fim: periodo.fim,
+      });
       const lista = linhas.map((l) => numeros<ResumoAds>(l, CAMPOS_RESUMO_ADS));
       return {
         atual: lista.find((l) => l.periodo === "atual") ?? null,
@@ -80,7 +111,14 @@ export function useResumoAds(periodo: Periodo) {
 
 export function useSerieAds(periodo: Periodo, filtro?: { nivel: NivelAnuncio; id: string }) {
   return useQuery({
-    queryKey: [...chaveMarketing, "ads-serie", periodo.inicio, periodo.fim, filtro?.nivel ?? "", filtro?.id ?? ""],
+    queryKey: [
+      ...chaveMarketing,
+      "ads-serie",
+      periodo.inicio,
+      periodo.fim,
+      filtro?.nivel ?? "",
+      filtro?.id ?? "",
+    ],
     queryFn: async () => {
       const linhas = await rpc("marketing_ads_serie", {
         p_inicio: periodo.inicio,
@@ -89,7 +127,13 @@ export function useSerieAds(periodo: Periodo, filtro?: { nivel: NivelAnuncio; id
         p_id: filtro?.id ?? null,
       });
       return linhas.map((l) =>
-        numeros<PontoSerieAds>(l, ["investimento", "impressoes", "cliques_link", "leads", "mensagens"]),
+        numeros<PontoSerieAds>(l, [
+          "investimento",
+          "impressoes",
+          "cliques_link",
+          "leads",
+          "mensagens",
+        ]),
       );
     },
     staleTime: FRESCO_MS,
@@ -117,7 +161,15 @@ export function useBreakdown(
   filtro?: { nivel: NivelAnuncio; id: string },
 ) {
   return useQuery({
-    queryKey: [...chaveMarketing, "breakdown", tipo, periodo.inicio, periodo.fim, filtro?.nivel ?? "", filtro?.id ?? ""],
+    queryKey: [
+      ...chaveMarketing,
+      "breakdown",
+      tipo,
+      periodo.inicio,
+      periodo.fim,
+      filtro?.nivel ?? "",
+      filtro?.id ?? "",
+    ],
     queryFn: async () => {
       const linhas = await rpc("marketing_breakdown", {
         p_inicio: periodo.inicio,
@@ -127,7 +179,13 @@ export function useBreakdown(
         p_id: filtro?.id ?? null,
       });
       return linhas.map((l) =>
-        numeros<LinhaBreakdown>(l, ["investimento", "impressoes", "cliques_link", "leads", "mensagens"]),
+        numeros<LinhaBreakdown>(l, [
+          "investimento",
+          "impressoes",
+          "cliques_link",
+          "leads",
+          "mensagens",
+        ]),
       );
     },
     staleTime: FRESCO_MS,
@@ -140,7 +198,10 @@ export function useResumoIg(periodo: Periodo) {
   return useQuery({
     queryKey: [...chaveMarketing, "ig-resumo", periodo.inicio, periodo.fim],
     queryFn: async () => {
-      const linhas = await rpc("marketing_ig_resumo", { p_inicio: periodo.inicio, p_fim: periodo.fim });
+      const linhas = await rpc("marketing_ig_resumo", {
+        p_inicio: periodo.inicio,
+        p_fim: periodo.fim,
+      });
       return linhas.map((l) => numeros<ResumoIg>(l, ["valor", "valor_anterior"]));
     },
     staleTime: FRESCO_MS,
@@ -151,7 +212,10 @@ export function useSerieIg(periodo: Periodo) {
   return useQuery({
     queryKey: [...chaveMarketing, "ig-serie", periodo.inicio, periodo.fim],
     queryFn: async () => {
-      const linhas = await rpc("marketing_ig_serie", { p_inicio: periodo.inicio, p_fim: periodo.fim });
+      const linhas = await rpc("marketing_ig_serie", {
+        p_inicio: periodo.inicio,
+        p_fim: periodo.fim,
+      });
       return linhas.map((l) => numeros<PontoSerieIg>(l, ["valor"]));
     },
     staleTime: FRESCO_MS,
@@ -201,7 +265,11 @@ export function useMetricasDasMidias(mediaIds: string[]) {
         .in("metrica", ["reach", "views", "total_interactions", "saved", "shares"]);
       if (error) throw error;
       const mapa: Record<string, Record<string, number>> = {};
-      for (const l of (data ?? []) as { midia_id: string; metrica: string; valor: number | string }[]) {
+      for (const l of (data ?? []) as {
+        midia_id: string;
+        metrica: string;
+        valor: number | string;
+      }[]) {
         (mapa[l.midia_id] ??= {})[l.metrica] = Number(l.valor);
       }
       return mapa;
@@ -242,7 +310,9 @@ export function useExecucoes(limite = 30) {
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from as any)("meta_sync_execucoes")
-        .select("id, job, iniciado_em, finalizado_em, status, registros, erro, codigo_erro, detalhes")
+        .select(
+          "id, job, iniciado_em, finalizado_em, status, registros, erro, codigo_erro, detalhes",
+        )
         .order("iniciado_em", { ascending: false })
         .limit(limite);
       if (error) throw error;
@@ -271,7 +341,10 @@ export function useSincronizarAgora() {
   return useMutation({
     mutationFn: async (funcao: FuncaoSync): Promise<RespostaSync> => {
       const caminho = funcao === "meta-sync-stories" ? funcao : `${funcao}?forcar=1`;
-      const { data, error } = await supabase.functions.invoke(caminho, { method: "POST", body: {} });
+      const { data, error } = await supabase.functions.invoke(caminho, {
+        method: "POST",
+        body: {},
+      });
       // Falha da Meta volta como 502 com o motivo no corpo.
       if (error) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

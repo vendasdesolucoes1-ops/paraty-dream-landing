@@ -37,7 +37,13 @@ import {
 } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
 
-export function VisaoGeral({ periodo, irPara }: { periodo: Periodo; irPara: (aba: AbaMarketing) => void }) {
+export function VisaoGeral({
+  periodo,
+  irPara,
+}: {
+  periodo: Periodo;
+  irPara: (aba: AbaMarketing) => void;
+}) {
   const status = useStatusIntegracao();
 
   if (status.data && status.data.length === 0) return <SemDadosMeta />;
@@ -67,7 +73,13 @@ export function VisaoGeral({ periodo, irPara }: { periodo: Periodo; irPara: (aba
   );
 }
 
-function ResumoAnuncios({ periodo, irPara }: { periodo: Periodo; irPara: (aba: AbaMarketing) => void }) {
+function ResumoAnuncios({
+  periodo,
+  irPara,
+}: {
+  periodo: Periodo;
+  irPara: (aba: AbaMarketing) => void;
+}) {
   const q = useResumoAds(periodo);
   const atual = q.data?.atual;
   const anterior = q.data?.anterior;
@@ -124,14 +136,20 @@ function ResumoAnuncios({ periodo, irPara }: { periodo: Periodo; irPara: (aba: A
             formatar={formatQtd}
             variacao={atual ? variacao(atual.mensagens, anterior?.mensagens) : undefined}
             sentido="maior_melhor"
-            rodape={da?.custoPorMensagem != null ? `${formatMoeda(da.custoPorMensagem, moeda)} cada` : undefined}
+            rodape={
+              da?.custoPorMensagem != null
+                ? `${formatMoeda(da.custoPorMensagem, moeda)} cada`
+                : undefined
+            }
           />
           <Indicador
             rotulo="Cliques no link"
             carregando={carregando}
             valor={atual?.cliques_link}
             formatar={formatQtd}
-            rodape={da ? `CTR ${formatTaxa(da.ctr)} · CPC ${formatMoeda(da.cpc, moeda)}` : undefined}
+            rodape={
+              da ? `CTR ${formatTaxa(da.ctr)} · CPC ${formatMoeda(da.cpc, moeda)}` : undefined
+            }
           />
         </FaixaIndicadores>
       )}
@@ -143,7 +161,11 @@ function EvolucaoDiaria({ periodo }: { periodo: Periodo }) {
   const q = useSerieAds(periodo);
   const moeda = useResumoAds(periodo).data?.atual?.moeda;
   return (
-    <Bloco divisor titulo="Evolução diária" descricao="Quanto foi investido e quantos leads chegaram em cada dia">
+    <Bloco
+      divisor
+      titulo="Evolução diária"
+      descricao="Quanto foi investido e quantos leads chegaram em cada dia"
+    >
       <QueryState query={q} skeleton={<SkeletonRows rows={1} className="h-40" />}>
         {(serie) => {
           const totalInv = serie.reduce((s, p) => s + p.investimento, 0);
@@ -168,7 +190,13 @@ function EvolucaoDiaria({ periodo }: { periodo: Periodo }) {
   );
 }
 
-function ResumoInstagram({ periodo, irPara }: { periodo: Periodo; irPara: (aba: AbaMarketing) => void }) {
+function ResumoInstagram({
+  periodo,
+  irPara,
+}: {
+  periodo: Periodo;
+  irPara: (aba: AbaMarketing) => void;
+}) {
   const q = useResumoIg(periodo);
   const r = q.data ?? [];
   const seguidores = metricaIg(r, "seguidores");
@@ -204,7 +232,9 @@ function ResumoInstagram({ periodo, irPara }: { periodo: Periodo; irPara: (aba: 
             valor={seguidores?.valor}
             formatar={formatQtd}
             rodape={
-              ganho === null ? "no fim do período" : `${ganho >= 0 ? "+" : "−"}${formatQtd(Math.abs(ganho))} no período`
+              ganho === null
+                ? "no fim do período"
+                : `${ganho >= 0 ? "+" : "−"}${formatQtd(Math.abs(ganho))} no período`
             }
           />
           <Indicador
@@ -229,7 +259,9 @@ function ResumoInstagram({ periodo, irPara }: { periodo: Periodo; irPara: (aba: 
             carregando={carregando}
             valor={interacoes?.valor}
             formatar={formatQtd}
-            variacao={interacoes ? variacao(interacoes.valor, interacoes.valor_anterior) : undefined}
+            variacao={
+              interacoes ? variacao(interacoes.valor, interacoes.valor_anterior) : undefined
+            }
             sentido="maior_melhor"
           />
         </FaixaIndicadores>
@@ -259,11 +291,19 @@ function Destaques({ periodo }: { periodo: Periodo }) {
             {(d) => (
               <ol className="divide-y divide-border">
                 {melhoresAnuncios(d).map((a, i) => (
-                  <li key={a.id} className="flex animate-swap items-center gap-3 py-2.5" style={atraso(i)}>
+                  <li
+                    key={a.id}
+                    className="flex animate-swap items-center gap-3 py-2.5"
+                    style={atraso(i)}
+                  >
                     <Miniatura src={a.thumbnail_url} className="h-10 w-10" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[0.875rem] font-medium text-foreground">{a.nome ?? a.id}</p>
-                      <p className="truncate text-[0.75rem] text-muted-foreground">{a.campanha_nome ?? "—"}</p>
+                      <p className="truncate text-[0.875rem] font-medium text-foreground">
+                        {a.nome ?? a.id}
+                      </p>
+                      <p className="truncate text-[0.75rem] text-muted-foreground">
+                        {a.campanha_nome ?? "—"}
+                      </p>
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-[0.875rem] font-medium tabular-nums text-foreground">
@@ -293,7 +333,11 @@ function Destaques({ periodo }: { periodo: Periodo }) {
             {(d) => (
               <ol className="divide-y divide-border">
                 {melhoresPosts(d).map((m, i) => (
-                  <li key={m.id} className="flex animate-swap items-center gap-3 py-2.5" style={atraso(i)}>
+                  <li
+                    key={m.id}
+                    className="flex animate-swap items-center gap-3 py-2.5"
+                    style={atraso(i)}
+                  >
                     <Miniatura src={m.imagem_url} className="h-10 w-10" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[0.875rem] text-foreground">
@@ -301,7 +345,9 @@ function Destaques({ periodo }: { periodo: Periodo }) {
                       </p>
                       <p className="text-[0.75rem] text-muted-foreground">
                         {TIPO_MIDIA_LABEL[m.media_product_type as TipoMidia] ?? "Post"}
-                        {m.publicado_em ? ` · ${new Date(m.publicado_em).toLocaleDateString("pt-BR")}` : ""}
+                        {m.publicado_em
+                          ? ` · ${new Date(m.publicado_em).toLocaleDateString("pt-BR")}`
+                          : ""}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">

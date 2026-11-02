@@ -9,7 +9,14 @@ import { PanelEmpty, QueryState, SkeletonRows } from "@/components/ds/query-stat
 import { FaixaStatus } from "@/components/marketing/meta/pecas";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { tempoRelativo } from "@/lib/format";
 import { formatQtd, rotuloJob, saudeIntegracao, type StatusJob } from "@/lib/marketing-calculos";
 import {
@@ -29,8 +36,16 @@ const STATUS_EXEC: Record<StatusJob["ultimo_status"], { label: string; tone: Ton
 };
 
 const ACOES: { funcao: FuncaoSync; label: string; descricao: string }[] = [
-  { funcao: "meta-sync-ads", label: "Anúncios", descricao: "Estrutura e métricas dos últimos 28 dias" },
-  { funcao: "meta-sync-instagram", label: "Instagram", descricao: "Conta, público e posts dos últimos 30 dias" },
+  {
+    funcao: "meta-sync-ads",
+    label: "Anúncios",
+    descricao: "Estrutura e métricas dos últimos 28 dias",
+  },
+  {
+    funcao: "meta-sync-instagram",
+    label: "Instagram",
+    descricao: "Conta, público e posts dos últimos 30 dias",
+  },
   { funcao: "meta-sync-stories", label: "Stories", descricao: "Stories no ar agora" },
 ];
 
@@ -72,13 +87,17 @@ export function Integracao() {
                   const st = STATUS_EXEC[j.ultimo_status] ?? STATUS_EXEC.erro;
                   return (
                     <TableRow key={j.job}>
-                      <TableCell className="font-medium text-foreground">{rotuloJob(j.job)}</TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        {rotuloJob(j.job)}
+                      </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-2">
                           <Pill tone={st.tone} dot>
                             {st.label}
                           </Pill>
-                          <span className="text-[0.8125rem] text-muted-foreground">{tempoRelativo(j.ultima_em)}</span>
+                          <span className="text-[0.8125rem] text-muted-foreground">
+                            {tempoRelativo(j.ultima_em)}
+                          </span>
                         </span>
                       </TableCell>
                       <TableCell className="text-[0.8125rem] text-muted-foreground">
@@ -122,9 +141,12 @@ function observacao(j: StatusJob): string {
     if (j.codigo_erro === 190) return "Token expirado ou revogado: troque o META_ACCESS_TOKEN.";
     return j.ultimo_erro ?? "Falhou sem mensagem.";
   }
-  const indisp = Array.isArray(j.detalhes?.indisponiveis) ? (j.detalhes!.indisponiveis as string[]) : [];
+  const indisp = Array.isArray(j.detalhes?.indisponiveis)
+    ? (j.detalhes!.indisponiveis as string[])
+    : [];
   const partes: string[] = [];
-  if (j.ultimo_status === "parcial") partes.push("Parte ficou para a próxima execução (retoma sozinha).");
+  if (j.ultimo_status === "parcial")
+    partes.push("Parte ficou para a próxima execução (retoma sozinha).");
   partes.push(`${formatQtd(j.registros)} registros gravados.`);
   if (indisp.length) partes.push(`Métricas indisponíveis na Meta: ${indisp.join(", ")}.`);
   return partes.join(" ");
@@ -132,7 +154,9 @@ function observacao(j: StatusJob): string {
 
 function duracao(e: Execucao): string | null {
   if (!e.finalizado_em) return null;
-  const s = Math.round((new Date(e.finalizado_em).getTime() - new Date(e.iniciado_em).getTime()) / 1000);
+  const s = Math.round(
+    (new Date(e.finalizado_em).getTime() - new Date(e.iniciado_em).getTime()) / 1000,
+  );
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
 }
 
@@ -147,9 +171,14 @@ function LinhaExecucao({ e }: { e: Execucao }) {
           <Pill tone={st.tone} dot className="shrink-0">
             {st.label}
           </Pill>
-          <span className="min-w-0 flex-1 truncate text-[0.875rem] text-foreground">{rotuloJob(e.job)}</span>
+          <span className="min-w-0 flex-1 truncate text-[0.875rem] text-foreground">
+            {rotuloJob(e.job)}
+          </span>
           <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
-            {new Date(e.iniciado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+            {new Date(e.iniciado_em).toLocaleString("pt-BR", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
             {duracao(e) ? ` · ${duracao(e)}` : ""} · {formatQtd(e.registros)} registros
           </span>
           {temDetalhe ? (
@@ -159,7 +188,10 @@ function LinhaExecucao({ e }: { e: Execucao }) {
                 aria-label={aberto ? "Esconder detalhes" : "Ver detalhes"}
                 className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <ChevronDown className={cn("h-4 w-4 transition-transform", aberto && "rotate-180")} aria-hidden />
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", aberto && "rotate-180")}
+                  aria-hidden
+                />
               </button>
             </CollapsibleTrigger>
           ) : null}
@@ -202,7 +234,9 @@ function SincronizarAgora() {
         toast.error(`${label}: ${r.erro ?? "a sincronização falhou."}`);
       }
     } catch (e) {
-      toast.error(`${label}: ${(e as Error)?.message ?? "não foi possível chamar a sincronização."}`);
+      toast.error(
+        `${label}: ${(e as Error)?.message ?? "não foi possível chamar a sincronização."}`,
+      );
     } finally {
       setRodando(null);
     }

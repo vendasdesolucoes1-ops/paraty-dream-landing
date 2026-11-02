@@ -38,13 +38,27 @@ test("razão sem base vira null, nunca Infinity ou NaN", () => {
 });
 
 test("derivadas: custo por lead, por mensagem, CTR, CPC e CPM", () => {
-  const d = derivadas({ investimento: 100, impressoes: 10_000, cliques: 250, cliques_link: 50, leads: 4, mensagens: 0 });
+  const d = derivadas({
+    investimento: 100,
+    impressoes: 10_000,
+    cliques: 250,
+    cliques_link: 50,
+    leads: 4,
+    mensagens: 0,
+  });
   assert.equal(d.cpl, 25);
   assert.equal(d.custoPorMensagem, null, "sem mensagem não há custo por mensagem");
   assert.equal(d.ctr, 0.025);
   assert.equal(d.cpc, 2);
   assert.equal(d.cpm, 10);
-  const zero = derivadas({ investimento: 0, impressoes: 0, cliques: 0, cliques_link: 0, leads: 0, mensagens: 0 });
+  const zero = derivadas({
+    investimento: 0,
+    impressoes: 0,
+    cliques: 0,
+    cliques_link: 0,
+    leads: 0,
+    mensagens: 0,
+  });
   assert.deepEqual(zero, { cpl: null, custoPorMensagem: null, ctr: null, cpc: null, cpm: null });
 });
 
@@ -61,7 +75,11 @@ test("variação contra o período anterior", () => {
 
 test("cor da variação depende do sentido da métrica", () => {
   assert.equal(tomDaVariacao(variacao(150, 100), "maior_melhor"), "success");
-  assert.equal(tomDaVariacao(variacao(150, 100), "menor_melhor"), "danger", "custo por lead subir é ruim");
+  assert.equal(
+    tomDaVariacao(variacao(150, 100), "menor_melhor"),
+    "danger",
+    "custo por lead subir é ruim",
+  );
   assert.equal(tomDaVariacao(variacao(50, 100), "menor_melhor"), "success");
   assert.equal(tomDaVariacao(variacao(150, 100), "neutro"), "neutral");
   assert.equal(tomDaVariacao(variacao(10, 0), "maior_melhor"), "neutral", "sem base, sem cor");
@@ -98,12 +116,21 @@ test("status de anúncio: grupo do filtro e rótulo com tom", () => {
 
 test("rótulos de breakdown e demografia", () => {
   assert.equal(rotuloBreakdown("idade_genero", "25-34", "female"), "25-34 · Mulheres");
-  assert.equal(rotuloBreakdown("plataforma_posicao", "instagram", "instagram_reels"), "Instagram · Reels");
-  assert.equal(rotuloBreakdown("plataforma_posicao", "facebook", "nova_posicao"), "Facebook · Nova posicao");
+  assert.equal(
+    rotuloBreakdown("plataforma_posicao", "instagram", "instagram_reels"),
+    "Instagram · Reels",
+  );
+  assert.equal(
+    rotuloBreakdown("plataforma_posicao", "facebook", "nova_posicao"),
+    "Facebook · Nova posicao",
+  );
   assert.equal(rotuloBreakdown("regiao", "Rio de Janeiro", ""), "Rio de Janeiro");
   assert.equal(rotuloBreakdown("regiao", "", ""), "Região não informada");
   assert.equal(rotuloDemografia("gender", "F"), "Mulheres");
-  assert.equal(rotuloDemografia("city", "Paraty, State of Rio de Janeiro"), "Paraty, Rio de Janeiro");
+  assert.equal(
+    rotuloDemografia("city", "Paraty, State of Rio de Janeiro"),
+    "Paraty, Rio de Janeiro",
+  );
   assert.equal(rotuloDemografia("age", "25-34"), "25-34");
 });
 
@@ -117,7 +144,10 @@ test("série do Instagram: um ponto por dia, dia sem dado fica vazio (não zero)
     "2026-10-01",
     "2026-10-03",
   );
-  assert.deepEqual(s.map((p) => p.data), ["2026-10-01", "2026-10-02", "2026-10-03"]);
+  assert.deepEqual(
+    s.map((p) => p.data),
+    ["2026-10-01", "2026-10-02", "2026-10-03"],
+  );
   assert.deepEqual(s[0].valores, { reach: 100, seguidores: 1200 });
   assert.deepEqual(s[1].valores, {});
   assert.equal(pivotarSerieIg([], "2026-10-05", "2026-10-01").length, 0, "período invertido");
@@ -125,10 +155,31 @@ test("série do Instagram: um ponto por dia, dia sem dado fica vazio (não zero)
 });
 
 const anuncio = (o: Partial<LinhaAnuncio>): LinhaAnuncio => ({
-  id: "a", nome: "A", status: null, effective_status: "ACTIVE", campanha_id: null, campanha_nome: null,
-  conjunto_id: null, conjunto_nome: null, objetivo: null, thumbnail_url: null, titulo: null, corpo: null,
-  orcamento_diario: null, orcamento_total: null, investimento: 0, impressoes: 0, alcance_soma: 0, cliques: 0,
-  cliques_link: 0, leads: 0, mensagens: 0, compras: 0, reservas: 0, criado_em: null, ...o,
+  id: "a",
+  nome: "A",
+  status: null,
+  effective_status: "ACTIVE",
+  campanha_id: null,
+  campanha_nome: null,
+  conjunto_id: null,
+  conjunto_nome: null,
+  objetivo: null,
+  thumbnail_url: null,
+  titulo: null,
+  corpo: null,
+  orcamento_diario: null,
+  orcamento_total: null,
+  investimento: 0,
+  impressoes: 0,
+  alcance_soma: 0,
+  cliques: 0,
+  cliques_link: 0,
+  leads: 0,
+  mensagens: 0,
+  compras: 0,
+  reservas: 0,
+  criado_em: null,
+  ...o,
 });
 
 test("melhores anúncios: só os que geraram lead, do menor custo por lead", () => {
@@ -138,14 +189,32 @@ test("melhores anúncios: só os que geraram lead, do menor custo por lead", () 
     anuncio({ id: "sem-lead", investimento: 500, leads: 0 }),
     anuncio({ id: "gratis", investimento: 0, leads: 1 }),
   ]);
-  assert.deepEqual(r.map((a) => a.id), ["barato", "caro"]);
+  assert.deepEqual(
+    r.map((a) => a.id),
+    ["barato", "caro"],
+  );
   assert.equal(r[0].cpl, 10);
 });
 
 const midia = (o: Partial<MidiaIg>): MidiaIg => ({
-  id: "m", caption: null, media_type: "IMAGE", media_product_type: "FEED", permalink: null, publicado_em: null,
-  imagem_url: null, curtidas: null, comentarios: null, alcance: null, views: null, salvos: null,
-  compartilhamentos: null, interacoes: null, tempo_medio_ms: null, respostas: null, metricas_em: null, ...o,
+  id: "m",
+  caption: null,
+  media_type: "IMAGE",
+  media_product_type: "FEED",
+  permalink: null,
+  publicado_em: null,
+  imagem_url: null,
+  curtidas: null,
+  comentarios: null,
+  alcance: null,
+  views: null,
+  salvos: null,
+  compartilhamentos: null,
+  interacoes: null,
+  tempo_medio_ms: null,
+  respostas: null,
+  metricas_em: null,
+  ...o,
 });
 
 test("melhores posts: mais interações, sem stories; engajamento = interações ÷ alcance", () => {
@@ -155,14 +224,24 @@ test("melhores posts: mais interações, sem stories; engajamento = interações
     midia({ id: "s1", media_product_type: "STORY", interacoes: 999 }),
     midia({ id: "p3", interacoes: 0 }),
   ]);
-  assert.deepEqual(r.map((m) => m.id), ["p2", "p1"]);
+  assert.deepEqual(
+    r.map((m) => m.id),
+    ["p2", "p1"],
+  );
   assert.equal(engajamento(r[1]), 0.1);
   assert.equal(engajamento(midia({ interacoes: 5, alcance: null })), null);
 });
 
 const job = (o: Partial<StatusJob>): StatusJob => ({
-  job: "ads_diario", ultima_em: "2026-11-02T06:10:00Z", ultimo_status: "sucesso", ultimo_erro: null,
-  codigo_erro: null, registros: 10, detalhes: null, ultimo_sucesso_em: "2026-11-02T06:10:00Z", ...o,
+  job: "ads_diario",
+  ultima_em: "2026-11-02T06:10:00Z",
+  ultimo_status: "sucesso",
+  ultimo_erro: null,
+  codigo_erro: null,
+  registros: 10,
+  detalhes: null,
+  ultimo_sucesso_em: "2026-11-02T06:10:00Z",
+  ...o,
 });
 const AGORA = new Date("2026-11-02T15:00:00Z");
 
@@ -170,11 +249,17 @@ test("saúde da integração: sem dados, ok, atenção e token inválido", () =>
   assert.equal(saudeIntegracao([], AGORA).nivel, "sem_dados");
   assert.equal(saudeIntegracao([job({}), job({ job: "ig_diario" })], AGORA).nivel, "ok");
 
-  const tokenRuim = saudeIntegracao([job({ ultimo_status: "erro", codigo_erro: 190 }), job({ job: "ig_diario" })], AGORA);
+  const tokenRuim = saudeIntegracao(
+    [job({ ultimo_status: "erro", codigo_erro: 190 }), job({ job: "ig_diario" })],
+    AGORA,
+  );
   assert.equal(tokenRuim.nivel, "erro");
   assert.match(tokenRuim.detalhe, /META_ACCESS_TOKEN/);
 
-  const falhou = saudeIntegracao([job({ ultimo_status: "erro", codigo_erro: 100 }), job({ job: "ig_diario" })], AGORA);
+  const falhou = saudeIntegracao(
+    [job({ ultimo_status: "erro", codigo_erro: 100 }), job({ job: "ig_diario" })],
+    AGORA,
+  );
   assert.equal(falhou.nivel, "atencao");
   assert.match(falhou.detalhe, /Anúncios \(diário\): a última execução falhou/);
 
@@ -186,10 +271,16 @@ test("saúde da integração: sem dados, ok, atenção e token inválido", () =>
   assert.match(atrasado.detalhe, /36 h/);
 
   const parcialRecente = saudeIntegracao(
-    [job({ ultimo_status: "parcial", ultimo_sucesso_em: "2026-11-01T06:10:00Z" }), job({ job: "ig_diario" })],
+    [
+      job({ ultimo_status: "parcial", ultimo_sucesso_em: "2026-11-01T06:10:00Z" }),
+      job({ job: "ig_diario" }),
+    ],
     AGORA,
   );
   assert.equal(parcialRecente.nivel, "ok", "parcial com sucesso recente não é problema");
-  assert.equal(saudeIntegracao([job({ job: "ig_stories", ultimo_status: "erro" })], AGORA).nivel, "ok",
-    "falha de stories sozinha não acende alerta");
+  assert.equal(
+    saudeIntegracao([job({ job: "ig_stories", ultimo_status: "erro" })], AGORA).nivel,
+    "ok",
+    "falha de stories sozinha não acende alerta",
+  );
 });

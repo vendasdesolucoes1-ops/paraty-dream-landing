@@ -84,11 +84,16 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
   const views = ind("views");
   const engajadas = ind("accounts_engaged");
   const interacoes = ind("total_interactions");
-  const outras = OUTRAS.map((o) => ({ ...o, dado: metricaIg(r, o.metrica) })).filter((o) => o.dado?.valor != null);
+  const outras = OUTRAS.map((o) => ({ ...o, dado: metricaIg(r, o.metrica) })).filter(
+    (o) => o.dado?.valor != null,
+  );
   const carregando = q.isPending;
 
   return (
-    <Bloco titulo="A conta no período" descricao="Resultado orgânico, comparado ao período anterior de mesmo tamanho">
+    <Bloco
+      titulo="A conta no período"
+      descricao="Resultado orgânico, comparado ao período anterior de mesmo tamanho"
+    >
       {q.isError ? (
         <QueryState query={q} skeleton={null}>
           {() => null}
@@ -146,7 +151,9 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
               {outras.map((o) => (
                 <div key={o.metrica} className="min-w-0">
                   <dt className="text-[0.75rem] text-muted-foreground">{o.label}</dt>
-                  <dd className="text-[0.9375rem] tabular-nums text-foreground">{formatQtd(o.dado!.valor)}</dd>
+                  <dd className="text-[0.9375rem] tabular-nums text-foreground">
+                    {formatQtd(o.dado!.valor)}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -165,7 +172,9 @@ function Evolucao({ periodo }: { periodo: Periodo }) {
         {(linhas) => {
           const dias = pivotarSerieIg(linhas, periodo.inicio, periodo.fim);
           const serie = (metrica: string) =>
-            dias.filter((d) => d.valores[metrica] !== undefined).map((d) => ({ data: d.data, valor: d.valores[metrica] }));
+            dias
+              .filter((d) => d.valores[metrica] !== undefined)
+              .map((d) => ({ data: d.data, valor: d.valores[metrica] }));
           const seguidores = serie("seguidores");
           const alcance = serie("reach");
           const views = serie("views");
@@ -173,7 +182,9 @@ function Evolucao({ periodo }: { periodo: Periodo }) {
             <div className="grid gap-8 lg:grid-cols-3">
               <GraficoSerie
                 titulo="Seguidores"
-                total={seguidores.length ? formatQtd(seguidores[seguidores.length - 1].valor) : undefined}
+                total={
+                  seguidores.length ? formatQtd(seguidores[seguidores.length - 1].valor) : undefined
+                }
                 pontos={seguidores}
               />
               <GraficoSerie titulo="Alcance por dia" pontos={alcance} />
@@ -209,7 +220,9 @@ function Publico() {
               if (!doTipo.length) return null;
               const soma = doTipo.reduce((s, l) => s + l.valor, 0);
               const itens = [...doTipo]
-                .sort((a, b) => (tipo === "age" ? a.chave.localeCompare(b.chave) : b.valor - a.valor))
+                .sort((a, b) =>
+                  tipo === "age" ? a.chave.localeCompare(b.chave) : b.valor - a.valor,
+                )
                 .slice(0, 8);
               return (
                 <div key={tipo} className="min-w-0">
@@ -338,7 +351,10 @@ function CartaoMidia({ m }: { m: MidiaIg }) {
     <article className="card-hover flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
       <div className="relative">
         <Miniatura src={m.imagem_url} className="aspect-[4/5] w-full rounded-none" />
-        <Pill tone={tipo === "STORY" ? "accent" : "neutral"} className="absolute left-2.5 top-2.5 shadow-sm">
+        <Pill
+          tone={tipo === "STORY" ? "accent" : "neutral"}
+          className="absolute left-2.5 top-2.5 shadow-sm"
+        >
           {TIPO_MIDIA_LABEL[tipo] ?? "Post"}
         </Pill>
         {m.permalink ? (

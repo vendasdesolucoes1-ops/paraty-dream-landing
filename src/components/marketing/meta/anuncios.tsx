@@ -64,7 +64,14 @@ export function Anuncios({ periodo }: { periodo: Periodo }) {
   const moeda = useResumoAds(periodo).data?.atual?.moeda;
 
   const contagem = useMemo(() => {
-    const c: Record<Filtro, number> = { com_gasto: 0, ativos: 0, pausados: 0, arquivados: 0, outros: 0, todos: 0 };
+    const c: Record<Filtro, number> = {
+      com_gasto: 0,
+      ativos: 0,
+      pausados: 0,
+      arquivados: 0,
+      outros: 0,
+      todos: 0,
+    };
     for (const l of q.data ?? []) for (const f of FILTROS) if (passa(l, f.valor)) c[f.valor]++;
     return c;
   }, [q.data]);
@@ -150,7 +157,8 @@ function TabelaAnuncios({
   onAbrir: (l: LinhaAnuncio) => void;
 }) {
   const ordenadas = [...linhas].sort(
-    (a, b) => b.investimento - a.investimento || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR"),
+    (a, b) =>
+      b.investimento - a.investimento || (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR"),
   );
   const total = ordenadas.reduce(
     (t, l) => ({
@@ -189,14 +197,12 @@ function TabelaAnuncios({
                 ? l.campanha_nome
                 : null;
           return (
-            <TableRow
-              key={l.id}
-              className="cursor-pointer"
-              onClick={() => onAbrir(l)}
-            >
+            <TableRow key={l.id} className="cursor-pointer" onClick={() => onAbrir(l)}>
               <TableCell>
                 <div className="flex items-center gap-3">
-                  {nivel === "anuncio" ? <Miniatura src={l.thumbnail_url} className="h-9 w-9" /> : null}
+                  {nivel === "anuncio" ? (
+                    <Miniatura src={l.thumbnail_url} className="h-9 w-9" />
+                  ) : null}
                   <div className="min-w-0">
                     <button
                       type="button"
@@ -213,7 +219,9 @@ function TabelaAnuncios({
                         {st.label}
                       </Pill>
                       {subtitulo ? (
-                        <span className="truncate text-[0.75rem] text-muted-foreground">{subtitulo}</span>
+                        <span className="truncate text-[0.75rem] text-muted-foreground">
+                          {subtitulo}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -225,9 +233,16 @@ function TabelaAnuncios({
               <TableCell className="text-right tabular-nums">{formatQtd(l.impressoes)}</TableCell>
               <TableCell className="text-right tabular-nums">
                 <span className="block text-foreground">{formatQtd(l.cliques_link)}</span>
-                <span className="block text-[0.72rem] text-muted-foreground">CTR {formatTaxa(d.ctr)}</span>
+                <span className="block text-[0.72rem] text-muted-foreground">
+                  CTR {formatTaxa(d.ctr)}
+                </span>
               </TableCell>
-              <TableCell className={cn("text-right tabular-nums", l.leads > 0 && "font-medium text-foreground")}>
+              <TableCell
+                className={cn(
+                  "text-right tabular-nums",
+                  l.leads > 0 && "font-medium text-foreground",
+                )}
+              >
                 {formatQtd(l.leads)}
               </TableCell>
               <TableCell className="text-right tabular-nums">{formatMoeda(d.cpl, moeda)}</TableCell>
@@ -241,7 +256,9 @@ function TabelaAnuncios({
           <TableCell>
             Total · {formatQtd(ordenadas.length)} {ordenadas.length === 1 ? "item" : "itens"}
           </TableCell>
-          <TableCell className="text-right tabular-nums">{formatMoeda(total.investimento, moeda)}</TableCell>
+          <TableCell className="text-right tabular-nums">
+            {formatMoeda(total.investimento, moeda)}
+          </TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(total.impressoes)}</TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(total.cliques_link)}</TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(total.leads)}</TableCell>

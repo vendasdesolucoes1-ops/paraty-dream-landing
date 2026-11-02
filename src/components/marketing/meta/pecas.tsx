@@ -83,7 +83,13 @@ export function Indicador({
  * Faixa de indicadores sobre a folha, separada por fios — o mesmo arranjo da
  * Início: 2 colunas no celular, uma linha só no desktop (use até 5 itens).
  */
-export function FaixaIndicadores({ children, colunas = 4 }: { children: ReactNode; colunas?: 3 | 4 | 5 }) {
+export function FaixaIndicadores({
+  children,
+  colunas = 4,
+}: {
+  children: ReactNode;
+  colunas?: 3 | 4 | 5;
+}) {
   return (
     <div
       className={cn(
@@ -152,13 +158,18 @@ export function GraficoSerie({
     <div className="min-w-0">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <span className="text-[0.8125rem] font-medium text-muted-foreground">{titulo}</span>
-        {total ? <span className="text-[0.8125rem] tabular-nums text-foreground">{total}</span> : null}
+        {total ? (
+          <span className="text-[0.8125rem] tabular-nums text-foreground">{total}</span>
+        ) : null}
       </div>
       {pontos.length > 1 ? (
         <AreaChart
           altura={altura}
           rotuloGrafico={titulo}
-          dados={pontos.map((p) => ({ rotulo: diaCurto(p.data), valor: Math.round(p.valor * 100) / 100 }))}
+          dados={pontos.map((p) => ({
+            rotulo: diaCurto(p.data),
+            valor: Math.round(p.valor * 100) / 100,
+          }))}
         />
       ) : (
         <p
@@ -201,7 +212,9 @@ export function FaixaStatus({ saude, acao }: { saude: Saude; acao?: ReactNode })
         <Icone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span className="min-w-0">
           <span className="font-medium text-foreground">{saude.titulo}</span>
-          <span className="block text-muted-foreground sm:inline sm:before:content-['_·_']">{saude.detalhe}</span>
+          <span className="block text-muted-foreground sm:inline sm:before:content-['_·_']">
+            {saude.detalhe}
+          </span>
         </span>
       </span>
       {acao}
@@ -225,7 +238,15 @@ export function SemDadosMeta({ acao }: { acao?: ReactNode }) {
  * Imagem de anúncio/post. As URLs da Meta são assinadas e expiram: se a imagem
  * não carregar, fica um marcador neutro no lugar (nunca o ícone de quebrado).
  */
-export function Miniatura({ src, className, alt = "" }: { src: string | null | undefined; className?: string; alt?: string }) {
+export function Miniatura({
+  src,
+  className,
+  alt = "",
+}: {
+  src: string | null | undefined;
+  className?: string;
+  alt?: string;
+}) {
   const [falhou, setFalhou] = useState(false);
   return (
     <span className={cn("relative block shrink-0 overflow-hidden rounded-lg bg-muted", className)}>
