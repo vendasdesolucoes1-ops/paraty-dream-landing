@@ -28,7 +28,7 @@ import {
   type StatusJob,
 } from "./marketing-calculos.ts";
 
-const nbsp = (s: string) => s.replace(/ /g, " ");
+const nbsp = (s: string) => s.replace(/\u00a0/g, " ");
 
 test("razão sem base vira null, nunca Infinity ou NaN", () => {
   assert.equal(razao(10, 4), 2.5);
