@@ -58,27 +58,49 @@ export type TipoProduto = "FEED" | "REELS" | "STORY";
 export const METRICAS_MIDIA: Record<TipoProduto, string[]> = {
   FEED: ["reach", "views", "saved", "shares", "likes", "comments", "total_interactions"],
   REELS: [
-    "reach", "views", "saved", "shares", "likes", "comments", "total_interactions",
-    "ig_reels_avg_watch_time", "ig_reels_video_view_total_time",
+    "reach",
+    "views",
+    "saved",
+    "shares",
+    "likes",
+    "comments",
+    "total_interactions",
+    "ig_reels_avg_watch_time",
+    "ig_reels_video_view_total_time",
   ],
   STORY: ["reach", "views", "shares", "total_interactions", "replies", "follows", "profile_visits"],
 };
 
+// media_url: foto do post (thumbnail_url só existe para vídeo). A URL é assinada
+// e expira; o sync diário a renova para os posts recentes.
 export const CAMPOS_MIDIA =
-  "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,thumbnail_url";
+  "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,thumbnail_url,media_url";
 // like_count / comments_count não existem em stories.
-export const CAMPOS_STORY = "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url";
+export const CAMPOS_STORY =
+  "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url";
 
 // --- datas / fuso ----------------------------------------------------------------
 
 function offsetMs(instante: Date, fuso: string): number {
   const partes = new Intl.DateTimeFormat("en-US", {
-    timeZone: fuso, hourCycle: "h23",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    timeZone: fuso,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   }).formatToParts(instante);
   const n = (t: string) => Number(partes.find((p) => p.type === t)!.value);
-  const comoUtc = Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"), n("second"));
+  const comoUtc = Date.UTC(
+    n("year"),
+    n("month") - 1,
+    n("day"),
+    n("hour"),
+    n("minute"),
+    n("second"),
+  );
   return comoUtc - Math.floor(instante.getTime() / 1000) * 1000;
 }
 
@@ -110,10 +132,15 @@ interface ItemInsight {
   values?: { value?: unknown; end_time?: string }[];
   total_value?: {
     value?: unknown;
-    breakdowns?: { dimension_keys?: string[]; results?: { dimension_values?: string[]; value?: unknown }[] }[];
+    breakdowns?: {
+      dimension_keys?: string[];
+      results?: { dimension_values?: string[]; value?: unknown }[];
+    }[];
   };
 }
-interface RespostaInsights { data?: ItemInsight[] }
+interface RespostaInsights {
+  data?: ItemInsight[];
+}
 
 /** name → valor numérico, aceitando total_value e values[0] (mídia). Vazio não vira 0. */
 export function valoresSimples(resp: RespostaInsights): Record<string, number> {
@@ -159,7 +186,8 @@ export async function descobrirInstagram(cliente: MetaGraphClient): Promise<stri
     fields: "instagram_business_account",
   });
   const id = r.instagram_business_account?.id;
-  if (!id) throw new Error("A Página não tem conta do Instagram vinculada (instagram_business_account).");
+  if (!id)
+    throw new Error("A Página não tem conta do Instagram vinculada (instagram_business_account).");
   return id;
 }
 
@@ -175,15 +203,17 @@ export async function snapshotConta(
   });
   return armazem.upsert(
     "ig_conta_diaria",
-    [{
-      ig_user_id: igId,
-      data: hoje,
-      username: typeof c.username === "string" ? c.username : null,
-      followers_count: inteiroDe(c.followers_count),
-      follows_count: inteiroDe(c.follows_count),
-      media_count: inteiroDe(c.media_count),
-      capturado_em: agora.toISOString(),
-    }],
+    [
+      {
+        ig_user_id: igId,
+        data: hoje,
+        username: typeof c.username === "string" ? c.username : null,
+        followers_count: inteiroDe(c.followers_count),
+        follows_count: inteiroDe(c.follows_count),
+        media_count: inteiroDe(c.media_count),
+        capturado_em: agora.toISOString(),
+      },
+    ],
     "ig_user_id,data",
   );
 }
@@ -215,14 +245,25 @@ export async function sincronizarInsightsConta(
         });
         const valor = valoresSimples(r)[metrica];
         if (valor !== undefined) {
-          linhas.push({ ig_user_id: igId, data: dia, metrica, valor, atualizado_em: agora.toISOString() });
+          linhas.push({
+            ig_user_id: igId,
+            data: dia,
+            metrica,
+            valor,
+            atualizado_em: agora.toISOString(),
+          });
         }
       } catch (e) {
         indisponivel(e);
         indisponiveis.add(metrica);
       }
     }
-    if (linhas.length) registros += await armazem.upsert("ig_insights_conta_diario", linhas, "ig_user_id,data,metrica");
+    if (linhas.length)
+      registros += await armazem.upsert(
+        "ig_insights_conta_diario",
+        linhas,
+        "ig_user_id,data,metrica",
+      );
   }
 
   for (const metrica of METRICAS_CONTA_SERIE) {
@@ -240,11 +281,22 @@ export async function sincronizarInsightsConta(
           const valor = numeroOuNulo(v.value);
           const dia = v.end_time ? diaDoPeriodo(v.end_time) : null;
           if (valor !== null && dia && dia >= janela.desde && dia <= janela.ate) {
-            linhas.push({ ig_user_id: igId, data: dia, metrica, valor, atualizado_em: agora.toISOString() });
+            linhas.push({
+              ig_user_id: igId,
+              data: dia,
+              metrica,
+              valor,
+              atualizado_em: agora.toISOString(),
+            });
           }
         }
       }
-      if (linhas.length) registros += await armazem.upsert("ig_insights_conta_diario", linhas, "ig_user_id,data,metrica");
+      if (linhas.length)
+        registros += await armazem.upsert(
+          "ig_insights_conta_diario",
+          linhas,
+          "ig_user_id,data,metrica",
+        );
     } catch (e) {
       indisponivel(e);
       indisponiveis.add(metrica);
@@ -275,9 +327,14 @@ export async function sincronizarDemografia(
         breakdown,
       });
       const linhas = resultadosBreakdown(r).map((x) => ({
-        ig_user_id: igId, data: hoje, tipo: breakdown, chave: x.chave, valor: Math.trunc(x.valor),
+        ig_user_id: igId,
+        data: hoje,
+        tipo: breakdown,
+        chave: x.chave,
+        valor: Math.trunc(x.valor),
       }));
-      if (linhas.length) registros += await armazem.upsert("ig_demografia", linhas, "ig_user_id,data,tipo,chave");
+      if (linhas.length)
+        registros += await armazem.upsert("ig_demografia", linhas, "ig_user_id,data,tipo,chave");
     } catch (e) {
       indisponivel(e); // ex.: conta com menos de 100 seguidores
       indisponiveis.add(chaveIndisp);
@@ -288,7 +345,11 @@ export async function sincronizarDemografia(
 
 // --- mídias ---------------------------------------------------------------------------
 
-export function mapearMidia(item: Record<string, unknown>, igId: string, agora = new Date()): Linha {
+export function mapearMidia(
+  item: Record<string, unknown>,
+  igId: string,
+  agora = new Date(),
+): Linha {
   const texto = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
   return {
     id: item.id,
@@ -301,6 +362,7 @@ export function mapearMidia(item: Record<string, unknown>, igId: string, agora =
     like_count: inteiroDe(item.like_count),
     comments_count: inteiroDe(item.comments_count),
     thumbnail_url: texto(item.thumbnail_url),
+    media_url: texto(item.media_url),
     sincronizado_em: agora.toISOString(),
   };
 }
@@ -328,7 +390,9 @@ export async function insightsDaMidia(
   const metricas = METRICAS_MIDIA[tipo].filter((m) => !indisponiveis.has(`${tipo}:${m}`));
   if (metricas.length === 0) return {};
   try {
-    const r = await cliente.get<RespostaInsights>(`${midiaId}/insights`, { metric: metricas.join(",") });
+    const r = await cliente.get<RespostaInsights>(`${midiaId}/insights`, {
+      metric: metricas.join(","),
+    });
     return valoresSimples(r);
   } catch (e) {
     const erro = indisponivel(e)!;
@@ -349,13 +413,18 @@ export async function insightsDaMidia(
 }
 
 /** Navegação do story (avançar, voltar, sair…): breakdown próprio. */
-async function navegacaoDoStory(cliente: MetaGraphClient, midiaId: string): Promise<Record<string, number>> {
+async function navegacaoDoStory(
+  cliente: MetaGraphClient,
+  midiaId: string,
+): Promise<Record<string, number>> {
   try {
     const r = await cliente.get<RespostaInsights>(`${midiaId}/insights`, {
       metric: "navigation",
       breakdown: "story_navigation_action_type",
     });
-    return Object.fromEntries(resultadosBreakdown(r).map((x) => [`navigation.${x.chave}`, x.valor]));
+    return Object.fromEntries(
+      resultadosBreakdown(r).map((x) => [`navigation.${x.chave}`, x.valor]),
+    );
   } catch (e) {
     indisponivel(e);
     return {};
@@ -369,7 +438,10 @@ async function gravarInsightsDaMidia(
   agora: Date,
 ): Promise<number> {
   const linhas = Object.entries(valores).map(([metrica, valor]) => ({
-    midia_id: midiaId, metrica, valor, capturado_em: agora.toISOString(),
+    midia_id: midiaId,
+    metrica,
+    valor,
+    capturado_em: agora.toISOString(),
   }));
   return linhas.length ? armazem.upsert("ig_midia_insights", linhas, "midia_id,metrica") : 0;
 }
@@ -417,8 +489,19 @@ export async function sincronizarMidias(
   return { midias, insights };
 }
 
-async function gravarMidias(armazem: Armazem, igId: string, itens: Record<string, unknown>[], agora: Date) {
-  return itens.length ? armazem.upsert("ig_midias", itens.map((i) => mapearMidia(i, igId, agora)), "id") : 0;
+async function gravarMidias(
+  armazem: Armazem,
+  igId: string,
+  itens: Record<string, unknown>[],
+  agora: Date,
+) {
+  return itens.length
+    ? armazem.upsert(
+        "ig_midias",
+        itens.map((i) => mapearMidia(i, igId, agora)),
+        "id",
+      )
+    : 0;
 }
 
 async function insightsDasMidias(
@@ -493,14 +576,22 @@ export async function sincronizarInstagramDiario(
   await etapa("conta", () => snapshotConta(cliente, armazem, igId, hoje, data));
   await etapa("insights_conta", () =>
     sincronizarInsightsConta(
-      cliente, armazem, igId,
+      cliente,
+      armazem,
+      igId,
       { desde: somarDias(hoje, -(opcoes.diasConta ?? 3)), ate: somarDias(hoje, -1), fuso },
-      indisponiveis, data,
-    ));
-  await etapa("demografia", () => sincronizarDemografia(cliente, armazem, igId, hoje, indisponiveis));
+      indisponiveis,
+      data,
+    ),
+  );
+  await etapa("demografia", () =>
+    sincronizarDemografia(cliente, armazem, igId, hoje, indisponiveis),
+  );
   await etapa("midias", async () => {
     const r = await sincronizarMidias(cliente, armazem, igId, indisponiveis, {
-      diasInsights: opcoes.diasMidias, todas: opcoes.todasMidias, agora: data,
+      diasInsights: opcoes.diasMidias,
+      todas: opcoes.todasMidias,
+      agora: data,
     });
     contagens.insights_midias = r.insights;
     return r.midias;
@@ -521,11 +612,17 @@ export async function sincronizarStories(
   cliente: MetaGraphClient,
   armazem: Armazem,
   opcoes: { data?: Date } = {},
-): Promise<{ registros: number; stories: number; detalhes: { igUserId: string; indisponiveis: string[] } }> {
+): Promise<{
+  registros: number;
+  stories: number;
+  detalhes: { igUserId: string; indisponiveis: string[] };
+}> {
   const igId = await descobrirInstagram(cliente);
   const agora = opcoes.data ?? new Date();
   const indisponiveis = new Set<string>();
-  const stories = await cliente.listarTudo<Record<string, unknown>>(`${igId}/stories`, { fields: CAMPOS_STORY });
+  const stories = await cliente.listarTudo<Record<string, unknown>>(`${igId}/stories`, {
+    fields: CAMPOS_STORY,
+  });
 
   let registros = await gravarMidias(armazem, igId, stories, agora);
   for (const s of stories) {
@@ -536,5 +633,9 @@ export async function sincronizarStories(
     };
     registros += await gravarInsightsDaMidia(armazem, s.id, valores, agora);
   }
-  return { registros, stories: stories.length, detalhes: { igUserId: igId, indisponiveis: [...indisponiveis].sort() } };
+  return {
+    registros,
+    stories: stories.length,
+    detalhes: { igUserId: igId, indisponiveis: [...indisponiveis].sort() },
+  };
 }

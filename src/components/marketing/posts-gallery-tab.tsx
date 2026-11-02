@@ -23,6 +23,8 @@ import { atraso } from "@/components/ds/reveal";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { useContagem } from "@/hooks/use-contagem";
 import { cn } from "@/lib/utils";
+import { useMetricasDasMidias } from "@/lib/marketing-meta";
+import { formatQtd } from "@/lib/marketing-calculos";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +49,7 @@ type PostRow = {
   ig_status: string | null;
   ig_permalink: string | null;
   ig_error: string | null;
+  ig_media_id: string | null;
   custo_total_usd: number;
   created_at: string;
   copy_data: { titulo?: string; caption?: string; hashtags?: string[] } | null;
@@ -110,6 +113,11 @@ export function PostsGalleryTab() {
     },
     refetchInterval: 15000,
   });
+
+  // Métricas reais da Meta (sync diário) para os posts já publicados.
+  const { data: metricas } = useMetricasDasMidias(
+    (posts ?? []).map((p) => p.ig_media_id).filter((id): id is string => Boolean(id)),
+  );
 
   const { data: covers } = useQuery({
     queryKey: ["imagery-covers", posts?.length],
@@ -398,6 +406,31 @@ export function PostsGalleryTab() {
                         <p className="text-xs tabular-nums text-muted-foreground">
                           {new Date(post.created_at).toLocaleDateString("pt-BR")}
                         </p>
+                        {post.ig_media_id && metricas?.[post.ig_media_id] ? (
+                          <p
+                            className="flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground"
+                            aria-label="Desempenho no Instagram"
+                          >
+                            <span>
+                              Alcance{" "}
+                              <b className="font-medium text-foreground">
+                                {formatQtd(metricas[post.ig_media_id].reach)}
+                              </b>
+                            </span>
+                            <span>
+                              Views{" "}
+                              <b className="font-medium text-foreground">
+                                {formatQtd(metricas[post.ig_media_id].views)}
+                              </b>
+                            </span>
+                            <span>
+                              Interações{" "}
+                              <b className="font-medium text-foreground">
+                                {formatQtd(metricas[post.ig_media_id].total_interactions)}
+                              </b>
+                            </span>
+                          </p>
+                        ) : null}
                         {post.ig_error ? (
                           <p className="line-clamp-2 text-xs text-danger">{post.ig_error}</p>
                         ) : null}

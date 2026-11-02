@@ -79,7 +79,8 @@ jobs:
 
   banco:
     name: Banco (migrations do zero e testes SQL)
-    runs-on: ubuntu-latest
+    # Fixado: a imagem ubuntu-latest (26.04) não tem mais o pacote postgresql-16.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Postgres 16

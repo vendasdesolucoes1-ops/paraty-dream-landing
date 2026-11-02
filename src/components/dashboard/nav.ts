@@ -109,7 +109,8 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Marketing",
         icon: Megaphone,
         hideFor: ["vendedor"],
-        palavras: "instagram posts",
+        palavras:
+          "instagram posts anúncios campanhas meta ads tráfego custo por lead seguidores stories",
       },
     ],
   },
