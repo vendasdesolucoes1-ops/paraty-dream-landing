@@ -71,7 +71,9 @@ test("mapearMidia normaliza data e deixa o que falta como null", () => {
   assert.equal(l.like_count, 10);
   assert.equal(l.caption, null);
   assert.equal(l.thumbnail_url, null);
+  assert.equal(l.media_url, null);
   assert.equal(l.comments_count, null);
+  assert.equal(mapearMidia({ id: "m2", media_url: "https://cdn/x.jpg" }, "IG1").media_url, "https://cdn/x.jpg");
 });
 
 // --- Meta simulada -----------------------------------------------------------------

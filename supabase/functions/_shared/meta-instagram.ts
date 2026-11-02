@@ -64,10 +64,13 @@ export const METRICAS_MIDIA: Record<TipoProduto, string[]> = {
   STORY: ["reach", "views", "shares", "total_interactions", "replies", "follows", "profile_visits"],
 };
 
+// media_url: foto do post (thumbnail_url só existe para vídeo). A URL é assinada
+// e expira; o sync diário a renova para os posts recentes.
 export const CAMPOS_MIDIA =
-  "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,thumbnail_url";
+  "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,thumbnail_url,media_url";
 // like_count / comments_count não existem em stories.
-export const CAMPOS_STORY = "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url";
+export const CAMPOS_STORY =
+  "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url";
 
 // --- datas / fuso ----------------------------------------------------------------
 
@@ -301,6 +304,7 @@ export function mapearMidia(item: Record<string, unknown>, igId: string, agora =
     like_count: inteiroDe(item.like_count),
     comments_count: inteiroDe(item.comments_count),
     thumbnail_url: texto(item.thumbnail_url),
+    media_url: texto(item.media_url),
     sincronizado_em: agora.toISOString(),
   };
 }
