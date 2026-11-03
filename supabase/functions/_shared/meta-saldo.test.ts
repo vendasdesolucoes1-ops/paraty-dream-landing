@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MetaGraphClient } from "./meta-graph.ts";
-import { consultarSaldo, montarSaldo, valorDoTexto } from "./meta-saldo.ts";
+import { avaliarAlerta, consultarSaldo, montarSaldo, valorDoTexto } from "./meta-saldo.ts";
 
 const AGORA = new Date("2026-11-03T15:00:00Z");
 
@@ -43,7 +43,7 @@ test("pré-paga: saldo vem do texto e a estimativa usa a média de 7 dias", () =
   assert.equal(s.gastoTotal, 1234.56);
   assert.equal(s.limiteGasto, null, "spend_cap 0 = sem limite");
   assert.equal(s.mediaDiaria7d, 50);
-  assert.equal(s.diasRestantes, 7);
+  assert.equal(s.diasRestantes, 6, "350 / (50 × 1,15 de impostos)");
   assert.equal(s.statusRotulo, "Ativa");
   assert.equal(s.consultadoEm, AGORA.toISOString());
 });
@@ -122,7 +122,7 @@ test("consultarSaldo: lê a conta e o gasto de hoje e de 7 dias", async () => {
   assert.equal(s.gastoHoje, 0, "sem linhas hoje = zero gasto");
   assert.equal(s.mediaDiaria7d, 20);
   assert.equal(s.saldoDisponivel, 200);
-  assert.equal(s.diasRestantes, 10);
+  assert.equal(s.diasRestantes, 8.6);
   for (const u of chamadas) {
     assert.ok(u.searchParams.get("appsecret_proof"), "toda chamada é assinada");
   }
@@ -144,5 +144,34 @@ test("pré-paga com limite: os dias usam o que acabar primeiro", () => {
   assert.equal(s.saldoDisponivel, 278.69);
   assert.equal(s.restanteLimite, 244.83);
   assert.equal(s.mediaDiaria7d, 55.68);
-  assert.equal(s.diasRestantes, 4.3, "244,83 / 55,68");
+  assert.equal(s.diasRestantes, 4.3, "o menor entre 278,69 / (55,68 × 1,15) e 244,83 / 55,68");
+});
+
+test("alerta para o sino: conta parada, saldo acabando ou nada", () => {
+  const base = montarSaldo(
+    "act_9",
+    {
+      currency: "BRL",
+      account_status: 1,
+      is_prepay_account: true,
+      spend_cap: "0",
+      funding_source_details: { display_string: "Saldo disponível (R$ 100,00 BRL)" },
+    },
+    10,
+    350,
+    AGORA,
+  );
+  // 100 / (50 × 1,15) = 1,7 dia
+  const a = avaliarAlerta(base);
+  assert.equal(a?.titulo, "Saldo dos anúncios acabando");
+  assert.match(a!.detalhe, /O saldo dos anúncios \(R\$\s?100,00\) dura cerca de 1 dia/);
+  assert.equal(avaliarAlerta({ ...base, diasRestantes: 6 }), null);
+  assert.equal(
+    avaliarAlerta({ ...base, saldoDisponivel: 0 })?.titulo,
+    "Anúncios parados: saldo zerado",
+  );
+  assert.equal(
+    avaliarAlerta({ ...base, status: 3, statusRotulo: "Pagamento pendente" })?.titulo,
+    "Anúncios parados na Meta",
+  );
 });

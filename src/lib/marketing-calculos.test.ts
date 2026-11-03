@@ -179,21 +179,25 @@ const anuncio = (o: Partial<LinhaAnuncio>): LinhaAnuncio => ({
   compras: 0,
   reservas: 0,
   criado_em: null,
+  tipo_resultado: "lead",
   ...o,
 });
 
-test("melhores anúncios: só os que geraram lead, do menor custo por lead", () => {
+test("melhores anúncios: lead ou conversa, do menor custo por resultado", () => {
   const r = melhoresAnuncios([
     anuncio({ id: "caro", investimento: 100, leads: 2 }),
     anuncio({ id: "barato", investimento: 30, leads: 3 }),
+    anuncio({ id: "zap", tipo_resultado: "conversa", investimento: 40, mensagens: 10 }),
     anuncio({ id: "sem-lead", investimento: 500, leads: 0 }),
     anuncio({ id: "gratis", investimento: 0, leads: 1 }),
+    anuncio({ id: "trafego", tipo_resultado: "clique", investimento: 1, cliques_link: 100 }),
   ]);
   assert.deepEqual(
     r.map((a) => a.id),
-    ["barato", "caro"],
+    ["zap", "barato", "caro"],
   );
-  assert.equal(r[0].cpl, 10);
+  assert.equal(r[0].resultado.custo, 4);
+  assert.equal(r[1].resultado.rotulo, "leads");
 });
 
 const midia = (o: Partial<MidiaIg>): MidiaIg => ({
@@ -329,4 +333,122 @@ test("alerta de saldo: conta parada, saldo acabando e ok", async () => {
   const agora = Date.parse("2026-11-03T15:05:00Z");
   assert.equal(haQuanto("2026-11-03T15:04:48Z", agora), "há 12 s");
   assert.equal(haQuanto("2026-11-03T15:00:00Z", agora), "há 5 min");
+});
+
+test("resultado por objetivo e contatos sem duplicar (valores de referência)", async () => {
+  const { resultadoDaLinha, totaisSemDuplicar, custosPorObjetivo } =
+    await import("./marketing-calculos.ts");
+  const linhas = [
+    {
+      tipo_resultado: "lead" as const,
+      investimento: 267.8,
+      leads: 52,
+      mensagens: 39,
+      cliques_link: 300,
+    },
+    {
+      tipo_resultado: "conversa" as const,
+      investimento: 515.29,
+      leads: 0,
+      mensagens: 121,
+      cliques_link: 0,
+    },
+    {
+      tipo_resultado: "conversa" as const,
+      investimento: 272.9,
+      leads: 0,
+      mensagens: 52,
+      cliques_link: 0,
+    },
+    {
+      tipo_resultado: "conversa" as const,
+      investimento: 56.85,
+      leads: 0,
+      mensagens: 18,
+      cliques_link: 0,
+    },
+  ];
+  const form = resultadoDaLinha(linhas[0]);
+  assert.equal(form.quantidade, 52);
+  assert.equal(form.rotulo, "leads");
+  assert.equal(form.custo?.toFixed(2), "5.15");
+  const zap = resultadoDaLinha(linhas[1]);
+  assert.equal(zap.quantidade, 121);
+  assert.equal(zap.custo?.toFixed(2), "4.26");
+  assert.equal(
+    resultadoDaLinha({
+      tipo_resultado: "clique",
+      investimento: 10,
+      leads: 0,
+      mensagens: 0,
+      cliques_link: 1,
+    }).rotulo,
+    "clique",
+  );
+
+  const t = totaisSemDuplicar(linhas);
+  assert.equal(t.leads, 52);
+  assert.equal(t.conversas, 191);
+  assert.equal(t.leadsQueChamaram, 39);
+  assert.equal(t.contatos, 243);
+  assert.equal(t.custoPorContato?.toFixed(2), "4.58");
+
+  const c = custosPorObjetivo({
+    periodo: "atual",
+    inicio: "2026-10-05",
+    fim: "2026-11-03",
+    moeda: "BRL",
+    investimento: 1112.84,
+    impressoes: 0,
+    alcance_soma: 0,
+    cliques: 0,
+    cliques_link: 0,
+    leads: 52,
+    mensagens: 230,
+    compras: 0,
+    valor_compras: 0,
+    reservas: 0,
+    anuncios_com_gasto: 4,
+    investimento_leads: 267.8,
+    leads_formulario: 52,
+    leads_que_chamaram: 39,
+    investimento_conversas: 845.04,
+    conversas: 191,
+    contatos: 243,
+  });
+  assert.equal(c.custoPorLead?.toFixed(2), "5.15");
+  assert.equal(c.custoPorConversa?.toFixed(2), "4.42");
+  assert.equal(c.custoPorContato?.toFixed(2), "4.58");
+  assert.equal(c.pctLeadsQueChamaram, 0.75);
+});
+
+test("última sincronização dos anúncios e dia parcial", async () => {
+  const { ultimaSincronizacaoAds, incluiHoje } = await import("./marketing-calculos.ts");
+  const job = (o: Partial<StatusJob>): StatusJob => ({
+    job: "ads_diario",
+    ultima_em: "2026-11-03T06:10:00Z",
+    ultimo_status: "sucesso",
+    ultimo_erro: null,
+    codigo_erro: null,
+    registros: 1,
+    detalhes: null,
+    ultimo_sucesso_em: "2026-11-03T06:10:00Z",
+    ...o,
+  });
+  assert.equal(
+    ultimaSincronizacaoAds([
+      job({}),
+      job({
+        job: "ads_carga_inicial",
+        ultimo_status: "parcial",
+        ultima_em: "2026-11-03T15:20:00Z",
+        ultimo_sucesso_em: null,
+      }),
+      job({ job: "ig_diario", ultimo_sucesso_em: "2026-11-03T18:00:00Z" }),
+    ]),
+    "2026-11-03T15:20:00Z",
+  );
+  assert.equal(ultimaSincronizacaoAds([job({ job: "ig_stories" })]), null);
+  assert.equal(incluiHoje({ inicio: "2026-10-05", fim: "2026-11-03" }, "2026-11-03"), true);
+  assert.equal(incluiHoje({ inicio: "2026-10-01", fim: "2026-10-31" }, "2026-11-03"), false);
 });

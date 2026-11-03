@@ -16,7 +16,7 @@ import {
 import type { AbaMarketing } from "@/components/marketing/meta/abas";
 import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
 import {
-  derivadas,
+  custosPorObjetivo,
   formatMoeda,
   formatQtd,
   formatTaxa,
@@ -86,14 +86,15 @@ function ResumoAnuncios({
   const atual = q.data?.atual;
   const anterior = q.data?.anterior;
   const moeda = atual?.moeda;
-  const da = atual ? derivadas(atual) : null;
-  const db = anterior ? derivadas(anterior) : null;
+  const ca = atual ? custosPorObjetivo(atual) : null;
+  const cb = anterior ? custosPorObjetivo(anterior) : null;
   const carregando = q.isPending;
+  const dinheiro = (n: number) => formatMoeda(n, moeda);
 
   return (
     <Bloco
       titulo="Anúncios"
-      descricao="Investimento e resultado das campanhas no período, comparados ao período anterior"
+      descricao="Custo de cada resultado pelo objetivo da campanha, sem contar a mesma pessoa duas vezes"
       acao={
         <button type="button" className={LINK_BLOCO} onClick={() => irPara("anuncios")}>
           Ver anúncios <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -110,48 +111,66 @@ function ResumoAnuncios({
             rotulo="Investimento"
             carregando={carregando}
             valor={atual?.investimento}
-            formatar={(n) => formatMoeda(n, moeda)}
+            formatar={dinheiro}
             variacao={atual ? variacao(atual.investimento, anterior?.investimento) : undefined}
             sentido="neutro"
           />
           <Indicador
-            rotulo="Leads"
-            destaque={(atual?.leads ?? 0) > 0}
+            rotulo="Contatos únicos"
+            destaque={(atual?.contatos ?? 0) > 0}
             carregando={carregando}
-            valor={atual?.leads}
+            valor={atual?.contatos}
             formatar={formatQtd}
-            variacao={atual ? variacao(atual.leads, anterior?.leads) : undefined}
-            sentido="maior_melhor"
-          />
-          <Indicador
-            rotulo="Custo por lead"
-            carregando={carregando}
-            valor={da?.cpl}
-            formatar={(n) => formatMoeda(n, moeda)}
-            variacao={da?.cpl != null ? variacao(da.cpl, db?.cpl) : undefined}
-            sentido="menor_melhor"
-          />
-          <Indicador
-            rotulo="Conversas iniciadas"
-            carregando={carregando}
-            valor={atual?.mensagens}
-            formatar={formatQtd}
-            variacao={atual ? variacao(atual.mensagens, anterior?.mensagens) : undefined}
+            variacao={atual ? variacao(atual.contatos, anterior?.contatos) : undefined}
             sentido="maior_melhor"
             rodape={
-              da?.custoPorMensagem != null
-                ? `${formatMoeda(da.custoPorMensagem, moeda)} cada`
+              atual
+                ? `${formatQtd(atual.leads_formulario)} leads + ${formatQtd(atual.conversas)} conversas`
                 : undefined
             }
           />
           <Indicador
-            rotulo="Cliques no link"
+            rotulo="Custo por contato"
             carregando={carregando}
-            valor={atual?.cliques_link}
-            formatar={formatQtd}
-            rodape={
-              da ? `CTR ${formatTaxa(da.ctr)} · CPC ${formatMoeda(da.cpc, moeda)}` : undefined
+            valor={ca?.custoPorContato}
+            formatar={dinheiro}
+            variacao={
+              ca?.custoPorContato != null
+                ? variacao(ca.custoPorContato, cb?.custoPorContato)
+                : undefined
             }
+            sentido="menor_melhor"
+          />
+          <Indicador
+            rotulo="Custo por lead"
+            carregando={carregando}
+            valor={ca?.custoPorLead}
+            formatar={dinheiro}
+            variacao={
+              ca?.custoPorLead != null ? variacao(ca.custoPorLead, cb?.custoPorLead) : undefined
+            }
+            sentido="menor_melhor"
+            rodape={
+              atual && atual.leads_formulario > 0
+                ? `${formatQtd(atual.leads_formulario)} leads · ${formatTaxa(
+                    ca?.pctLeadsQueChamaram ?? null,
+                    0,
+                  )} chamaram no WhatsApp`
+                : "Campanhas de formulário"
+            }
+          />
+          <Indicador
+            rotulo="Custo por conversa"
+            carregando={carregando}
+            valor={ca?.custoPorConversa}
+            formatar={dinheiro}
+            variacao={
+              ca?.custoPorConversa != null
+                ? variacao(ca.custoPorConversa, cb?.custoPorConversa)
+                : undefined
+            }
+            sentido="menor_melhor"
+            rodape={atual ? `${formatQtd(atual.conversas)} conversas no WhatsApp` : undefined}
           />
         </FaixaIndicadores>
       )}
@@ -282,13 +301,13 @@ function Destaques({ periodo }: { periodo: Periodo }) {
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="min-w-0">
           <h3 className="mb-3 text-[0.8125rem] font-medium text-muted-foreground">
-            Anúncios com menor custo por lead
+            Anúncios com menor custo por resultado
           </h3>
           <QueryState
             query={anuncios}
             skeleton={<SkeletonRows rows={4} className="h-12" />}
             isEmpty={(d) => melhoresAnuncios(d).length === 0}
-            empty={<PanelEmpty>Nenhum anúncio gerou lead neste período.</PanelEmpty>}
+            empty={<PanelEmpty>Nenhum anúncio gerou lead ou conversa neste período.</PanelEmpty>}
           >
             {(d) => (
               <ol className="divide-y divide-border">
@@ -309,10 +328,10 @@ function Destaques({ periodo }: { periodo: Periodo }) {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-[0.875rem] font-medium tabular-nums text-foreground">
-                        {formatMoeda(a.cpl, moeda)}
+                        {formatMoeda(a.resultado.custo, moeda)}
                       </p>
                       <p className="text-[0.75rem] tabular-nums text-muted-foreground">
-                        {formatQtd(a.leads)} {a.leads === 1 ? "lead" : "leads"}
+                        {formatQtd(a.resultado.quantidade)} {a.resultado.rotulo}
                       </p>
                     </div>
                   </li>

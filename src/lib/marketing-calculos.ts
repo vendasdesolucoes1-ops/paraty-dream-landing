@@ -22,6 +22,15 @@ export interface ResumoAds {
   valor_compras: number;
   reservas: number;
   anuncios_com_gasto: number;
+  /** Campanhas de lead: investimento, leads e quantos desses leads também chamaram no WhatsApp. */
+  investimento_leads: number;
+  leads_formulario: number;
+  leads_que_chamaram: number;
+  /** Campanhas de conversa (WhatsApp/Direct): investimento e conversas iniciadas. */
+  investimento_conversas: number;
+  conversas: number;
+  /** Pessoas sem contar duas vezes: leads do formulário + conversas das campanhas de conversa. */
+  contatos: number;
 }
 
 export interface PontoSerieAds {
@@ -60,7 +69,11 @@ export interface LinhaAnuncio {
   compras: number;
   reservas: number;
   criado_em: string | null;
+  tipo_resultado: TipoResultado;
 }
+
+/** O que a campanha compra (pelo objetivo): leads, conversas ou cliques. */
+export type TipoResultado = "lead" | "conversa" | "clique";
 
 export type TipoBreakdown = "idade_genero" | "plataforma_posicao" | "regiao";
 
@@ -162,6 +175,110 @@ export function derivadas(r: {
     ctr: razao(r.cliques, r.impressoes),
     cpc: razao(r.investimento, r.cliques_link),
     cpm: cpmBase === null ? null : cpmBase * 1000,
+  };
+}
+
+// ── Resultado por objetivo ────────────────────────────────────────────────────
+
+const ROTULO_RESULTADO: Record<TipoResultado, { um: string; varios: string }> = {
+  lead: { um: "lead", varios: "leads" },
+  conversa: { um: "conversa", varios: "conversas" },
+  clique: { um: "clique", varios: "cliques" },
+};
+
+export interface ResultadoLinha {
+  tipo: TipoResultado;
+  quantidade: number;
+  rotulo: string;
+  custo: number | null;
+}
+
+/**
+ * Resultado de uma linha conforme o objetivo da campanha: leads (formulário),
+ * conversas (WhatsApp/Direct) ou cliques no link (demais objetivos).
+ */
+export function resultadoDaLinha(l: {
+  tipo_resultado: TipoResultado | null | undefined;
+  investimento: number;
+  leads: number;
+  mensagens: number;
+  cliques_link: number;
+}): ResultadoLinha {
+  const tipo = l.tipo_resultado ?? "clique";
+  const quantidade = tipo === "lead" ? l.leads : tipo === "conversa" ? l.mensagens : l.cliques_link;
+  const r = ROTULO_RESULTADO[tipo];
+  return {
+    tipo,
+    quantidade,
+    rotulo: quantidade === 1 ? r.um : r.varios,
+    custo: razao(l.investimento, quantidade),
+  };
+}
+
+export interface TotaisContatos {
+  investimento: number;
+  leads: number;
+  conversas: number;
+  /** Conversas que vieram de campanhas de lead: as mesmas pessoas que viraram lead. */
+  leadsQueChamaram: number;
+  contatos: number;
+  custoPorContato: number | null;
+}
+
+/**
+ * Soma de linhas sem contar a mesma pessoa duas vezes: leads só das campanhas
+ * de lead, conversas só das campanhas de conversa.
+ */
+export function totaisSemDuplicar(
+  linhas: {
+    tipo_resultado: TipoResultado | null | undefined;
+    investimento: number;
+    leads: number;
+    mensagens: number;
+  }[],
+): TotaisContatos {
+  let investimento = 0;
+  let leads = 0;
+  let conversas = 0;
+  let leadsQueChamaram = 0;
+  for (const l of linhas) {
+    investimento += l.investimento;
+    if (l.tipo_resultado === "lead") {
+      leads += l.leads;
+      leadsQueChamaram += l.mensagens;
+    } else if (l.tipo_resultado === "conversa") {
+      conversas += l.mensagens;
+    }
+  }
+  const contatos = leads + conversas;
+  return {
+    investimento,
+    leads,
+    conversas,
+    leadsQueChamaram,
+    contatos,
+    custoPorContato: razao(investimento, contatos),
+  };
+}
+
+export interface CustosPorObjetivo {
+  /** Investimento das campanhas de lead ÷ leads delas. */
+  custoPorLead: number | null;
+  /** Investimento das campanhas de conversa ÷ conversas delas. */
+  custoPorConversa: number | null;
+  /** Investimento total ÷ contatos únicos. */
+  custoPorContato: number | null;
+  /** Parte dos leads que também chamou no WhatsApp (0–1). */
+  pctLeadsQueChamaram: number | null;
+}
+
+export function custosPorObjetivo(r: ResumoAds): CustosPorObjetivo {
+  const chamaram = razao(r.leads_que_chamaram, r.leads_formulario);
+  return {
+    custoPorLead: razao(r.investimento_leads, r.leads_formulario),
+    custoPorConversa: razao(r.investimento_conversas, r.conversas),
+    custoPorContato: razao(r.investimento, r.contatos),
+    pctLeadsQueChamaram: chamaram === null ? null : Math.min(1, chamaram),
   };
 }
 
@@ -462,11 +579,17 @@ export function metricaIg(resumo: ResumoIg[], metrica: string): ResumoIg | null 
 export function melhoresAnuncios(
   linhas: LinhaAnuncio[],
   n = 5,
-): (LinhaAnuncio & { cpl: number })[] {
+): (LinhaAnuncio & { resultado: ResultadoLinha })[] {
+  // Só anúncios de lead ou conversa (clique não é contato), do menor custo por resultado.
   return linhas
-    .filter((l) => l.leads > 0 && l.investimento > 0)
-    .map((l) => ({ ...l, cpl: l.investimento / l.leads }))
-    .sort((a, b) => a.cpl - b.cpl || b.leads - a.leads)
+    .map((l) => ({ ...l, resultado: resultadoDaLinha(l) }))
+    .filter(
+      (l) => l.resultado.tipo !== "clique" && l.resultado.custo !== null && l.investimento > 0,
+    )
+    .sort(
+      (a, b) =>
+        a.resultado.custo! - b.resultado.custo! || b.resultado.quantidade - a.resultado.quantidade,
+    )
     .slice(0, n);
 }
 
@@ -589,6 +712,9 @@ export type AlertaSaldo = { nivel: "ok" | "atencao" | "erro"; texto: string };
 /** Abaixo disso o saldo (ou o limite) acaba logo e os anúncios param. */
 export const DIAS_ALERTA_SALDO = 3;
 
+/** Impostos que a Meta desconta do saldo pré-pago junto com o gasto (≈ 15% no Brasil). */
+export const FATOR_IMPOSTOS = 1.15;
+
 /**
  * Situação do saldo numa frase: conta parada, saldo/limite acabando, ou ok.
  * Os dias usam o ritmo de gasto dos últimos 7 dias.
@@ -600,10 +726,11 @@ export function alertaSaldo(s: SaldoConta): AlertaSaldo {
       texto: `Situação da conta na Meta: ${s.statusRotulo ?? "com restrição"}. Os anúncios não estão rodando.`,
     };
   }
-  // Para o que acabar primeiro: o saldo pré-pago ou o limite de gasto da conta.
+  // Para o que acabar primeiro: o saldo pré-pago (paga gasto + impostos) ou o
+  // limite de gasto da conta (conta só o gasto).
   const limiteAntes =
     s.restanteLimite !== null &&
-    (s.saldoDisponivel === null || s.restanteLimite < s.saldoDisponivel);
+    (s.saldoDisponivel === null || s.restanteLimite < s.saldoDisponivel / FATOR_IMPOSTOS);
   const base = limiteAntes ? s.restanteLimite : s.prepaga ? s.saldoDisponivel : null;
   const oQue = limiteAntes ? "O limite de gasto" : "O saldo";
   if (base !== null && base <= 0) {
@@ -624,4 +751,26 @@ export function haQuanto(iso: string, agora = Date.now()): string {
   const m = Math.floor(s / 60);
   if (m < 60) return `há ${m} min`;
   return `há ${Math.floor(m / 60)} h`;
+}
+
+// --- Última sincronização dos anúncios e dia parcial ---------------------------
+
+/**
+ * Quando os dados de anúncios foram atualizados pela última vez: o fim mais
+ * recente entre os jobs de Ads que gravaram dados (sucesso ou parcial).
+ */
+export function ultimaSincronizacaoAds(jobs: StatusJob[]): string | null {
+  let ultima: string | null = null;
+  for (const j of jobs) {
+    if (!j.job.startsWith("ads_")) continue;
+    const candidatas = [j.ultimo_sucesso_em, j.ultimo_status === "parcial" ? j.ultima_em : null];
+    for (const c of candidatas)
+      if (c && (!ultima || Date.parse(c) > Date.parse(ultima))) ultima = c;
+  }
+  return ultima;
+}
+
+/** O período termina hoje (ou depois): os números de hoje ainda estão entrando. */
+export function incluiHoje(periodo: { inicio: string; fim: string }, hoje: string): boolean {
+  return periodo.inicio <= hoje && periodo.fim >= hoje;
 }

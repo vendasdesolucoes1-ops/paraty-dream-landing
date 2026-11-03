@@ -24,6 +24,7 @@ import {
   type LinhaAnuncio,
   type NivelAnuncio,
   type TipoBreakdown,
+  resultadoDaLinha,
 } from "@/lib/marketing-calculos";
 import { useBreakdown, useSerieAds } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
@@ -75,6 +76,7 @@ function Conteudo({
 }) {
   const status = statusAnuncio(item.effective_status);
   const d = derivadas(item);
+  const res = resultadoDaLinha(item);
   const filtro = { nivel, id: item.id };
   const serie = useSerieAds(periodo, filtro);
   const [recorte, setRecorte] = useState<TipoBreakdown>("idade_genero");
@@ -88,9 +90,13 @@ function Conteudo({
 
   const numeros: [string, string][] = [
     ["Investimento", formatMoeda(item.investimento, moeda)],
+    ["Resultado", `${formatQtd(res.quantidade)} ${res.rotulo}`],
+    ["Custo por resultado", formatMoeda(res.custo, moeda)],
     ["Leads", formatQtd(item.leads)],
-    ["Custo por lead", formatMoeda(d.cpl, moeda)],
-    ["Conversas iniciadas", formatQtd(item.mensagens)],
+    [
+      res.tipo === "lead" ? "Conversas (dos mesmos leads)" : "Conversas iniciadas",
+      formatQtd(item.mensagens),
+    ],
     ["Cliques no link", formatQtd(item.cliques_link)],
     ["CTR", formatTaxa(d.ctr)],
     ["Impressões", formatQtd(item.impressoes)],
@@ -160,9 +166,12 @@ function Conteudo({
                 pontos={pontos.map((p) => ({ data: p.data, valor: p.investimento }))}
               />
               <GraficoSerie
-                titulo="Leads por dia"
+                titulo={res.tipo === "conversa" ? "Conversas por dia" : "Leads por dia"}
                 altura={110}
-                pontos={pontos.map((p) => ({ data: p.data, valor: p.leads }))}
+                pontos={pontos.map((p) => ({
+                  data: p.data,
+                  valor: res.tipo === "conversa" ? p.mensagens : p.leads,
+                }))}
               />
             </>
           )}

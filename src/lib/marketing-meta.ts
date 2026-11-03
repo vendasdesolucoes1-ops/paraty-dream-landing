@@ -62,6 +62,12 @@ const CAMPOS_RESUMO_ADS = [
   "valor_compras",
   "reservas",
   "anuncios_com_gasto",
+  "investimento_leads",
+  "leads_formulario",
+  "leads_que_chamaram",
+  "investimento_conversas",
+  "conversas",
+  "contatos",
 ] as const;
 
 const CAMPOS_ANUNCIO = [
