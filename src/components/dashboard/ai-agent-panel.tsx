@@ -7,21 +7,27 @@ import {
   ArrowRight,
   Bot,
   BookOpen,
-  FileText,
   Hand,
+  Images,
   Loader2,
   MessageSquare,
   Power,
-  Send,
   ShieldCheck,
   SlidersHorizontal,
-  Trash2,
+  UserRound,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { BOLHA_LEAD, CHAT_BG } from "@/components/whatsapp/chat-theme";
+import { CHAT_BG } from "@/components/whatsapp/chat-theme";
 import { ChatBubble } from "@/components/whatsapp/chat-ui";
 import type { AiAgent, AiAgentAutonomia, AiAgentModelo, AiAgentTomVoz } from "@/lib/types";
+import {
+  CHAVE_PENDENCIAS,
+  PREFIXO_ERRO_ATIVACAO,
+  buscarPendenciasAtivacao,
+  mensagemDeErro,
+  usePendenciasAtivacao,
+} from "@/lib/agente-ia";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,13 +48,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -59,23 +58,48 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { MateriaisTab } from "@/components/dashboard/agente/materiais-tab";
+import { OperacaoTab } from "@/components/dashboard/agente/operacao-tab";
+import { PendenciasAtivacao } from "@/components/dashboard/agente/pendencias-ativacao";
+import { TesteAgenteTab } from "@/components/dashboard/agente/teste-agente-tab";
+import { WhatsappBloco } from "@/components/dashboard/agente/whatsapp-bloco";
 
 const DEFAULT_AGENT_NAME = "Agente Moradas de Paraty";
 const DEFAULT_TRANSFER_KEYWORDS = ["atendente", "humano", "falar com alguém", "corretor"];
 const RAG_KEY = "rag_conhecimento";
 const RAG_MODO_KEY = "rag_modo";
 
-// Mesmas opções aceitas pelas funções (_shared/modelos.ts e estilo-agente.ts).
-const MODELOS_AGENTE: { valor: AiAgentModelo; rotulo: string; dica: string }[] = [
+// Mesmas opções aceitas pelas funções (_shared/modelos.ts). Custo aproximado
+// por 1 milhão de tokens (entrada / saída), em US$.
+const MODELOS_AGENTE: {
+  valor: AiAgentModelo;
+  rotulo: string;
+  custo: string;
+  dica: string;
+}[] = [
   {
     valor: "gpt-4o-mini",
     rotulo: "GPT-4o mini (padrão)",
-    dica: "Rápido e barato. É o modelo em que os evals da Sophia passam hoje.",
+    custo: "US$ 0,15 / 0,60",
+    dica: "Rápido e o mais barato. É o modelo em que os evals da Sophia passam hoje.",
+  },
+  {
+    valor: "gpt-4.1-mini",
+    rotulo: "GPT-4.1 mini",
+    custo: "US$ 0,40 / 1,60",
+    dica: "Segue instruções com mais rigor que o 4o mini, a cerca de 2,5 vezes o custo.",
   },
   {
     valor: "gpt-4o",
     rotulo: "GPT-4o",
-    dica: "Entende melhor conversas difíceis, mas custa cerca de 15 vezes mais por resposta.",
+    custo: "US$ 2,50 / 10",
+    dica: "Entende melhor conversas difíceis, mas custa cerca de 15 vezes mais que o 4o mini.",
+  },
+  {
+    valor: "gpt-4.1",
+    rotulo: "GPT-4.1",
+    custo: "US$ 2 / 8",
+    dica: "O mais forte em seguir regras e usar ferramentas; cerca de 13 vezes o custo do 4o mini.",
   },
 ];
 const TONS_AGENTE: { valor: AiAgentTomVoz; rotulo: string; exemplo: string }[] = [
@@ -103,40 +127,39 @@ const TONS_AGENTE: { valor: AiAgentTomVoz; rotulo: string; exemplo: string }[] =
 ];
 
 // ai_agents.autonomia (supabase/functions/_shared/ferramentas-sophia.ts).
+// Pedido para sair, bloqueio e transferência valem em todos os níveis.
 const AUTONOMIAS: { valor: AiAgentAutonomia; rotulo: string; resumo: string; faz: string[] }[] = [
   {
     valor: "responder",
     rotulo: "Só conversa",
-    resumo: "Atende, tira dúvidas e pré-qualifica. Não mexe no CRM.",
+    resumo: "Atende e tira dúvidas. Não grava nada no CRM nem marca visita.",
     faz: [
-      "Responde dúvidas consultando lotes e a base",
-      "Descobre nome, cidade, objetivo e tamanho na conversa",
-      "Quem quer visitar: avisa o vendedor para combinar",
+      "Responde dúvidas consultando lotes, a base e os materiais",
+      "Pode transferir para o consultor e bloquear quem pede para sair",
     ],
   },
   {
     valor: "qualificar",
-    rotulo: "Qualifica e registra",
-    resumo: "Tudo do anterior, e grava no CRM o que o lead conta.",
+    rotulo: "Conversa e qualifica",
+    resumo: "Tudo do anterior, e registra no CRM o que o lead conta.",
     faz: [
-      "Preenche cidade, objetivo, tamanho e canal no card do lead",
-      "Marca o lead como qualificado e avisa o vendedor com um resumo",
-      "Quem quer visitar: avisa o vendedor para combinar",
+      "Grava cidade, objetivo, prazo e demais dados no card do lead",
+      "Marca o lead como qualificado e avisa o consultor com um resumo",
     ],
   },
   {
     valor: "agendar",
-    rotulo: "Qualifica, registra e agenda (padrão)",
-    resumo: "Tudo do anterior, e marca a visita sozinha.",
+    rotulo: "Conversa, qualifica e agenda (padrão)",
+    resumo: "Tudo do anterior, e marca a visita na Agenda.",
     faz: [
-      "Vê horários livres na agenda, dentro dos horários de visita",
-      "Oferece 2 ou 3 opções e confirma a visita no CRM",
-      "Fora do horário ou em conflito, a visita fica a confirmar",
+      "Vê os horários livres dentro dos horários de visita",
+      "Marca a visita na Agenda e avisa o consultor",
+      "Fora dos horários de visita, a visita fica a confirmar",
     ],
   },
 ];
 
-// ai_agents.temperatura. "padrao" grava nulo e usa o valor do código (0,4).
+// ai_agents.temperatura. "padrao" grava nulo e usa o valor do código (0,3).
 type Criatividade = "precisa" | "padrao" | "criativa";
 const CRIATIVIDADES: {
   valor: Criatividade;
@@ -154,7 +177,7 @@ const CRIATIVIDADES: {
     valor: "padrao",
     temperatura: null,
     rotulo: "Equilibrada (padrão)",
-    dica: "O ajuste em que a Sophia foi testada.",
+    dica: "Temperatura 0,3: o ajuste em que a Sophia foi testada.",
   },
   {
     valor: "criativa",
@@ -167,7 +190,7 @@ const CRIATIVIDADES: {
 function criatividadeDe(temperatura: number | null): Criatividade {
   if (temperatura == null) return "padrao";
   const t = Number(temperatura);
-  if (t <= 0.3) return "precisa";
+  if (t < 0.3) return "precisa";
   if (t >= 0.6) return "criativa";
   return "padrao";
 }
@@ -182,6 +205,15 @@ function bolhas(texto: string) {
     .split("||")
     .map((m) => m.trim())
     .filter(Boolean);
+}
+
+/** Ligar a IA foi barrado antes do update: falta algo na configuração. */
+class ErroPendencias extends Error {
+  pendencias: string[];
+  constructor(pendencias: string[]) {
+    super(`${PREFIXO_ERRO_ATIVACAO} ${pendencias.join(" ")}`);
+    this.pendencias = pendencias;
+  }
 }
 
 /** Classes da navegação vertical das abas. */
@@ -204,27 +236,46 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
     },
   });
 
+  // O que falta para ligar a IA. Depois de uma tentativa barrada, a lista
+  // aparece logo abaixo do botão; antes disso, só na Visão geral.
+  const { data: pendencias = [] } = usePendenciasAtivacao(Boolean(agent && !agent.is_active));
+  const [tentouLigar, setTentouLigar] = useState(false);
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      // Só nasce ligado se nada faltar; senão o banco recusaria o insert.
+      const faltam = await buscarPendenciasAtivacao().catch(() => ["?"]);
+      const ligar = faltam.length === 0;
       const { error } = await supabase.from("ai_agents").insert({
         name: DEFAULT_AGENT_NAME,
         instance_id: instanceId,
-        is_active: true,
+        is_active: ligar,
         transfer_keywords: DEFAULT_TRANSFER_KEYWORDS,
         transfer_to_human_enabled: true,
       });
       if (error) throw error;
+      return ligar;
     },
-    onSuccess: () => {
-      toast.success("Agente IA criado e ativado.");
-      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+    onSuccess: (ligado) => {
+      toast.success(
+        ligado
+          ? "Agente IA criado e ativado."
+          : "Agente IA criado, ainda pausado. Veja o que falta para ligar em Visão geral.",
+      );
+      void queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
+      void queryClient.invalidateQueries({ queryKey: CHAVE_PENDENCIAS });
     },
-    onError: () => toast.error("Erro ao criar o agente IA."),
+    onError: (e) => toast.error(mensagemDeErro(e, "Erro ao criar o agente IA.")),
   });
 
   const toggleMutation = useMutation({
     mutationFn: async (isActive: boolean) => {
       if (!agent) throw new Error("Agente não encontrado.");
+      if (isActive) {
+        const faltam = await buscarPendenciasAtivacao();
+        queryClient.setQueryData(CHAVE_PENDENCIAS, faltam);
+        if (faltam.length > 0) throw new ErroPendencias(faltam);
+      }
       const { data, error } = await supabase
         .from("ai_agents")
         .update({ is_active: isActive })
@@ -237,11 +288,19 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
       return data as AiAgent;
     },
     onSuccess: (updatedAgent) => {
+      setTentouLigar(false);
       queryClient.setQueryData(["ai-agent", instanceId], updatedAgent);
       void queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
       toast.success(updatedAgent.is_active ? "IA ativada." : "IA pausada.");
     },
-    onError: () => toast.error("Não foi possível alterar o status da IA. Tente novamente."),
+    onError: (e) => {
+      if (e instanceof ErroPendencias) {
+        setTentouLigar(true);
+        return;
+      }
+      // O banco recusa com "A IA não pode ser ligada ainda: …" se algo faltar.
+      toast.error(mensagemDeErro(e, "Não foi possível alterar o status da IA. Tente novamente."));
+    },
   });
 
   return (
@@ -326,6 +385,9 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
         ) : null}
       </CardHeader>
       <CardContent className="p-5">
+        {agent && !agent.is_active && tentouLigar ? (
+          <PendenciasAtivacao pendencias={pendencias} className="mb-5" />
+        ) : null}
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-6 w-48" />
@@ -359,6 +421,10 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
                 <SlidersHorizontal className="h-4 w-4" aria-hidden />
                 Comportamento
               </TabsTrigger>
+              <TabsTrigger value="operacao" className={ABA}>
+                <UserRound className="h-4 w-4" aria-hidden />
+                Operação
+              </TabsTrigger>
               <TabsTrigger value="transferencia" className={ABA}>
                 <Hand className="h-4 w-4" aria-hidden />
                 Transferência
@@ -367,23 +433,41 @@ export function AiAgentPanel({ instanceId }: { instanceId: string }) {
                 <BookOpen className="h-4 w-4" aria-hidden />
                 Base de conhecimento
               </TabsTrigger>
+              <TabsTrigger value="materiais" className={ABA}>
+                <Images className="h-4 w-4" aria-hidden />
+                Materiais
+              </TabsTrigger>
             </TabsList>
 
             <div className="min-w-0 flex-1">
               <TabsContent value="visao" className="mt-0">
-                <VisaoGeralTab agent={agent} />
+                <VisaoGeralTab agent={agent} pendencias={tentouLigar ? [] : pendencias} />
               </TabsContent>
               <TabsContent value="testar" className="mt-0">
-                <TestAgentTab agent={agent} instanceId={instanceId} />
+                <TesteAgenteTab
+                  agent={agent}
+                  instanceId={instanceId}
+                  criatividade={
+                    CRIATIVIDADES.find(
+                      (c) => c.valor === criatividadeDe(agent.temperatura),
+                    )?.rotulo.replace(" (padrão)", "") ?? "Equilibrada"
+                  }
+                />
               </TabsContent>
               <TabsContent value="comportamento" className="mt-0">
                 <ComportamentoTab agent={agent} instanceId={instanceId} />
+              </TabsContent>
+              <TabsContent value="operacao" className="mt-0">
+                <OperacaoTab />
               </TabsContent>
               <TabsContent value="transferencia" className="mt-0">
                 <TransferenciaTab agent={agent} instanceId={instanceId} />
               </TabsContent>
               <TabsContent value="rag" className="mt-0">
                 <KnowledgeBaseTab />
+              </TabsContent>
+              <TabsContent value="materiais" className="mt-0">
+                <MateriaisTab />
               </TabsContent>
             </div>
           </Tabs>
@@ -415,28 +499,32 @@ const ROTULO_FUNCAO: Record<string, string> = {
 
 const REGRAS_FIXAS: { regra: string; porque: string }[] = [
   {
-    regra: "Nunca informa preço, entrada ou parcelas",
-    porque: "Valores são apresentados na visita, com o consultor.",
+    regra: "Nunca informa preço de lote nem faixa de valor",
+    porque:
+      "Pode citar a condição de pagamento cadastrada e aprovada em Condições comerciais; valores ficam com o consultor.",
   },
   {
-    regra: "Quem pede para sair nunca mais recebe mensagem",
-    porque: "Detectado antes da IA; só a gestão desfaz, com justificativa (LGPD).",
+    regra: "Se perguntarem se é robô, diz a verdade",
+    porque:
+      "Responde “Sou a assistente digital da equipe do Moradas de Paraty. Se preferir, chamo um consultor agora.” Nunca diz que é pessoa.",
   },
   {
-    regra: "Passa para uma pessoa quando o lead pede",
-    porque: "Pausa a IA naquela conversa e avisa o vendedor.",
+    regra: "Pedido para parar de receber mensagens",
+    porque: "É detectado antes da IA: o contato é bloqueado e recebe uma única resposta.",
   },
   {
-    regra: "Marca visita só nos horários disponíveis",
-    porque: "Fora deles, a visita fica “a confirmar” para o vendedor.",
+    regra: "“Quero falar com um corretor/atendente/pessoa” transfere",
+    porque:
+      "Pausa a IA na conversa e avisa o consultor. Palavra solta, como “meu corretor me indicou”, não transfere.",
   },
   {
-    regra: "Não se apresenta como robô, mas não mente",
-    porque: "Se perguntarem diretamente, diz que é a assistente digital da equipe.",
+    regra: "Visita só nos horários de visita cadastrados",
+    porque: "Fora deles, a visita fica “a confirmar” para o consultor.",
   },
   {
-    regra: "Só usa informações da base de conhecimento e dos lotes disponíveis",
-    porque: "Evita inventar metragem, prazos ou promessas.",
+    regra: "Só usa o que está cadastrado",
+    porque:
+      "Base de conhecimento, lotes em tempo real e materiais. Evita inventar metragem, prazos ou promessas.",
   },
 ];
 
@@ -542,7 +630,7 @@ function SaudeSophia() {
   );
 }
 
-function VisaoGeralTab({ agent }: { agent: AiAgent }) {
+function VisaoGeralTab({ agent, pendencias }: { agent: AiAgent; pendencias: string[] }) {
   const [dias, setDias] = useState(7);
 
   const {
@@ -646,6 +734,10 @@ function VisaoGeralTab({ agent }: { agent: AiAgent }) {
         />
       </div>
 
+      {!agent.is_active && pendencias.length > 0 ? (
+        <PendenciasAtivacao pendencias={pendencias} />
+      ) : null}
+
       <SaudeSophia />
 
       <Secao titulo="Desempenho">
@@ -741,6 +833,8 @@ function VisaoGeralTab({ agent }: { agent: AiAgent }) {
           </>
         )}
       </Secao>
+
+      <WhatsappBloco />
 
       <Secao
         titulo="Regras fixas"
@@ -1041,7 +1135,7 @@ function ComportamentoTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
         <Campo
           id="modelo"
           label="Modelo"
-          dica={`${modeloAtual?.dica ?? ""} Mude só depois de rodar os evals da Sophia com o modelo novo.`}
+          dica={`${modeloAtual?.dica ?? ""} Custo aproximado por 1 milhão de tokens (entrada / saída): ${modeloAtual?.custo ?? "—"}. Compare antes na aba Testar agente.`}
         >
           <Select
             value={form.modelo}
@@ -1054,6 +1148,7 @@ function ComportamentoTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
               {MODELOS_AGENTE.map((m) => (
                 <SelectItem key={m.valor} value={m.valor}>
                   {m.rotulo}
+                  <span className="ml-2 text-xs text-muted-foreground">{m.custo}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1217,138 +1312,6 @@ function TransferenciaTab({ agent, instanceId }: { agent: AiAgent; instanceId: s
   );
 }
 
-/** Só o horário, para o carimbo dentro da bolha. */
-function formatHoraTeste(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
-interface ChatMessage {
-  /** "acao": o que a Sophia fez com as ferramentas (só no painel, fora do histórico). */
-  role: "user" | "agent" | "acao";
-  text: string;
-  /** ISO do envio, para o carimbo de hora na bolha. Ausente em conversas
-      salvas antes deste campo existir. */
-  at?: string;
-}
-
-// Ações do prompt, dentro da aba de teste. A aba "Prompt do Sistema" com
-// textarea editável foi removida de propósito: gravar em ai_agents.system_prompt
-// desliga o buildSystemPrompt() do código, que é onde o prompt real vive
-// versionado — foi exatamente essa porta que fez a Sophia rodar sem base de
-// conhecimento. "Resetar para o padrão" fica como rede de segurança, caso um
-// system_prompt seja gravado por fora (SQL manual, por exemplo).
-function PromptActions({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
-  const queryClient = useQueryClient();
-  const [promptAtual, setPromptAtual] = useState<string | null>(null);
-  const [previewAberto, setPreviewAberto] = useState(false);
-
-  const previewMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("ai-agent-chat", {
-        body: { action: "preview_prompt", agent_id: agent.id },
-      });
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error ?? "Falha ao montar o prompt.");
-      return data as { prompt: string; usa_prompt_customizado: boolean };
-    },
-    onSuccess: (data) => {
-      setPromptAtual(data.prompt);
-      setPreviewAberto(true);
-    },
-    onError: (e: Error) => toast.error(e.message || "Não foi possível carregar o prompt atual."),
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("ai_agents")
-        .update({ system_prompt: null })
-        .eq("id", agent.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Prompt do sistema restaurado para o padrão do código.");
-      queryClient.invalidateQueries({ queryKey: ["ai-agent", instanceId] });
-    },
-    onError: () => toast.error("Erro ao restaurar o prompt padrão."),
-  });
-
-  const temPromptCustomizado = Boolean(agent.system_prompt?.trim());
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Dialog open={previewAberto} onOpenChange={setPreviewAberto}>
-        <DialogTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            disabled={previewMutation.isPending}
-            onClick={(e) => {
-              // O clique dispara a busca; o Dialog só abre no onSuccess, senão
-              // o modal apareceria vazio enquanto carrega.
-              e.preventDefault();
-              previewMutation.mutate();
-            }}
-          >
-            <FileText className="h-4 w-4" aria-hidden />
-            {previewMutation.isPending ? "Carregando..." : "Ver Prompt Atual"}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="font-display">Prompt ativo agora</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Isto é o prompt ativo agora, somente para conferência. Ele é montado a partir do código
-            (buildSystemPrompt), mais os lotes disponíveis em tempo real e a base de conhecimento.
-            Para alterá-lo, edite o código.
-          </p>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-muted/50 p-4 text-xs leading-relaxed">
-            {promptAtual ?? ""}
-          </pre>
-        </DialogContent>
-      </Dialog>
-
-      {/* Só aparece quando há de fato um prompt customizado gravado — sem isso
-          o botão seria uma ação sem efeito na maior parte do tempo. */}
-      {temPromptCustomizado ? (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-warning hover:bg-warning-soft hover:text-warning"
-              disabled={resetMutation.isPending}
-            >
-              {resetMutation.isPending ? "Restaurando..." : "Resetar para o padrão"}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="font-display">
-                Restaurar o prompt padrão?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Existe um prompt customizado gravado no banco para este agente, e ele desliga o
-                prompt padrão do código — inclusive as regras de preço e a base de conhecimento.
-                Restaurar apaga esse texto e devolve o comportamento versionado. Não pode ser
-                desfeito.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => resetMutation.mutate()}>
-                Restaurar padrão
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      ) : null}
-    </div>
-  );
-}
-
 function KnowledgeBaseTab() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
@@ -1470,267 +1433,6 @@ function KnowledgeBaseTab() {
         onDescartar={() => setText(originalRef.current)}
         rotulo="Salvar base de conhecimento"
       />
-    </div>
-  );
-}
-
-// Mesma fórmula do intervalo humanizado do whatsapp-webhook (piso/teto e
-// ms/caractere) — duplicada porque um é Deno edge function e o outro é
-// frontend, sem módulo comum entre os dois runtimes. O painel precisa
-// simular esse ritmo, senão o "Testar Agente" não reflete o envio real: lá
-// as bolhas saem em sequência com pausa, aqui elas apareciam todas juntas.
-const INTER_MESSAGE_DELAY_MIN_MS = 1000;
-const INTER_MESSAGE_DELAY_MAX_MS = 3000;
-const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
-
-function humanizedDelay(text: string): number {
-  const estimated = text.length * INTER_MESSAGE_DELAY_MS_PER_CHAR;
-  return Math.min(INTER_MESSAGE_DELAY_MAX_MS, Math.max(INTER_MESSAGE_DELAY_MIN_MS, estimated));
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// A conversa de teste vive no localStorage, não só no estado do React: sair da
-// aba (ou ir conferir a movimentação no CRM e voltar) desmontava o componente e
-// apagava tudo, justamente quando é preciso acompanhar os dois lados em
-// paralelo. A sessão também é preservada para o histórico continuar coerente.
-const TEST_CHAT_STORAGE_KEY = "ai-agent-test-chat";
-
-function carregarConversaSalva(): {
-  messages: ChatMessage[];
-  sessionId: string;
-  leadId: string | null;
-} {
-  const vazio = { messages: [], sessionId: `test_${Date.now()}`, leadId: null };
-  try {
-    const bruto = localStorage.getItem(TEST_CHAT_STORAGE_KEY);
-    if (!bruto) return vazio;
-    const salvo = JSON.parse(bruto);
-    if (!Array.isArray(salvo?.messages)) return vazio;
-    return {
-      messages: salvo.messages,
-      sessionId: salvo.sessionId ?? vazio.sessionId,
-      leadId: salvo.leadId ?? null,
-    };
-  } catch {
-    // localStorage indisponível ou conteúdo corrompido: começa limpo em vez de
-    // derrubar a aba inteira.
-    return vazio;
-  }
-}
-
-function TestAgentTab({ agent, instanceId }: { agent: AiAgent; instanceId: string }) {
-  const [salvo] = useState(carregarConversaSalva);
-  const [messages, setMessages] = useState<ChatMessage[]>(salvo.messages);
-  const [input, setInput] = useState("");
-  const [sessionId] = useState(salvo.sessionId);
-  // Lead real, marcado com is_teste, para a movimentação automática aparecer no
-  // CRM. Fica no storage junto da conversa: o mesmo teste continua no mesmo
-  // card quando você volta da aba do CRM.
-  const [leadId, setLeadId] = useState<string | null>(salvo.leadId);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(TEST_CHAT_STORAGE_KEY, JSON.stringify({ messages, sessionId, leadId }));
-    } catch {
-      // Cota estourada não pode quebrar o envio da mensagem.
-    }
-  }, [messages, sessionId, leadId]);
-
-  // Telefone fictício e único: leads.telefone tem índice único, e o prefixo
-  // 5500 deixa claro no CRM que não é número de gente.
-  async function garantirLeadDeTeste(): Promise<string | null> {
-    if (leadId) return leadId;
-    const { data, error } = await supabase
-      .from("leads")
-      .insert({
-        nome: "Lead de Teste (painel)",
-        telefone: `5500${Date.now().toString().slice(-9)}`,
-        origem: "whatsapp",
-        status_crm: "novo",
-        is_teste: true,
-      })
-      .select("id")
-      .single();
-    if (error) {
-      // Sem lead o teste ainda funciona como conversa — só não move o CRM.
-      toast.error(`Não foi possível criar o lead de teste: ${error.message}`);
-      return null;
-    }
-    setLeadId(data.id);
-    return data.id;
-  }
-
-  const sendMutation = useMutation({
-    mutationFn: async (message: string) => {
-      const idDoLead = await garantirLeadDeTeste();
-      // Sem lead_id real, ai-agent-chat não tem como buscar histórico no banco
-      // (.eq("lead_id", null) nunca casa nada em Postgres) — por isso o painel
-      // manda a própria conversa local como histórico explícito.
-      const history = messages
-        .filter((m) => m.role !== "acao")
-        .map((m) => ({
-          role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-          content: m.text,
-        }));
-      const { data, error } = await supabase.functions.invoke("ai-agent-chat", {
-        body: {
-          agent_id: agent.id,
-          message,
-          contact_phone: "teste_painel",
-          contact_name: "Teste",
-          lead_id: idDoLead,
-          session_id: sessionId,
-          history,
-        },
-      });
-      if (error) throw error;
-      const result = data as { messages: string[]; acoes?: { resumo: string }[] };
-
-      if (result.acoes?.length) {
-        setMessages((prev) => [
-          ...prev,
-          ...result.acoes!.map((a) => ({ role: "acao" as const, text: a.resumo })),
-        ]);
-      }
-
-      // Anexa cada bolha com o mesmo intervalo do envio real, em vez de
-      // devolver tudo de uma vez — mutationFn só resolve depois da última.
-      for (const [index, text] of (result.messages ?? []).entries()) {
-        if (index > 0) await sleep(humanizedDelay(text));
-        setMessages((prev) => [...prev, { role: "agent", text, at: new Date().toISOString() }]);
-      }
-
-      return result;
-    },
-    onError: () => toast.error("Erro ao consultar o agente."),
-  });
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
-
-  function handleSend() {
-    const trimmed = input.trim();
-    if (!trimmed || sendMutation.isPending) return;
-    setMessages((prev) => [...prev, { role: "user", text: trimmed, at: new Date().toISOString() }]);
-    setInput("");
-    sendMutation.mutate(trimmed);
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          <Pill>Modelo: {agent.modelo}</Pill>
-          <Pill>
-            Criatividade:{" "}
-            {CRIATIVIDADES.find(
-              (c) => c.valor === criatividadeDe(agent.temperatura),
-            )?.rotulo.replace(" (padrão)", "")}
-          </Pill>
-          {agent.instrucoes_extras?.trim() ? (
-            <Pill tone="info">Com instruções da equipe</Pill>
-          ) : null}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setMessages([]);
-            // Zera o vínculo: o próximo teste nasce num card novo, em vez de
-            // continuar movimentando o lead do teste anterior.
-            setLeadId(null);
-            try {
-              localStorage.removeItem(TEST_CHAT_STORAGE_KEY);
-            } catch {
-              // sem storage, o estado zerado acima já basta
-            }
-          }}
-          disabled={messages.length === 0}
-        >
-          <Trash2 className="h-4 w-4" aria-hidden />
-          Limpar conversa
-        </Button>
-      </div>
-
-      <div
-        ref={scrollRef}
-        className="overflow-y-auto rounded-2xl border border-border p-4 shadow-[var(--shadow-card)]"
-        style={{ height: 380, background: CHAT_BG }}
-      >
-        {messages.length === 0 ? (
-          <p className="animate-swap rounded-lg bg-background/90 p-3 text-center text-sm text-muted-foreground">
-            Envie uma mensagem para começar a conversa com a Sophia.
-          </p>
-        ) : (
-          <div className="space-y-1">
-            {messages.map((m, i) =>
-              m.role === "acao" ? (
-                <p
-                  key={i}
-                  className="mx-auto my-1 w-fit max-w-[90%] rounded-md bg-background/85 px-2.5 py-1 text-center text-[0.7rem] text-muted-foreground"
-                >
-                  ⚙ {m.text}
-                </p>
-              ) : (
-                <ChatBubble
-                  key={i}
-                  texto={m.text}
-                  nossa={m.role === "user"}
-                  horario={m.at ? formatHoraTeste(m.at) : ""}
-                />
-              ),
-            )}
-          </div>
-        )}
-        {sendMutation.isPending ? (
-          <div className="flex justify-start pt-1">
-            <div
-              className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-sm italic text-muted-foreground shadow-sm motion-safe:animate-pulse"
-              style={{ background: BOLHA_LEAD }}
-            >
-              Digitando...
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/60 p-2">
-        <Input
-          aria-label="Mensagem para o agente"
-          placeholder="Mensagem"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend();
-          }}
-          className="rounded-full border-none bg-background shadow-sm focus-visible:ring-1"
-        />
-        <Button
-          onClick={handleSend}
-          size="icon"
-          className="h-9 w-9 shrink-0 rounded-full"
-          disabled={sendMutation.isPending || !input.trim()}
-          title="Enviar"
-          aria-label="Enviar mensagem"
-        >
-          <Send className="h-4 w-4" aria-hidden />
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-        <PromptActions agent={agent} instanceId={instanceId} />
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Ambiente de teste: nada é enviado pelo WhatsApp do lead. A conversa cria um card marcado
-        como TESTE no CRM, para você acompanhar a movimentação automática. As linhas com ⚙ mostram o
-        que a Sophia consultou ou registrou (o lead não vê).
-      </p>
     </div>
   );
 }

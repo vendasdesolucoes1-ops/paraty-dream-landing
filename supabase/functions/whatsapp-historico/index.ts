@@ -36,7 +36,7 @@ interface Instancia {
   instance_name: string;
 }
 
-// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- payloads da Evolution chegam sem tipo
 type Registro = Record<string, any>;
 
 async function instancia(): Promise<Instancia> {
