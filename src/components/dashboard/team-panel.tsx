@@ -59,7 +59,8 @@ import { SkeletonRows } from "@/components/ds/query-state";
 import { atraso } from "@/components/ds/reveal";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Campo, ComIcone, LinhaAjuste, Secao } from "@/components/ajustes/campos";
-import { AcessosCampo, salvarAcessos } from "@/components/dashboard/acessos-campo";
+import { AcessosCampo } from "@/components/dashboard/acessos-campo";
+import { salvarAcessos } from "@/lib/acessos-api";
 import { ROTULO_ACESSO } from "@/lib/acessos";
 import {
   Select,

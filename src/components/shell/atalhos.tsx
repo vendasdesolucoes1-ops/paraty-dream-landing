@@ -4,6 +4,7 @@ import { navDoPerfil } from "@/components/dashboard/nav";
 import { useProfile } from "@/hooks/use-profile";
 
 /** "g" seguido de uma letra leva à tela (estilo Linear/GitHub). */
+// eslint-disable-next-line react-refresh/only-export-components -- mapa usado pela sidebar e pela busca
 export const ATALHOS_DE_TELA: Record<string, string> = {
   "/dashboard": "i",
   "/dashboard/crm": "c",
