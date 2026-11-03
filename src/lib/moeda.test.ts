@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { formatarBRL, formatarMoeda, paraNumero } from "./moeda.ts";
 
 /** Intl usa espaço não separável entre "R$" e o número. */
-const nbsp = (s: string) => s.replace(/ /g, " ");
+const nbsp = (s: string) => s.replace(/\u00a0/g, " ");
 
 test("formatarBRL: sempre R$ com 2 casas", () => {
   assert.equal(nbsp(formatarBRL(1234.56)), "R$ 1.234,56");
