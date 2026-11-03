@@ -742,7 +742,9 @@ export async function gerarRespostaSophia(
       conteudo = msg?.content ?? "";
       break;
     }
-    conversa.push({ role: "assistant", content: msg.content ?? null, tool_calls: pedidos });
+    // O texto que vem junto com a chamada de ferramenta é rascunho: não volta
+    // para o modelo (alguns modelos o repetiam colado na resposta final).
+    conversa.push({ role: "assistant", content: null, tool_calls: pedidos });
     for (const p of pedidos) {
       const resultado = await executar(p.function?.name, p.function?.arguments);
       conversa.push({ role: "tool", tool_call_id: p.id, content: resultado });

@@ -233,8 +233,9 @@ const OBJETO_RESPOSTA = /\{\s*"resposta"\s*:\s*("(?:[^"\\]|\\.)*")\s*\}/g;
 
 /**
  * Lê {"resposta": "..."} da saída do modelo. Alguns modelos devolvem dois
- * objetos colados ({"resposta":"..."}\n{"resposta":"..."}): vale o último.
- * Nunca deixa JSON cru chegar ao lead.
+ * objetos colados ({"resposta":"..."}\n{"resposta":"..."}), repetindo depois
+ * um texto de uma rodada anterior: vale o primeiro. Nunca deixa JSON cru
+ * chegar ao lead.
  */
 export function lerRespostaDoModelo(conteudo: string | null | undefined): string {
   const bruto = String(conteudo ?? "").trim();
@@ -246,12 +247,12 @@ export function lerRespostaDoModelo(conteudo: string | null | undefined): string
     // segue
   }
   const achados = [...bruto.matchAll(OBJETO_RESPOSTA)];
-  for (let i = achados.length - 1; i >= 0; i--) {
+  for (let i = 0; i < achados.length; i++) {
     try {
       const texto = JSON.parse(achados[i][1]);
       if (typeof texto === "string" && texto.trim()) return texto;
     } catch {
-      // tenta o anterior
+      // tenta o próximo
     }
   }
   // Fora do formato: tira sobras de JSON, se houver.

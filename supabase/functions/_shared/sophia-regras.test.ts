@@ -128,9 +128,9 @@ test("saída do modelo: objeto único, dois colados e texto cru", () => {
   assert.equal(lerRespostaDoModelo('{"resposta":"Oi || tudo bem?"}'), "Oi || tudo bem?");
   assert.equal(
     lerRespostaDoModelo(
-      '{"resposta":"Posso ajudar em mais alguma coisa?"}\n{"resposta":"Oi, Rafael! || Quer visitar?"}',
+      '{"resposta":"Sua visita está marcada."}\n{"resposta":"Oi, Rafael! || Vou ver os horários."}',
     ),
-    "Oi, Rafael! || Quer visitar?",
+    "Sua visita está marcada.",
   );
   assert.equal(lerRespostaDoModelo("texto solto"), "texto solto");
   assert.equal(lerRespostaDoModelo('{"resposta":"cortado no meio'), "cortado no meio");
