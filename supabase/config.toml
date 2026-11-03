@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.meta-alcance]
 verify_jwt = false
+
+[functions.meta-leadgen]
+verify_jwt = false
