@@ -561,3 +561,67 @@ export function saudeIntegracao(jobs: StatusJob[], agora: Date = new Date()): Sa
       : "Sincronização em dia",
   };
 }
+
+// --- Saldo da conta de anúncios (ao vivo, função meta-saldo) -------------------
+
+/** Espelho de SaldoConta em supabase/functions/_shared/meta-saldo.ts. */
+export type SaldoConta = {
+  contaId: string;
+  nome: string | null;
+  moeda: string | null;
+  status: number | null;
+  statusRotulo: string | null;
+  prepaga: boolean;
+  saldoDisponivel: number | null;
+  aCobrar: number | null;
+  gastoTotal: number | null;
+  limiteGasto: number | null;
+  restanteLimite: number | null;
+  gastoHoje: number | null;
+  mediaDiaria7d: number | null;
+  diasRestantes: number | null;
+  formaPagamento: string | null;
+  consultadoEm: string;
+};
+
+export type AlertaSaldo = { nivel: "ok" | "atencao" | "erro"; texto: string };
+
+/** Abaixo disso o saldo (ou o limite) acaba logo e os anúncios param. */
+export const DIAS_ALERTA_SALDO = 3;
+
+/**
+ * Situação do saldo numa frase: conta parada, saldo/limite acabando, ou ok.
+ * Os dias usam o ritmo de gasto dos últimos 7 dias.
+ */
+export function alertaSaldo(s: SaldoConta): AlertaSaldo {
+  if (s.status !== null && s.status !== 1) {
+    return {
+      nivel: "erro",
+      texto: `Situação da conta na Meta: ${s.statusRotulo ?? "com restrição"}. Os anúncios não estão rodando.`,
+    };
+  }
+  // Para o que acabar primeiro: o saldo pré-pago ou o limite de gasto da conta.
+  const limiteAntes =
+    s.restanteLimite !== null &&
+    (s.saldoDisponivel === null || s.restanteLimite < s.saldoDisponivel);
+  const base = limiteAntes ? s.restanteLimite : s.prepaga ? s.saldoDisponivel : null;
+  const oQue = limiteAntes ? "O limite de gasto" : "O saldo";
+  if (base !== null && base <= 0) {
+    return { nivel: "erro", texto: `${oQue} acabou: os anúncios param até recarregar.` };
+  }
+  if (s.diasRestantes !== null && s.diasRestantes < DIAS_ALERTA_SALDO) {
+    const dias =
+      s.diasRestantes < 1 ? "menos de 1 dia" : `cerca de ${Math.floor(s.diasRestantes)} dia(s)`;
+    return { nivel: "atencao", texto: `${oQue} dura ${dias} no ritmo atual.` };
+  }
+  return { nivel: "ok", texto: "" };
+}
+
+/** "há 12 s", "há 3 min" — para o carimbo de atualização do saldo. */
+export function haQuanto(iso: string, agora = Date.now()): string {
+  const s = Math.max(0, Math.round((agora - Date.parse(iso)) / 1000));
+  if (s < 60) return `há ${s} s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `há ${m} min`;
+  return `há ${Math.floor(m / 60)} h`;
+}

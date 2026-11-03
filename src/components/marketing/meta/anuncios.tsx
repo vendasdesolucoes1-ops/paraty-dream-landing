@@ -9,6 +9,7 @@ import { QueryState, SkeletonRows } from "@/components/ds/query-state";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { AnuncioDetalhe } from "@/components/marketing/meta/anuncio-detalhe";
 import { Miniatura, SemDadosMeta } from "@/components/marketing/meta/pecas";
+import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
 import {
   Table,
   TableBody,
@@ -80,6 +81,7 @@ export function Anuncios({ periodo }: { periodo: Periodo }) {
 
   return (
     <div className="space-y-8">
+      <SaldoAoVivo />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Nível">
           {NIVEIS.map((n) => (

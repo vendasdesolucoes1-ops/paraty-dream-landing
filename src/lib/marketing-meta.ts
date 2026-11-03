@@ -19,6 +19,7 @@ import type {
   PontoSerieIg,
   ResumoAds,
   ResumoIg,
+  SaldoConta,
   StatusJob,
   TipoBreakdown,
   TipoMidia,
@@ -361,5 +362,55 @@ export function useSincronizarAgora() {
       return data as RespostaSync;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: chaveMarketing }),
+  });
+}
+
+/** Atualização do saldo na tela: a cada minuto, e ao voltar para a aba. */
+export const SALDO_INTERVALO_MS = 60_000;
+
+export class ErroSaldo extends Error {
+  constructor(
+    mensagem: string,
+    readonly tokenInvalido = false,
+  ) {
+    super(mensagem);
+  }
+}
+
+/**
+ * Saldo da conta de anúncios lido ao vivo na Meta pela função meta-saldo
+ * (não passa pelo banco). Só a gestão recebe; para os demais a função nega.
+ */
+export function useSaldoMeta() {
+  return useQuery({
+    queryKey: [...chaveMarketing, "saldo"],
+    queryFn: async (): Promise<SaldoConta> => {
+      const { data, error } = await supabase.functions.invoke("meta-saldo", {
+        method: "POST",
+        body: {},
+      });
+      if (error) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const contexto = (error as any)?.context;
+        if (contexto && typeof contexto.json === "function") {
+          try {
+            const corpo = await contexto.json();
+            throw new ErroSaldo(
+              corpo?.erro ?? "Falha ao consultar a Meta",
+              corpo?.tokenInvalido === true,
+            );
+          } catch (e) {
+            if (e instanceof ErroSaldo) throw e;
+          }
+        }
+        throw error;
+      }
+      return (data as { saldo: SaldoConta }).saldo;
+    },
+    refetchInterval: SALDO_INTERVALO_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 20_000,
+    retry: 1,
   });
 }

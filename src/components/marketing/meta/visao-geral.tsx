@@ -14,6 +14,7 @@ import {
   SemDadosMeta,
 } from "@/components/marketing/meta/pecas";
 import type { AbaMarketing } from "@/components/marketing/meta/abas";
+import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
 import {
   derivadas,
   formatMoeda,
@@ -62,6 +63,7 @@ export function VisaoGeral({
           }
         />
       ) : null}
+      <SaldoAoVivo />
       <ResumoAnuncios periodo={periodo} irPara={irPara} />
       <EvolucaoDiaria periodo={periodo} />
       <ResumoInstagram periodo={periodo} irPara={irPara} />
