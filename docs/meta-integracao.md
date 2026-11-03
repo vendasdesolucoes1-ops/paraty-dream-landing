@@ -187,3 +187,16 @@ minuto (e ao voltar para a aba); a função guarda o resultado por 30 s em memó
 - O progresso aparece na aba Integração (`marketing_progresso_carga`).
 - O cron `meta-limpa-execucoes` marca como erro as execuções que ficaram "executando" porque a função foi encerrada pelo limite de tempo.
 - **Alcance orgânico do Instagram:** é a soma do alcance dos posts, reels e stories publicados no período que não viraram anúncio. Um post conta como anúncio quando `creative.effective_instagram_media_id` aponta para ele. Como a mesma pessoa pode ter visto mais de um post, essa soma não é um número de pessoas únicas.
+
+## Anúncio → CRM (etapa 4)
+
+- **Anúncio WhatsApp:** na primeira mensagem de um contato novo, o webhook do WhatsApp lê `contextInfo.externalAdReply` (ID do anúncio, `ctwaClid`, título e URL) e chama `registrar_origem_anuncio`.
+  - O lead passa a ter a origem `anuncio_whatsapp`, com `anuncio_id`, `anuncio_nome`, `campanha_id` e `campanha_nome`.
+  - Quem já era lead mantém a origem que tinha.
+  - Se o anúncio ainda não tiver sido sincronizado, o cron `crm-completar-anuncio` preenche os nomes de hora em hora.
+- **Formulário Meta:** a origem `formulario_meta` já existe, mas ainda falta ligar o webhook `leadgen`. Ele depende da permissão `leads_retrieval` no token e de inscrever a Página no app.
+- **Funil:** `marketing_funil_campanhas` cruza, por campanha:
+  - o investimento e os contatos contados pela Meta;
+  - os leads ligados à campanha, pela etapa do CRM em que estão hoje: qualificado, agendado, visitou, proposta ou fechado.
+
+  A aba Anúncios mostra a tabela, e a Visão geral mostra o custo por visita agendada, por visita feita e por venda.

@@ -4,6 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { registrarOrigemAnuncio } from "../_shared/origem-anuncio.ts";
 import { exigirChamador } from "../_shared/auth.ts";
 import {
   isHumanTakeoverActive as takeoverAtivo,
@@ -195,6 +196,10 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
 
   // 4. Find or create lead (round robin)
   const lead = await findOrCreateLead(phone, pushName);
+
+  // Veio de anúncio de clique para o WhatsApp? Marca a origem do lead novo
+  // (ID do anúncio, campanha). Não bloqueia nem derruba o atendimento.
+  await registrarOrigemAnuncio(supabase, lead.id, data);
 
   // Contact bookkeeping
   const contact = await findOrCreateContact(phone, pushName, remoteJid);

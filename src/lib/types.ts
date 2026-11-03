@@ -26,7 +26,11 @@ export type LeadOrigem =
   | "whatsapp_contato"
   | "indicacao"
   | "instagram"
-  | "google_maps";
+  | "google_maps"
+  // Chegou por anúncio de clique para o WhatsApp (externalAdReply na 1ª mensagem).
+  | "anuncio_whatsapp"
+  // Formulário de cadastro dos anúncios da Meta (lead ads).
+  | "formulario_meta";
 export type LeadStatus =
   | "novo"
   | "qualificado"
@@ -57,6 +61,11 @@ export interface Lead {
   /** Como o lead conheceu o empreendimento (extraído da conversa). */
   // Não existe como coluna em `leads`; fica opcional para não quebrar os casts.
   canal_origem?: string | null;
+  /** Anúncio da Meta que trouxe o lead (origem anuncio_whatsapp / formulario_meta). */
+  anuncio_id?: string | null;
+  anuncio_nome?: string | null;
+  campanha_id?: string | null;
+  campanha_nome?: string | null;
 }
 
 export type ProfileRole = "admin" | "gestor" | "vendedor";

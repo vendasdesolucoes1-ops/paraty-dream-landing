@@ -15,6 +15,7 @@ import {
 } from "@/components/marketing/meta/pecas";
 import type { AbaMarketing } from "@/components/marketing/meta/abas";
 import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
+import { FunilResumo } from "@/components/marketing/meta/funil";
 import { LineChart } from "@/components/ds/line-chart";
 import {
   custosPorObjetivo,
@@ -53,6 +54,7 @@ export function VisaoGeral({
   irPara: (aba: AbaMarketing) => void;
 }) {
   const status = useStatusIntegracao();
+  const moeda = useResumoAds(periodo).data?.atual?.moeda;
 
   if (status.data && status.data.length === 0) return <SemDadosMeta />;
 
@@ -72,6 +74,7 @@ export function VisaoGeral({
       ) : null}
       <SaldoAoVivo />
       <ResumoAnuncios periodo={periodo} irPara={irPara} />
+      <FunilResumo periodo={periodo} moeda={moeda} />
       <EvolucaoDiaria periodo={periodo} />
       <ResumoInstagram periodo={periodo} irPara={irPara} />
       <Destaques periodo={periodo} />

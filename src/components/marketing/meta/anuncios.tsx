@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { AnuncioDetalhe } from "@/components/marketing/meta/anuncio-detalhe";
 import { Miniatura, SemDadosMeta } from "@/components/marketing/meta/pecas";
 import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
+import { FunilTabela } from "@/components/marketing/meta/funil";
 import { SincronizacaoAds } from "@/components/marketing/meta/sincronizacao-ads";
 import {
   Table,
@@ -162,6 +163,8 @@ export function Anuncios({
           )}
         </QueryState>
       </Bloco>
+
+      <FunilTabela periodo={periodo} moeda={moeda} />
 
       <AnuncioDetalhe
         item={aberto}

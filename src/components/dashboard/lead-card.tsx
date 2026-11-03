@@ -6,9 +6,14 @@ import { Pill } from "@/components/ds/pill";
 import { atraso } from "@/components/ds/reveal";
 import { cn } from "@/lib/utils";
 import { formatTelefone, tempoRelativo } from "@/lib/format";
+import { ORIGEM_LABEL } from "@/lib/lead-status";
 import { LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
 
-const ORIGEM_LABELS = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
+// Todas as origens (inclui anúncio e extratores), não só as do formulário manual.
+const ORIGEM_LABELS: Record<string, string> = {
+  ...Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label])),
+  ...ORIGEM_LABEL,
+};
 
 type VistaProps = {
   lead: Lead;
@@ -23,7 +28,10 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
   { lead, hasHumanTakeover, draggable = true, modo = "normal", className, ...rest },
   ref,
 ) {
-  const origem = lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : null;
+  const origemBase = lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : null;
+  // Lead de anúncio: mostra a campanha (ou o anúncio) junto da origem.
+  const deAnuncio = lead.campanha_nome ?? lead.anuncio_nome ?? null;
+  const origem = origemBase && deAnuncio ? `${origemBase} · ${deAnuncio}` : origemBase;
 
   return (
     <div
