@@ -28,7 +28,8 @@ import { RoleGuard } from "@/components/dashboard/role-guard";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Reveal } from "@/components/ds/reveal";
 import { useProfile } from "@/hooks/use-profile";
-import { periodoDoPreset, type Periodo, type PresetPeriodo } from "@/lib/relatorios";
+import { incluiHoje } from "@/lib/marketing-calculos";
+import { paraDiaISO, periodoDoPreset, type Periodo, type PresetPeriodo } from "@/lib/relatorios";
 
 interface BuscaMarketing {
   aba?: AbaMarketing;
@@ -137,6 +138,11 @@ function Marketing() {
                   setPreset(novoPreset);
                 }}
               />
+              {incluiHoje(periodo, paraDiaISO(new Date())) ? (
+                <p className="mt-2 text-[0.75rem] text-muted-foreground">
+                  Inclui hoje, que ainda está em andamento: os números de hoje são parciais.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -145,7 +151,7 @@ function Marketing() {
           </TabsContent>
 
           <TabsContent value="anuncios" className="mt-8">
-            <Anuncios periodo={periodo} />
+            <Anuncios periodo={periodo} podeSincronizar={ehAdmin} />
           </TabsContent>
 
           <TabsContent value="instagram" className="mt-8">

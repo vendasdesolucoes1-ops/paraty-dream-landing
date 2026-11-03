@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { AnuncioDetalhe } from "@/components/marketing/meta/anuncio-detalhe";
 import { Miniatura, SemDadosMeta } from "@/components/marketing/meta/pecas";
 import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
+import { SincronizacaoAds } from "@/components/marketing/meta/sincronizacao-ads";
 import {
   Table,
   TableBody,
@@ -29,6 +30,8 @@ import {
   type GrupoStatus,
   type LinhaAnuncio,
   type NivelAnuncio,
+  resultadoDaLinha,
+  totaisSemDuplicar,
 } from "@/lib/marketing-calculos";
 import { useAnuncios, useResumoAds, useStatusIntegracao } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
@@ -56,7 +59,13 @@ function passa(l: LinhaAnuncio, filtro: Filtro): boolean {
   return grupoStatus(l.effective_status) === filtro;
 }
 
-export function Anuncios({ periodo }: { periodo: Periodo }) {
+export function Anuncios({
+  periodo,
+  podeSincronizar = false,
+}: {
+  periodo: Periodo;
+  podeSincronizar?: boolean;
+}) {
   const status = useStatusIntegracao();
   const [nivel, setNivel] = useState<NivelAnuncio>("campanha");
   const [filtro, setFiltro] = useState<Filtro>("com_gasto");
@@ -81,6 +90,7 @@ export function Anuncios({ periodo }: { periodo: Periodo }) {
 
   return (
     <div className="space-y-8">
+      <SincronizacaoAds podeSincronizar={podeSincronizar} />
       <SaldoAoVivo />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Nível">
@@ -90,7 +100,12 @@ export function Anuncios({ periodo }: { periodo: Periodo }) {
             </Chip>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por situação">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filtrar por situação"
+          title="Contagem neste nível: uma campanha arquivada sem anúncios não aparece em Anúncios."
+        >
           {FILTROS.map((f) => (
             <Chip
               key={f.valor}
@@ -164,16 +179,12 @@ function TabelaAnuncios({
   );
   const total = ordenadas.reduce(
     (t, l) => ({
-      investimento: t.investimento + l.investimento,
       impressoes: t.impressoes + l.impressoes,
-      cliques: t.cliques + l.cliques,
       cliques_link: t.cliques_link + l.cliques_link,
-      leads: t.leads + l.leads,
-      mensagens: t.mensagens + l.mensagens,
     }),
-    { investimento: 0, impressoes: 0, cliques: 0, cliques_link: 0, leads: 0, mensagens: 0 },
+    { impressoes: 0, cliques_link: 0 },
   );
-  const dt = derivadas(total);
+  const tc = totaisSemDuplicar(ordenadas);
 
   return (
     <Table className="animate-swap">
@@ -183,14 +194,16 @@ function TabelaAnuncios({
           <TableHead className="text-right">Investimento</TableHead>
           <TableHead className="text-right">Impressões</TableHead>
           <TableHead className="text-right">Cliques no link</TableHead>
+          <TableHead className="text-right">Resultado</TableHead>
+          <TableHead className="text-right">Custo por resultado</TableHead>
           <TableHead className="text-right">Leads</TableHead>
-          <TableHead className="text-right">Custo por lead</TableHead>
           <TableHead className="text-right">Conversas</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {ordenadas.map((l) => {
           const d = derivadas(l);
+          const res = resultadoDaLinha(l);
           const st = statusAnuncio(l.effective_status);
           const subtitulo =
             nivel === "anuncio"
@@ -241,14 +254,25 @@ function TabelaAnuncios({
               </TableCell>
               <TableCell
                 className={cn(
-                  "text-right tabular-nums",
-                  l.leads > 0 && "font-medium text-foreground",
+                  "whitespace-nowrap text-right tabular-nums",
+                  res.quantidade > 0 && "font-medium text-foreground",
                 )}
               >
-                {formatQtd(l.leads)}
+                {formatQtd(res.quantidade)}{" "}
+                <span className="font-normal text-muted-foreground">{res.rotulo}</span>
               </TableCell>
-              <TableCell className="text-right tabular-nums">{formatMoeda(d.cpl, moeda)}</TableCell>
-              <TableCell className="text-right tabular-nums">{formatQtd(l.mensagens)}</TableCell>
+              <TableCell className="text-right tabular-nums text-foreground">
+                {formatMoeda(res.custo, moeda)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{formatQtd(l.leads)}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                <span className="block">{formatQtd(l.mensagens)}</span>
+                {res.tipo === "lead" && l.mensagens > 0 ? (
+                  <span className="block text-[0.72rem] text-muted-foreground">
+                    dos mesmos leads
+                  </span>
+                ) : null}
+              </TableCell>
             </TableRow>
           );
         })}
@@ -259,13 +283,31 @@ function TabelaAnuncios({
             Total · {formatQtd(ordenadas.length)} {ordenadas.length === 1 ? "item" : "itens"}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatMoeda(total.investimento, moeda)}
+            {formatMoeda(tc.investimento, moeda)}
           </TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(total.impressoes)}</TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(total.cliques_link)}</TableCell>
-          <TableCell className="text-right tabular-nums">{formatQtd(total.leads)}</TableCell>
-          <TableCell className="text-right tabular-nums">{formatMoeda(dt.cpl, moeda)}</TableCell>
-          <TableCell className="text-right tabular-nums">{formatQtd(total.mensagens)}</TableCell>
+          <TableCell className="whitespace-nowrap text-right tabular-nums">
+            {formatQtd(tc.contatos)}{" "}
+            <span className="font-normal text-muted-foreground">
+              {tc.contatos === 1 ? "contato" : "contatos"}
+            </span>
+          </TableCell>
+          <TableCell className="text-right tabular-nums">
+            <span className="block">{formatMoeda(tc.custoPorContato, moeda)}</span>
+            <span className="block text-[0.72rem] font-normal text-muted-foreground">
+              por contato
+            </span>
+          </TableCell>
+          <TableCell className="text-right tabular-nums">{formatQtd(tc.leads)}</TableCell>
+          <TableCell className="text-right tabular-nums">
+            <span className="block">{formatQtd(tc.conversas)}</span>
+            {tc.leadsQueChamaram > 0 ? (
+              <span className="block text-[0.72rem] font-normal text-muted-foreground">
+                + {formatQtd(tc.leadsQueChamaram)} de {formatQtd(tc.leads)} leads
+              </span>
+            ) : null}
+          </TableCell>
         </TableRow>
       </TableFooter>
     </Table>

@@ -110,7 +110,7 @@ export function SaldoAoVivo() {
               formatar={(n) => formatMoeda(n, moeda)}
               rodape={
                 s?.diasRestantes != null
-                  ? `Dá para cerca de ${Math.floor(s.diasRestantes)} dia(s)`
+                  ? `Dura cerca de ${Math.floor(s.diasRestantes)} dia(s), com impostos`
                   : "Últimos 7 dias"
               }
             />

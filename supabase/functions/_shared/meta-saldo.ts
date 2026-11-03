@@ -35,6 +35,15 @@ export const STATUS_CONTA: Record<number, string> = {
   101: "Encerrada",
 };
 
+/**
+ * Na conta pré-paga a Meta desconta do saldo o gasto mais os impostos (no
+ * Brasil, cerca de 15%). O limite de gasto conta só o gasto, sem impostos.
+ */
+export const FATOR_IMPOSTOS = 1.15;
+
+/** Abaixo disso o painel avisa e o sino da gestão recebe um alerta. */
+export const DIAS_ALERTA = 3;
+
 export type SaldoConta = {
   contaId: string;
   nome: string | null;
@@ -53,7 +62,7 @@ export type SaldoConta = {
   restanteLimite: number | null;
   gastoHoje: number | null;
   mediaDiaria7d: number | null;
-  /** Dias que o saldo disponível e o restante do limite (o menor) cobrem no ritmo dos últimos 7 dias. */
+  /** Dias até acabar o saldo (com impostos) ou o limite, o que vier antes, no ritmo dos últimos 7 dias. */
   diasRestantes: number | null;
   formaPagamento: string | null;
   consultadoEm: string;
@@ -107,13 +116,16 @@ export function montarSaldo(
   const aCobrar = prepaga ? null : centavos(conta.balance);
 
   const mediaDiaria7d = gasto7d !== null ? arred(gasto7d / 7) : null;
-  // O que acabar primeiro para os anúncios: o saldo pré-pago ou o limite de gasto.
-  const candidatos = [saldoDisponivel, restanteLimite].filter((v): v is number => v !== null);
-  const base = candidatos.length ? Math.min(...candidatos) : null;
-  const diasRestantes =
+  // O que acabar primeiro para os anúncios: o saldo pré-pago (que paga gasto +
+  // impostos) ou o limite de gasto (que conta só o gasto).
+  const porDia = (base: number | null, fator: number) =>
     base !== null && mediaDiaria7d !== null && mediaDiaria7d > 0
-      ? Math.floor((base / mediaDiaria7d) * 10) / 10
+      ? base / (mediaDiaria7d * fator)
       : null;
+  const dias = [porDia(saldoDisponivel, FATOR_IMPOSTOS), porDia(restanteLimite, 1)].filter(
+    (v): v is number => v !== null,
+  );
+  const diasRestantes = dias.length ? Math.floor(Math.min(...dias) * 10) / 10 : null;
 
   return {
     contaId,
@@ -133,6 +145,51 @@ export function montarSaldo(
     formaPagamento,
     consultadoEm: agora.toISOString(),
   };
+}
+
+export type AlertaSaldo = { titulo: string; detalhe: string };
+
+const moedaBr = (v: number, moeda: string | null) => {
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: moeda || "BRL" }).format(
+      v,
+    );
+  } catch {
+    return `${moeda ?? "R$"} ${v.toFixed(2)}`;
+  }
+};
+
+/** Alerta para o sino: conta parada, ou saldo/limite cobrindo menos de 3 dias. */
+export function avaliarAlerta(s: SaldoConta): AlertaSaldo | null {
+  if (s.status !== null && s.status !== 1) {
+    return {
+      titulo: "Anúncios parados na Meta",
+      detalhe: `Situação da conta de anúncios: ${s.statusRotulo ?? "com restrição"}. Os anúncios não estão rodando.`,
+    };
+  }
+  const limiteAntes =
+    s.restanteLimite !== null &&
+    (s.saldoDisponivel === null || s.restanteLimite < s.saldoDisponivel / FATOR_IMPOSTOS);
+  const valor = limiteAntes ? s.restanteLimite : s.saldoDisponivel;
+  const oQue = limiteAntes ? "O limite de gasto" : "O saldo dos anúncios";
+  if (valor !== null && valor <= 0) {
+    return {
+      titulo: "Anúncios parados: saldo zerado",
+      detalhe: `${oQue} acabou. Os anúncios param até ${limiteAntes ? "aumentar o limite" : "recarregar"}.`,
+    };
+  }
+  if (s.diasRestantes !== null && s.diasRestantes < DIAS_ALERTA) {
+    const quanto = valor !== null ? ` (${moedaBr(valor, s.moeda)})` : "";
+    const dias =
+      s.diasRestantes < 1 ? "menos de 1 dia" : `cerca de ${Math.floor(s.diasRestantes)} dia(s)`;
+    return {
+      titulo: "Saldo dos anúncios acabando",
+      detalhe: `${oQue}${quanto} dura ${dias} no ritmo dos últimos 7 dias. ${
+        limiteAntes ? "Aumente o limite de gasto" : "Recarregue"
+      } para os anúncios não pararem.`,
+    };
+  }
+  return null;
 }
 
 async function gastoDoPeriodo(
