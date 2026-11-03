@@ -6,13 +6,9 @@
 -- ---------------------------------------------------------------------------
 -- 1. Preço do lote só para a gestão (no banco, não só na tela)
 -- ---------------------------------------------------------------------------
--- Vendedor continua lendo `lotes` (disponibilidade), mas sem a coluna valor.
 -- As telas leem a view `lotes_painel`, que devolve valor só para a gestão.
-revoke select on public.lotes from authenticated;
-grant select (id, quadra, numero_lote, metragem, tipo, status, observacoes,
-              posicao_x, posicao_y, created_at)
-  on public.lotes to authenticated;
-
+-- Fechar a coluna `lotes.valor` fica para a migration 20261103000800, aplicada
+-- depois que o painel novo (que lê a view) estiver publicado.
 create or replace view public.lotes_painel as
 select l.id, l.quadra, l.numero_lote, l.metragem, l.tipo, l.status, l.observacoes,
        l.posicao_x, l.posicao_y, l.created_at,
