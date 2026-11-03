@@ -25,6 +25,7 @@ import { Indicadores } from "@/components/dashboard/inicio/indicadores";
 import { Recentes } from "@/components/dashboard/inicio/recentes";
 import { SlaPorVendedor } from "@/components/dashboard/inicio/sla";
 import { MinhasTarefas } from "@/components/dashboard/inicio/tarefas";
+import { ModuloGuard } from "@/components/dashboard/role-guard";
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/dashboard/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: DashboardHome,
+  component: DashboardHomeProtegida,
 });
 
 /**
@@ -66,6 +67,14 @@ function useAtualizacaoAoVivo() {
       supabase.removeChannel(canal);
     };
   }, [queryClient]);
+}
+
+function DashboardHomeProtegida() {
+  return (
+    <ModuloGuard modulo="inicio">
+      <DashboardHome />
+    </ModuloGuard>
+  );
 }
 
 function DashboardHome() {

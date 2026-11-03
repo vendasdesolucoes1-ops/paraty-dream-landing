@@ -105,11 +105,11 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   });
 
   const paginas = useMemo(() => {
-    const itens = navDoPerfil(profile?.role).flatMap((g) => g.items);
+    const itens = navDoPerfil(profile).flatMap((g) => g.items);
     const q = normalizar(busca.trim());
     if (!q) return itens;
     return itens.filter((i) => normalizar(`${i.label} ${i.palavras ?? ""}`).includes(q));
-  }, [profile?.role, busca]);
+  }, [profile, busca]);
 
   function fechar() {
     setAberta(false);

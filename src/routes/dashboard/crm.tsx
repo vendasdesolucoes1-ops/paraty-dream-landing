@@ -15,7 +15,8 @@ import { AlertCircle, Inbox, SearchX, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { LEAD_ORIGEM_OPTIONS, LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import { LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import { ORIGENS } from "@/lib/lead-status";
 import {
   TAMANHO_PAGINA_KANBAN,
   leadsDaColuna,
@@ -340,6 +341,8 @@ function CrmPage() {
 
   const [busca, setBusca] = useState("");
   const [origemFiltro, setOrigemFiltro] = useState<string>("todas");
+  // Gestão: mostra só quem ainda não tem vendedor, para entregar à mão.
+  const [soSemVendedor, setSoSemVendedor] = useState(false);
   // A busca vai para o banco (as colunas são paginadas lá), então espera a
   // digitação parar. Ignora acento e caixa: "jose" acha "José" (coluna leads.busca).
   const termo = limparTermoBusca(useAtrasado(busca, 300));
@@ -351,7 +354,7 @@ function CrmPage() {
 
   const origensDisponiveis = useMemo(
     () =>
-      LEAD_ORIGEM_OPTIONS.filter((o) => (resumo.data?.porOrigem[o.value] ?? 0) > 0).map((o) => ({
+      ORIGENS.filter((o) => (resumo.data?.porOrigem[o.value] ?? 0) > 0).map((o) => ({
         ...o,
         total: resumo.data?.porOrigem[o.value] ?? 0,
       })),
@@ -362,7 +365,8 @@ function CrmPage() {
   const origemAtiva = origensDisponiveis.some((o) => o.value === origemFiltro)
     ? origemFiltro
     : "todas";
-  const filtrosAtivos = busca.trim() !== "" || origemAtiva !== "todas";
+  const semVendedorAtivo = !isVendedor && soSemVendedor;
+  const filtrosAtivos = busca.trim() !== "" || origemAtiva !== "todas" || semVendedorAtivo;
 
   const filtros = useMemo<FiltrosKanban>(
     () => ({
@@ -370,8 +374,9 @@ function CrmPage() {
       mostrarTestes,
       origem: origemAtiva === "todas" ? null : origemAtiva,
       termo,
+      semVendedor: semVendedorAtivo,
     }),
-    [vendedorId, mostrarTestes, origemAtiva, termo],
+    [vendedorId, mostrarTestes, origemAtiva, termo, semVendedorAtivo],
   );
 
   const contagens = useContagensKanban(filtros, habilitado);
@@ -579,6 +584,15 @@ function CrmPage() {
           ) : null}
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
+            {!isVendedor && (resumo.data?.semVendedor ?? 0) > 0 ? (
+              <Chip
+                ativo={soSemVendedor}
+                onClick={() => setSoSemVendedor((v) => !v)}
+                contagem={resumo.data?.semVendedor}
+              >
+                Sem vendedor
+              </Chip>
+            ) : null}
             {totalTestes > 0 ? (
               <Chip
                 ativo={mostrarTestes}
@@ -622,6 +636,7 @@ function CrmPage() {
                   onClick={() => {
                     setBusca("");
                     setOrigemFiltro("todas");
+                    setSoSemVendedor(false);
                   }}
                   className="inline-flex h-9 items-center rounded-lg border border-input bg-card px-4 text-sm font-medium shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >

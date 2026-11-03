@@ -28,7 +28,7 @@ export function Atalhos() {
   const { profile } = useProfile();
 
   useEffect(() => {
-    const permitidas = new Set(navDoPerfil(profile?.role).flatMap((g) => g.items.map((i) => i.to)));
+    const permitidas = new Set(navDoPerfil(profile).flatMap((g) => g.items.map((i) => i.to)));
     let armado = 0;
     const aoTeclar = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || digitando(e.target)) return;
@@ -47,7 +47,7 @@ export function Atalhos() {
     };
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
-  }, [navigate, profile?.role]);
+  }, [navigate, profile]);
 
   return null;
 }

@@ -19,6 +19,8 @@ export interface FiltrosKanban {
   origem: string | null;
   /** Texto da busca já limpo por `limparTermoBusca`; "" é sem busca. */
   termo: string;
+  /** Só os leads ainda sem vendedor responsável (para a entrega manual). */
+  semVendedor?: boolean;
 }
 
 export interface PaginaKanban {
@@ -75,6 +77,7 @@ export function leadCasaComFiltros(lead: Lead, filtros: FiltrosKanban): boolean 
   if (filtros.vendedorId && lead.vendedor_id !== filtros.vendedorId) return false;
   if (!filtros.mostrarTestes && lead.is_teste) return false;
   if (filtros.origem && lead.origem !== filtros.origem) return false;
+  if (filtros.semVendedor && lead.vendedor_id) return false;
   if (filtros.termo) {
     const termo = semAcento(filtros.termo);
     const digitos = filtros.termo.replace(/\D/g, "");

@@ -12,7 +12,8 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import type { ProfileRole } from "@/lib/types";
+import { podeAcessar, type Modulo } from "@/lib/acessos";
+import type { Profile, ProfileRole } from "@/lib/types";
 
 export interface NavItem {
   to:
@@ -31,6 +32,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Perfis que NÃO veem este item. */
   hideFor?: ProfileRole[];
+  /** Tela sujeita aos acessos do vendedor (ver lib/acessos). */
+  modulo?: Modulo;
   /** Palavras que também levam a este item na busca (⌘K). */
   palavras?: string;
 }
@@ -51,9 +54,16 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/dashboard",
         label: "Início",
         icon: LayoutDashboard,
+        modulo: "inicio",
         palavras: "dashboard resumo home",
       },
-      { to: "/dashboard/crm", label: "CRM", icon: LayoutGrid, palavras: "leads funil kanban" },
+      {
+        to: "/dashboard/crm",
+        label: "CRM",
+        icon: LayoutGrid,
+        modulo: "crm",
+        palavras: "leads funil kanban",
+      },
       // Carteira de comprador: pós-venda é responsabilidade de admin/gestor.
       {
         to: "/dashboard/clientes",
@@ -62,12 +72,19 @@ export const NAV_GROUPS: NavGroup[] = [
         hideFor: ["vendedor"],
         palavras: "compradores contratos",
       },
-      { to: "/dashboard/agenda", label: "Agenda", icon: Calendar, palavras: "visitas calendário" },
+      {
+        to: "/dashboard/agenda",
+        label: "Agenda",
+        icon: Calendar,
+        modulo: "agenda",
+        palavras: "visitas calendário",
+      },
       {
         to: "/dashboard/lotes",
         label: "Lotes",
         icon: Map,
-        palavras: "terrenos estoque mapa planta",
+        modulo: "lotes",
+        palavras: "terrenos estoque mapa planta 3d",
       },
       // Conversão da equipe inteira e cadastro de metas: visão de gestão.
       {
@@ -134,11 +151,22 @@ export const PAPEL_LABEL: Record<ProfileRole, string> = {
   vendedor: "Vendedor",
 };
 
-/** Grupos já filtrados pelo perfil de quem está logado. */
-export function navDoPerfil(papel: ProfileRole | null | undefined): NavGroup[] {
+/**
+ * Grupos já filtrados pelo perfil de quem está logado: o papel esconde as
+ * telas de gestão e, para o vendedor, os acessos liberam as telas extras.
+ */
+export function navDoPerfil(
+  perfil: (Pick<Profile, "role"> & { acessos?: string[] | null }) | null | undefined,
+): NavGroup[] {
+  const papel = perfil?.role;
   return NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !papel || !i.hideFor?.includes(papel)),
+    items: g.items.filter((i) => {
+      if (!perfil) return !i.hideFor?.length;
+      if (papel && i.hideFor?.includes(papel)) return false;
+      if (papel === "vendedor") return i.modulo ? podeAcessar(perfil, i.modulo) : false;
+      return true;
+    }),
   })).filter((g) => g.items.length > 0);
 }
 

@@ -59,6 +59,8 @@ import { SkeletonRows } from "@/components/ds/query-state";
 import { atraso } from "@/components/ds/reveal";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Campo, ComIcone, LinhaAjuste, Secao } from "@/components/ajustes/campos";
+import { AcessosCampo, salvarAcessos } from "@/components/dashboard/acessos-campo";
+import { ROTULO_ACESSO } from "@/lib/acessos";
 import {
   Select,
   SelectContent,
@@ -201,6 +203,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
   const [vendedorId, setVendedorId] = useState(NO_VENDEDOR);
   const [novoVendedorNome, setNovoVendedorNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [acessos, setAcessos] = useState<string[]>([]);
   // Credenciais recém-criadas: existem apenas em memória, enquanto o modal de
   // confirmação estiver aberto. Nada disso é persistido.
   const [credentials, setCredentials] = useState<CreatedCredentials | null>(null);
@@ -213,6 +216,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
     setVendedorId(NO_VENDEDOR);
     setNovoVendedorNome("");
     setTelefone("");
+    setAcessos([]);
   };
 
   // O membro só entra no rodízio (e só recebe o resumo do lead por WhatsApp)
@@ -238,6 +242,22 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
       // o usuário veria apenas "non-2xx status code".
       if (error) throw new Error(await readFunctionError(error));
       if (data?.error) throw new Error(data.error);
+      // Acessos extras do vendedor: o perfil acabou de nascer, então é achado pelo e-mail.
+      if (role === "vendedor" && acessos.length > 0) {
+        const { data: criado } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", data.email ?? email)
+          .is("deletado_em", null)
+          .maybeSingle();
+        if (criado?.id) {
+          try {
+            await salvarAcessos(criado.id, acessos);
+          } catch (e) {
+            toast.error(`Usuário criado, mas os acessos não foram salvos: ${(e as Error).message}`);
+          }
+        }
+      }
       return data as { email: string; senha_temporaria: string };
     },
     onSuccess: (data) => {
@@ -259,7 +279,7 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" aria-hidden />
-        Convidar Vendedor
+        Novo usuário
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -373,6 +393,16 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
                 </Campo>
               ) : null}
 
+              {role === "vendedor" ? (
+                <Campo
+                  label="O que ele pode ver"
+                  className="animate-swap"
+                  dica="Marque as telas extras. Sem nada marcado, ele vê só o CRM."
+                >
+                  <AcessosCampo valor={acessos} onChange={setAcessos} idBase="convite-acesso" />
+                </Campo>
+              ) : null}
+
               {vinculaVendedor ? (
                 <Campo
                   id="telefone"
@@ -446,6 +476,7 @@ function EditMemberDialog({
   const [vendedorAtivo, setVendedorAtivo] = useState(
     () => vendedores.find((v) => v.id === profile.vendedor_id)?.ativo ?? true,
   );
+  const [acessos, setAcessos] = useState<string[]>(() => profile.acessos ?? []);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetMode, setResetMode] = useState<"aleatoria" | "manual">("aleatoria");
   const [senhaManual, setSenhaManual] = useState("");
@@ -476,16 +507,23 @@ function EditMemberDialog({
     return data;
   };
 
+  const acessosMudaram =
+    [...acessos].sort().join(",") !== [...(profile.acessos ?? [])].sort().join(",");
+
   const saveMutation = useMutation({
-    mutationFn: () =>
-      callManageTeam({
+    mutationFn: async () => {
+      await callManageTeam({
         action: "update_role",
         profile_id: profile.id,
         role,
         vendedor_id: vendedorId !== NO_VENDEDOR ? vendedorId : null,
         telefone: vendedorId !== NO_VENDEDOR ? telefone : undefined,
         vendedor_ativo: vendedorId !== NO_VENDEDOR ? vendedorAtivo : undefined,
-      }),
+      });
+      if (isAdmin && role === "vendedor" && acessosMudaram) {
+        await salvarAcessos(profile.id, acessos);
+      }
+    },
     onSuccess: () => {
       toast.success("Membro atualizado.");
       invalidateTeam();
@@ -606,6 +644,24 @@ function EditMemberDialog({
                   </SelectContent>
                 </Select>
               </Campo>
+              {role === "vendedor" ? (
+                <Campo
+                  label="O que ele pode ver"
+                  className="animate-swap"
+                  dica={
+                    isAdmin
+                      ? "Telas extras além do CRM. Vale a partir do próximo carregamento da página dele."
+                      : "Só administradores mudam os acessos."
+                  }
+                >
+                  <AcessosCampo
+                    valor={acessos}
+                    onChange={setAcessos}
+                    desabilitado={!isAdmin}
+                    idBase={`acesso-${profile.id}`}
+                  />
+                </Campo>
+              ) : null}
             </Secao>
 
             <Secao titulo="Vendas">
@@ -963,6 +1019,11 @@ function TeamRow({
       </TableCell>
       <TableCell>
         <Pill tone={ROLE_TONES[profile.role]}>{ROLE_LABELS[profile.role]}</Pill>
+        {profile.role === "vendedor" ? (
+          <p className="mt-1 text-[0.75rem] text-muted-foreground">
+            {["CRM", ...(profile.acessos ?? []).map((a) => ROTULO_ACESSO[a] ?? a)].join(" · ")}
+          </p>
+        ) : null}
       </TableCell>
       <TableCell>
         <Pill tone={profile.ativo ? "success" : "neutral"} dot>
@@ -1064,8 +1125,8 @@ export function TeamPanel() {
 
   return (
     <Bloco
-      titulo="Equipe"
-      descricao="Gerencie os membros com acesso ao painel e seus papéis."
+      titulo="Usuários e acessos"
+      descricao="Quem entra no painel, com qual papel e, para vendedores, quais telas além do CRM."
       acao={<InviteMemberDialog vendedores={vendedores ?? []} />}
     >
       {isLoading ? (

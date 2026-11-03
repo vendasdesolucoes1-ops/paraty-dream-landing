@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type KeyboardEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { Headset, MapPin, Ruler } from "lucide-react";
+import { ClipboardList, Headset, MapPin, Megaphone, Ruler, UserX } from "lucide-react";
 import { Avatar } from "@/components/ds/avatar";
 import { Pill } from "@/components/ds/pill";
 import { atraso } from "@/components/ds/reveal";
@@ -28,10 +28,13 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
   { lead, hasHumanTakeover, draggable = true, modo = "normal", className, ...rest },
   ref,
 ) {
-  const origemBase = lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : null;
-  // Lead de anúncio: mostra a campanha (ou o anúncio) junto da origem.
-  const deAnuncio = lead.campanha_nome ?? lead.anuncio_nome ?? null;
-  const origem = origemBase && deAnuncio ? `${origemBase} · ${deAnuncio}` : origemBase;
+  const origem = lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : null;
+  // Lead de anúncio: a campanha (ou o anúncio) aparece numa linha própria,
+  // cortada com reticências, para não estourar o cartão.
+  const campanha = lead.campanha_nome ?? lead.anuncio_nome ?? null;
+  const deFormulario = lead.origem === "formulario_meta";
+  const deAnuncioWhats = lead.origem === "anuncio_whatsapp";
+  const semVendedor = !lead.vendedor_id && !lead.is_teste;
 
   return (
     <div
@@ -39,6 +42,8 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
       {...rest}
       className={cn(
         "group/cartao relative rounded-xl border border-border bg-card p-3.5 text-card-foreground shadow-[var(--shadow-card)] outline-none",
+        // Formulário da Meta: faixa colorida à esquerda para achar de relance.
+        deFormulario && "border-l-[3px] border-l-info",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         draggable ? "touch-none cursor-grab active:cursor-grabbing" : "cursor-pointer",
         modo === "normal" && "card-hover",
@@ -85,13 +90,42 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
         </div>
       ) : null}
 
+      {campanha && (deFormulario || deAnuncioWhats) ? (
+        <p
+          className="mt-2.5 flex min-w-0 items-center gap-1.5 text-[0.75rem] text-muted-foreground"
+          title={campanha}
+        >
+          <Megaphone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{campanha}</span>
+        </p>
+      ) : null}
+
       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-2.5">
         {lead.is_teste ? (
           <span title="Lead gerado pelo painel Testar Agente — não é um cliente real.">
             <Pill tone="warning">TESTE</Pill>
           </span>
         ) : null}
-        {origem ? <Pill>{origem}</Pill> : null}
+        {origem ? (
+          deFormulario ? (
+            <Pill tone="info">
+              <ClipboardList className="h-3 w-3" aria-hidden />
+              {origem}
+            </Pill>
+          ) : deAnuncioWhats ? (
+            <Pill tone="accent">{origem}</Pill>
+          ) : (
+            <Pill>{origem}</Pill>
+          )
+        ) : null}
+        {semVendedor ? (
+          <span title="Ainda sem vendedor responsável. Abra a ficha para entregar a alguém.">
+            <Pill tone="warning">
+              <UserX className="h-3 w-3" aria-hidden />
+              Sem vendedor
+            </Pill>
+          </span>
+        ) : null}
         {hasHumanTakeover ? (
           <Pill tone="danger">
             <Headset className="h-3 w-3" aria-hidden />
