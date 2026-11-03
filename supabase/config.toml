@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.meta-saldo]
 verify_jwt = false
+
+[functions.meta-alcance]
+verify_jwt = false

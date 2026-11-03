@@ -15,8 +15,13 @@ import {
 } from "@/components/marketing/meta/pecas";
 import type { AbaMarketing } from "@/components/marketing/meta/abas";
 import { SaldoAoVivo } from "@/components/marketing/meta/saldo";
+import { LineChart } from "@/components/ds/line-chart";
 import {
   custosPorObjetivo,
+  diaCurto,
+  serieCampanhas,
+  type SerieCampanhas,
+  type TipoResultado,
   formatMoeda,
   formatQtd,
   formatTaxa,
@@ -34,9 +39,11 @@ import {
   useResumoAds,
   useResumoIg,
   useSerieAds,
+  useSerieCampanhas,
   useStatusIntegracao,
 } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
+import { cn } from "@/lib/utils";
 
 export function VisaoGeral({
   periodo,
@@ -180,34 +187,82 @@ function ResumoAnuncios({
 
 function EvolucaoDiaria({ periodo }: { periodo: Periodo }) {
   const q = useSerieAds(periodo);
+  const porCampanha = useSerieCampanhas(periodo);
   const moeda = useResumoAds(periodo).data?.atual?.moeda;
   return (
     <Bloco
       divisor
       titulo="Evolução diária"
-      descricao="Quanto foi investido e quantos leads chegaram em cada dia"
+      descricao="Investimento por dia e, por campanha ativa, os resultados (leads ou conversas) e quanto custou cada um"
     >
-      <QueryState query={q} skeleton={<SkeletonRows rows={1} className="h-40" />}>
-        {(serie) => {
-          const totalInv = serie.reduce((s, p) => s + p.investimento, 0);
-          const totalLeads = serie.reduce((s, p) => s + p.leads, 0);
-          return (
-            <div className="grid gap-8 lg:grid-cols-2">
-              <GraficoSerie
-                titulo="Investimento por dia"
-                total={formatMoeda(totalInv, moeda)}
-                pontos={serie.map((p) => ({ data: p.data, valor: p.investimento }))}
-              />
-              <GraficoSerie
-                titulo="Leads por dia"
-                total={`${formatQtd(totalLeads)} no período`}
-                pontos={serie.map((p) => ({ data: p.data, valor: p.leads }))}
-              />
-            </div>
-          );
-        }}
-      </QueryState>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <QueryState query={q} skeleton={<SkeletonRows rows={1} className="h-40" />}>
+          {(serie) => (
+            <GraficoSerie
+              titulo="Investimento por dia"
+              total={formatMoeda(
+                serie.reduce((s, p) => s + p.investimento, 0),
+                moeda,
+              )}
+              pontos={serie.map((p) => ({ data: p.data, valor: p.investimento }))}
+            />
+          )}
+        </QueryState>
+        <QueryState query={porCampanha} skeleton={<SkeletonRows rows={1} className="h-40" />}>
+          {(pontos) => (
+            <GraficoCampanhas
+              titulo="Leads e conversas por dia"
+              serie={serieCampanhas(pontos, "resultado")}
+              formatar={formatQtd}
+            />
+          )}
+        </QueryState>
+        <QueryState query={porCampanha} skeleton={<SkeletonRows rows={1} className="h-40" />}>
+          {(pontos) => (
+            <GraficoCampanhas
+              titulo="Custo por resultado por dia"
+              serie={serieCampanhas(pontos, "custo")}
+              formatar={(n) => formatMoeda(n, moeda)}
+              className="lg:col-span-2"
+            />
+          )}
+        </QueryState>
+      </div>
     </Bloco>
+  );
+}
+
+function GraficoCampanhas({
+  titulo,
+  serie,
+  formatar,
+  className,
+}: {
+  titulo: string;
+  serie: SerieCampanhas;
+  formatar: (n: number) => string;
+  className?: string;
+}) {
+  const sufixo = (tipo: TipoResultado) =>
+    tipo === "lead" ? " (leads)" : tipo === "conversa" ? " (conversas)" : "";
+  return (
+    <div className={cn("min-w-0", className)}>
+      <p className="mb-3 text-[0.8125rem] font-medium text-muted-foreground">{titulo}</p>
+      {serie.campanhas.length === 0 || serie.dias.length < 2 ? (
+        <p className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-[0.8125rem] text-muted-foreground">
+          {serie.campanhas.length === 0
+            ? "Nenhuma campanha ativa ou com investimento no período."
+            : "Escolha um período de pelo menos dois dias."}
+        </p>
+      ) : (
+        <LineChart
+          rotuloGrafico={titulo}
+          series={serie.campanhas.map((c) => ({ id: c.id, nome: `${c.nome}${sufixo(c.tipo)}` }))}
+          pontos={serie.dias.map((d) => ({ rotulo: diaCurto(d.data), valores: d.valores }))}
+          formatar={formatar}
+        />
+      )}
+    </div>
   );
 }
 

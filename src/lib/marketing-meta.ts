@@ -10,12 +10,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Periodo } from "@/lib/relatorios";
 import type {
+  AlcancePeriodo,
   LinhaAnuncio,
   LinhaBreakdown,
   LinhaDemografia,
   MidiaIg,
   NivelAnuncio,
   PontoSerieAds,
+  PontoSerieCampanha,
   PontoSerieIg,
   ResumoAds,
   ResumoIg,
@@ -113,6 +115,43 @@ export function useResumoAds(periodo: Periodo) {
       };
     },
     staleTime: FRESCO_MS,
+  });
+}
+
+/** Série diária por campanha (gráfico de resultados e custo por resultado). */
+export function useSerieCampanhas(periodo: Periodo) {
+  return useQuery({
+    queryKey: [...chaveMarketing, "ads-serie-campanhas", periodo.inicio, periodo.fim],
+    queryFn: async () => {
+      const linhas = await rpc("marketing_ads_serie_campanhas", {
+        p_inicio: periodo.inicio,
+        p_fim: periodo.fim,
+      });
+      return linhas.map((l) =>
+        numeros<PontoSerieCampanha>(l, ["investimento", "leads", "mensagens"]),
+      );
+    },
+    staleTime: FRESCO_MS,
+  });
+}
+
+/**
+ * Alcance e frequência do período, ao vivo na Meta (função meta-alcance): o
+ * alcance não se soma entre dias, então não sai do banco. Só a gestão recebe.
+ */
+export function useAlcance(periodo: Periodo, nivel: NivelAnuncio) {
+  return useQuery({
+    queryKey: [...chaveMarketing, "alcance", periodo.inicio, periodo.fim, nivel],
+    queryFn: async (): Promise<AlcancePeriodo> => {
+      const params = new URLSearchParams({ inicio: periodo.inicio, fim: periodo.fim, nivel });
+      const { data, error } = await supabase.functions.invoke(`meta-alcance?${params}`, {
+        method: "GET",
+      });
+      if (error) throw error;
+      return data as AlcancePeriodo;
+    },
+    staleTime: FRESCO_MS,
+    retry: 1,
   });
 }
 

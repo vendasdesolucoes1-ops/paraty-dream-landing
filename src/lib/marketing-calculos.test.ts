@@ -180,6 +180,8 @@ const anuncio = (o: Partial<LinhaAnuncio>): LinhaAnuncio => ({
   reservas: 0,
   criado_em: null,
   tipo_resultado: "lead",
+  destino: null,
+  avisos: null,
   ...o,
 });
 
@@ -451,4 +453,95 @@ test("última sincronização dos anúncios e dia parcial", async () => {
   assert.equal(ultimaSincronizacaoAds([job({ job: "ig_stories" })]), null);
   assert.equal(incluiHoje({ inicio: "2026-10-05", fim: "2026-11-03" }, "2026-11-03"), true);
   assert.equal(incluiHoje({ inicio: "2026-10-01", fim: "2026-10-31" }, "2026-11-03"), false);
+});
+
+test("etapa 2: frequência alta, destino, avisos e série por campanha", async () => {
+  const {
+    publicoCansado,
+    rotuloDestino,
+    avisosDaLinha,
+    serieCampanhas,
+    statusAnuncio: st,
+  } = await import("./marketing-calculos.ts");
+  assert.equal(publicoCansado(2.6), true);
+  assert.equal(publicoCansado(1.91), false);
+  assert.equal(publicoCansado(null), false);
+  assert.equal(rotuloDestino("WHATSAPP"), "WhatsApp");
+  assert.equal(rotuloDestino("ON_AD"), "Formulário");
+  assert.equal(rotuloDestino("MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP"), "Mensagens");
+  assert.equal(st("WITH_ISSUES").label, "Erro de veiculação");
+  assert.equal(st("IN_PROCESS").label, "Em análise");
+
+  const avisos = avisosDaLinha({
+    erros: [
+      { error_summary: "Analise 1 erro", error_message: "Este anúncio não pode ser publicado." },
+      { error_summary: "Analise 1 erro", error_message: "Este anúncio não pode ser publicado." },
+    ],
+    revisao: { global: { POLICY: "Texto reprovado" } },
+    recomendacoes: [{ title: "Resultados insatisfatórios" }],
+  });
+  assert.deepEqual(avisos, [
+    { tom: "danger", texto: "Este anúncio não pode ser publicado." },
+    { tom: "danger", texto: "Texto reprovado" },
+    { tom: "warning", texto: "Resultados insatisfatórios" },
+  ]);
+  assert.deepEqual(avisosDaLinha(null), []);
+
+  const p = (o: Partial<import("./marketing-calculos.ts").PontoSerieCampanha>) => ({
+    data: "2026-11-01",
+    campanha_id: "z",
+    campanha_nome: "WhatsApp Sofia",
+    effective_status: "ACTIVE",
+    tipo_resultado: "conversa" as const,
+    investimento: 0,
+    leads: 0,
+    mensagens: 0,
+    ...o,
+  });
+  const pontos = [
+    p({ investimento: 30, mensagens: 6 }),
+    p({ data: "2026-11-02", investimento: 20, mensagens: 0 }),
+    p({
+      campanha_id: "f",
+      campanha_nome: "Formulário",
+      tipo_resultado: "lead",
+      investimento: 10,
+      leads: 2,
+    }),
+    p({
+      campanha_id: "f",
+      campanha_nome: "Formulário",
+      tipo_resultado: "lead",
+      data: "2026-11-02",
+      investimento: 12,
+      leads: 3,
+    }),
+    p({
+      campanha_id: "v",
+      campanha_nome: "Pausada",
+      effective_status: "PAUSED",
+      investimento: 50,
+      mensagens: 9,
+    }),
+  ];
+  const res = serieCampanhas(pontos, "resultado");
+  assert.deepEqual(
+    res.campanhas.map((c) => c.id),
+    ["f", "z"],
+    "só as ativas, em ordem de nome",
+  );
+  assert.deepEqual(res.dias[0], { data: "2026-11-01", valores: { z: 6, f: 2 } });
+  const custo = serieCampanhas(pontos, "custo");
+  assert.deepEqual(
+    custo.dias[1].valores,
+    { z: null, f: 4 },
+    "dia sem conversa não vira custo zero",
+  );
+  assert.equal(custo.dias[0].valores.z, 5);
+  // Nenhuma ativa: entram as que tiveram gasto.
+  const pausadas = serieCampanhas(
+    [p({ effective_status: "PAUSED", investimento: 5, mensagens: 1 })],
+    "resultado",
+  );
+  assert.equal(pausadas.campanhas.length, 1);
 });
