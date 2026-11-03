@@ -37,7 +37,16 @@ test("lê só os eventos leadgen da Página", () => {
       {
         id: "1327646513772412",
         changes: [
-          { field: "leadgen", value: { leadgen_id: 444, form_id: "f1", ad_id: "a1", page_id: "p", created_time: 1762000000 } },
+          {
+            field: "leadgen",
+            value: {
+              leadgen_id: 444,
+              form_id: "f1",
+              ad_id: "a1",
+              page_id: "p",
+              created_time: 1762000000,
+            },
+          },
           { field: "feed", value: { item: "post" } },
         ],
       },

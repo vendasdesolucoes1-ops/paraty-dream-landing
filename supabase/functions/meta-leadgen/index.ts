@@ -35,7 +35,11 @@ const json = (corpo: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-const log = (evento: string, dados: Record<string, unknown> = {}, nivel: "info" | "error" = "info") => {
+const log = (
+  evento: string,
+  dados: Record<string, unknown> = {},
+  nivel: "info" | "error" = "info",
+) => {
   const linha = JSON.stringify({ origem: "meta-leadgen", evento, ...dados });
   if (nivel === "error") console.error(linha);
   else console.log(linha);
@@ -57,7 +61,8 @@ async function clientePagina(c: MetaConfig): Promise<MetaGraphClient> {
   if (!tokenPagina || Date.now() - tokenPagina.em > 30 * 60_000) {
     const sistema = new MetaGraphClient({ config: c });
     const r = await sistema.get<{ access_token?: string }>(pageId(c), { fields: "access_token" });
-    if (!r.access_token) throw new Error("A Meta não devolveu o token da Página (falta acesso à Página?).");
+    if (!r.access_token)
+      throw new Error("A Meta não devolveu o token da Página (falta acesso à Página?).");
     tokenPagina = { valor: r.access_token, em: Date.now() };
   }
   return new MetaGraphClient({ config: { ...c, accessToken: tokenPagina.valor } });
@@ -67,7 +72,10 @@ const clienteApp = (c: MetaConfig) =>
   new MetaGraphClient({ config: { ...c, accessToken: `${appId(c)}|${c.appSecret}` } });
 
 const nomesFormulario = new Map<string, string | null>();
-async function nomeDoFormulario(pagina: MetaGraphClient, formId: string | null): Promise<string | null> {
+async function nomeDoFormulario(
+  pagina: MetaGraphClient,
+  formId: string | null,
+): Promise<string | null> {
   if (!formId) return null;
   if (!nomesFormulario.has(formId)) {
     try {
@@ -235,10 +243,9 @@ async function teste(url: URL) {
   const pagina = await clientePagina(c);
   const formId = url.searchParams.get("form_id");
   if (!formId) throw new Error("Informe form_id.");
-  const form = await pagina.get<{ questions?: { key?: string; type?: string; options?: { key?: string }[] }[] }>(
-    formId,
-    { fields: "name,questions" },
-  );
+  const form = await pagina.get<{
+    questions?: { key?: string; type?: string; options?: { key?: string }[] }[];
+  }>(formId, { fields: "name,questions" });
   const antigos = await pagina.get<{ data?: { id: string }[] }>(`${formId}/test_leads`);
   for (const t of antigos.data ?? []) await pagina.post(t.id, { method: "delete" });
 
@@ -292,7 +299,9 @@ async function importar(url: URL) {
   };
   const porVendedor = new Map<string, number>();
   for (const formId of formIds) {
-    const filtro = JSON.stringify([{ field: "time_created", operator: "GREATER_THAN", value: desdeEpoch - 1 }]);
+    const filtro = JSON.stringify([
+      { field: "time_created", operator: "GREATER_THAN", value: desdeEpoch - 1 },
+    ]);
     for await (const lote of pagina.paginar<LeadMeta>(`${formId}/leads`, {
       fields: CAMPOS_LEAD,
       filtering: filtro,
@@ -305,7 +314,13 @@ async function importar(url: URL) {
             resumo.testes_ignorados++;
             continue;
           }
-          const r = await gravar(db, pagina, { ...lead, form_id: lead.form_id ?? formId }, "importacao", false);
+          const r = await gravar(
+            db,
+            pagina,
+            { ...lead, form_id: lead.form_id ?? formId },
+            "importacao",
+            false,
+          );
           if (r.repetido) resumo.repetidos++;
           else if (r.novo) resumo.novos++;
           else resumo.duplicados++;
@@ -321,7 +336,10 @@ async function importar(url: URL) {
   }
   // Um aviso por vendedor em vez de um por lead antigo.
   for (const [vendedorId, n] of porVendedor) {
-    const { error } = await db.rpc("avisar_vendedor_formulario", { p_vendedor_id: vendedorId, p_quantidade: n });
+    const { error } = await db.rpc("avisar_vendedor_formulario", {
+      p_vendedor_id: vendedorId,
+      p_quantidade: n,
+    });
     if (error) log("aviso_falhou", { erro: error.message }, "error");
   }
   // Rodízio desligado: um aviso só, para a gestão.
@@ -392,7 +410,9 @@ Deno.serve(async (req) => {
     log("eventos_recebidos", { quantidade: eventos.length });
     const ids = eventos.map((e) => e.leadgen_id);
     EdgeRuntime.waitUntil(
-      processarPendentes(ids).catch((e) => log("processamento_falhou", { erro: String(e?.message ?? e) }, "error")),
+      processarPendentes(ids).catch((e) =>
+        log("processamento_falhou", { erro: String(e?.message ?? e) }, "error"),
+      ),
     );
     return new Response("ok", { status: 200 });
   }

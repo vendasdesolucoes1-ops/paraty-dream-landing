@@ -65,7 +65,9 @@ async function hmac(segredo: string, mensagem: string | Uint8Array): Promise<str
     false,
     ["sign"],
   );
-  const dados = typeof mensagem === "string" ? new TextEncoder().encode(mensagem) : mensagem;
+  const dados = (
+    typeof mensagem === "string" ? new TextEncoder().encode(mensagem) : mensagem
+  ) as BufferSource;
   return hex(await crypto.subtle.sign("HMAC", chave, dados));
 }
 
@@ -83,7 +85,10 @@ export async function assinaturaValida(
   appSecret: string,
 ): Promise<boolean> {
   if (!cabecalho || !appSecret) return false;
-  const recebida = cabecalho.trim().toLowerCase().replace(/^sha256=/, "");
+  const recebida = cabecalho
+    .trim()
+    .toLowerCase()
+    .replace(/^sha256=/, "");
   if (!/^[0-9a-f]{64}$/.test(recebida)) return false;
   return iguais(await hmac(appSecret, corpo), recebida);
 }
@@ -169,9 +174,12 @@ type Pergunta = "finalidade" | "prazo_compra" | "forma_pagamento" | "quer_visita
 /** Qual pergunta do formulário é essa, pelo nome do campo. */
 export function perguntaDoCampo(nome: string): Pergunta | null {
   const k = normalizarChave(nome);
-  if (k.includes("usar_o_lote") || k.includes("lote_para") || k.includes("finalidade")) return "finalidade";
-  if (k.includes("pretende_comprar") || k.includes("quando_pretende") || k.includes("prazo")) return "prazo_compra";
-  if (k.includes("prefere_pagar") || k.includes("forma_de_pagamento") || k.includes("pagamento")) return "forma_pagamento";
+  if (k.includes("usar_o_lote") || k.includes("lote_para") || k.includes("finalidade"))
+    return "finalidade";
+  if (k.includes("pretende_comprar") || k.includes("quando_pretende") || k.includes("prazo"))
+    return "prazo_compra";
+  if (k.includes("prefere_pagar") || k.includes("forma_de_pagamento") || k.includes("pagamento"))
+    return "forma_pagamento";
   if (k.includes("agendar") || k.includes("visita")) return "quer_visitar";
   return null;
 }
@@ -181,7 +189,8 @@ export function objetivoDaFinalidade(finalidade: string | null): LeadParaCrm["ob
   const k = normalizarChave(finalidade);
   if (/(morar|moradia|residir|residencia|casa_propria)/.test(k)) return "moradia";
   if (/(invest|revend|valoriz)/.test(k)) return "investimento";
-  if (/(temporada|veraneio|lazer|fim_de_semana|ferias|aluguel_de_temporada)/.test(k)) return "temporada";
+  if (/(temporada|veraneio|lazer|fim_de_semana|ferias|aluguel_de_temporada)/.test(k))
+    return "temporada";
   return null;
 }
 
@@ -201,7 +210,10 @@ export function leadParaCrm(lead: LeadMeta, formNome: string | null = null): Lea
   let teste = false;
   for (const campo of lead.field_data ?? []) {
     const nome = String(campo?.name ?? "");
-    const valor = (campo?.values ?? []).map((v) => String(v ?? "")).filter(Boolean).join(", ");
+    const valor = (campo?.values ?? [])
+      .map((v) => String(v ?? ""))
+      .filter(Boolean)
+      .join(", ");
     if (!nome || !valor) continue;
     if (ehDadoDeTeste(valor)) teste = true;
     respostas[normalizarChave(nome)] = valor;
@@ -214,7 +226,8 @@ export function leadParaCrm(lead: LeadMeta, formNome: string | null = null): Lea
   };
   const primeiro = pega("first_name");
   const ultimo = pega("last_name");
-  const nomeCompleto = pega("full_name", "nome_completo", "nome") ??
+  const nomeCompleto =
+    pega("full_name", "nome_completo", "nome") ??
     ([primeiro, ultimo].filter(Boolean).join(" ") || null);
   const telefone = normalizarTelefone(pega("phone_number", "telefone", "whatsapp", "celular"));
   const finalidade = perguntas.finalidade ?? null;
