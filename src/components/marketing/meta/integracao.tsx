@@ -18,8 +18,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { tempoRelativo } from "@/lib/format";
-import { formatQtd, rotuloJob, saudeIntegracao, type StatusJob } from "@/lib/marketing-calculos";
 import {
+  formatQtd,
+  resumoProgresso,
+  rotuloJob,
+  saudeIntegracao,
+  type StatusJob,
+} from "@/lib/marketing-calculos";
+import {
+  useProgressoCarga,
   useExecucoes,
   useSincronizarAgora,
   useStatusIntegracao,
@@ -60,6 +67,8 @@ export function Integracao() {
       </QueryState>
 
       <SincronizarAgora />
+
+      <CargaHistorica />
 
       <Bloco
         divisor
@@ -274,6 +283,56 @@ function SincronizarAgora() {
           </li>
         ))}
       </ul>
+    </Bloco>
+  );
+}
+
+function CargaHistorica() {
+  const q = useProgressoCarga();
+  return (
+    <Bloco
+      divisor
+      titulo="Carga histórica"
+      descricao="Busca o passado em lotes pequenos (anúncios por mês, Instagram por semana) e continua sozinha até terminar."
+    >
+      <QueryState
+        query={q}
+        skeleton={<SkeletonRows rows={2} className="h-12" />}
+        isEmpty={(d) => d.length === 0}
+        empty={<PanelEmpty>A carga histórica começa na próxima execução automática.</PanelEmpty>}
+      >
+        {(cargas) => (
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {cargas.map((c) => {
+              const p = resumoProgresso(c);
+              return (
+                <li key={c.carga} className="rounded-xl border border-border px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[0.875rem] font-medium text-foreground">{p.titulo}</p>
+                    <Pill tone={c.concluido ? "success" : "info"} dot>
+                      {c.concluido ? "Concluída" : "Em andamento"}
+                    </Pill>
+                  </div>
+                  <div
+                    className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(p.fracao * 100)}
+                    aria-label={p.titulo}
+                  >
+                    <div
+                      className="h-full rounded-full bg-chart-1 transition-[width] duration-500"
+                      style={{ width: `${Math.round(p.fracao * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-[0.75rem] text-muted-foreground">{p.detalhe}</p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </QueryState>
     </Bloco>
   );
 }

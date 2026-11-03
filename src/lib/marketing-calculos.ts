@@ -921,3 +921,53 @@ export function serieCampanhas(
       .map(([data, valores]) => ({ data, valores })),
   };
 }
+
+// --- Etapa 3: progresso das cargas históricas ----------------------------------
+
+export interface ProgressoCarga {
+  carga: "ads" | "instagram";
+  unidade: "meses" | "semanas";
+  concluido: boolean;
+  feitas: number;
+  total: number;
+  proximo_ate: string | null;
+  limite: string | null;
+  atualizado_em: string | null;
+}
+
+const mesAno = new Intl.DateTimeFormat("pt-BR", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const diaMesAnoUtc = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** "Carga histórica do Instagram: 3 de 13 semanas" + a frase de onde está. */
+export function resumoProgresso(p: ProgressoCarga): {
+  titulo: string;
+  detalhe: string;
+  fracao: number;
+} {
+  const nome = p.carga === "ads" ? "anúncios" : "Instagram";
+  const total = Math.max(p.total, p.feitas, 1);
+  const fracao = p.concluido ? 1 : Math.min(1, p.feitas / total);
+  const fmt = (d: string) =>
+    (p.unidade === "meses" ? mesAno : diaMesAnoUtc).format(new Date(`${d}T00:00:00Z`));
+  const detalhe = p.concluido
+    ? `Concluída${p.limite ? `: dados desde ${fmt(p.limite)}` : ""}.`
+    : p.proximo_ate
+      ? `Já carregado até ${fmt(p.proximo_ate)}, voltando no tempo${
+          p.limite ? ` até ${fmt(p.limite)}` : ""
+        }. Continua sozinha a cada 10 minutos.`
+      : "Começa na próxima execução automática.";
+  return {
+    titulo: `Carga histórica de ${nome}: ${formatQtd(Math.min(p.feitas, total))} de ${formatQtd(total)} ${p.unidade}`,
+    detalhe,
+    fracao,
+  };
+}

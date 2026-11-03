@@ -19,6 +19,7 @@ import type {
   PontoSerieAds,
   PontoSerieCampanha,
   PontoSerieIg,
+  ProgressoCarga,
   ResumoAds,
   ResumoIg,
   SaldoConta,
@@ -457,5 +458,18 @@ export function useSaldoMeta() {
     refetchOnWindowFocus: true,
     staleTime: 20_000,
     retry: 1,
+  });
+}
+
+/** Progresso das cargas históricas (Ads em meses, Instagram em semanas). */
+export function useProgressoCarga() {
+  return useQuery({
+    queryKey: [...chaveMarketing, "progresso-carga"],
+    queryFn: async () => {
+      const linhas = await rpc("marketing_progresso_carga", {});
+      return linhas.map((l) => numeros<ProgressoCarga>(l, ["feitas", "total"]));
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }

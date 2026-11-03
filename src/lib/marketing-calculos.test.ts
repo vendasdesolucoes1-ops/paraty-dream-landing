@@ -545,3 +545,33 @@ test("etapa 2: frequência alta, destino, avisos e série por campanha", async (
   );
   assert.equal(pausadas.campanhas.length, 1);
 });
+
+test("progresso da carga histórica em texto", async () => {
+  const { resumoProgresso } = await import("./marketing-calculos.ts");
+  const ig = resumoProgresso({
+    carga: "instagram",
+    unidade: "semanas",
+    concluido: false,
+    feitas: 3,
+    total: 13,
+    proximo_ate: "2026-10-14",
+    limite: "2026-08-06",
+    atualizado_em: null,
+  });
+  assert.equal(ig.titulo, "Carga histórica de Instagram: 3 de 13 semanas");
+  assert.match(ig.detalhe, /Continua sozinha a cada 10 minutos/);
+  assert.equal(Math.round(ig.fracao * 100), 23);
+  const ads = resumoProgresso({
+    carga: "ads",
+    unidade: "meses",
+    concluido: true,
+    feitas: 38,
+    total: 38,
+    proximo_ate: null,
+    limite: "2023-10-04",
+    atualizado_em: null,
+  });
+  assert.equal(ads.titulo, "Carga histórica de anúncios: 38 de 38 meses");
+  assert.equal(ads.fracao, 1);
+  assert.match(ads.detalhe, /^Concluída: dados desde/);
+});

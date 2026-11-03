@@ -639,3 +639,97 @@ export async function sincronizarStories(
     detalhes: { igUserId: igId, indisponiveis: [...indisponiveis].sort() },
   };
 }
+
+// --- Carga histórica do Instagram, em lotes semanais retomáveis -----------------
+
+export const CHAVE_IG_HISTORICO = "ig_historico";
+export const DIAS_HISTORICO_IG = 90;
+/** Uma semana de métricas da conta leva ~45 s (13 métricas × 7 dias, uma chamada cada). */
+const RESERVA_POR_SEMANA_MS = 50_000;
+
+export interface EstadoHistoricoIg {
+  limite: string;
+  proximoAte: string;
+  concluido: boolean;
+  semanasConcluidas: number;
+  semanasTotal: number;
+  midiasCarregadas: boolean;
+}
+
+/**
+ * Carga histórica do Instagram em lotes de 7 dias, do mais recente para o mais
+ * antigo, salvando o ponto onde parou (meta_sync_estado `ig_historico`). Cada
+ * chamada trabalha só enquanto houver tempo para mais uma semana inteira dentro
+ * do limite da Edge Function; o cron chama de novo até concluir. Na primeira
+ * chamada também grava a conta, a demografia e todas as mídias com métricas.
+ */
+export async function carregarHistoricoInstagram(
+  cliente: MetaGraphClient,
+  armazem: Armazem,
+  opcoes: {
+    orcamentoMs?: number;
+    agora?: () => number;
+    data?: Date;
+    dias?: number;
+    reiniciar?: boolean;
+    fuso?: string;
+  } = {},
+): Promise<{ registros: number; estado: EstadoHistoricoIg; indisponiveis: string[] }> {
+  const agora = opcoes.agora ?? Date.now;
+  const inicio = agora();
+  const orcamento = opcoes.orcamentoMs ?? 100_000;
+  const data = opcoes.data ?? new Date();
+  const fuso = opcoes.fuso ?? FUSO_PADRAO;
+  const hoje = hojeNoFuso(fuso, data);
+  const igId = await descobrirInstagram(cliente);
+  const indisponiveis = new Set<string>();
+  let registros = 0;
+
+  let estado = (
+    opcoes.reiniciar ? null : await armazem.lerEstado(CHAVE_IG_HISTORICO)
+  ) as EstadoHistoricoIg | null;
+  if (!estado) {
+    const dias = Math.max(1, opcoes.dias ?? DIAS_HISTORICO_IG);
+    const ontem = somarDias(hoje, -1);
+    estado = {
+      limite: somarDias(ontem, -(dias - 1)),
+      proximoAte: ontem,
+      concluido: false,
+      semanasConcluidas: 0,
+      semanasTotal: Math.ceil(dias / 7),
+      midiasCarregadas: false,
+    };
+    await armazem.salvarEstado(CHAVE_IG_HISTORICO, estado as unknown as Record<string, unknown>);
+  }
+
+  if (!estado.midiasCarregadas) {
+    registros += await snapshotConta(cliente, armazem, igId, hoje, data);
+    registros += await sincronizarDemografia(cliente, armazem, igId, hoje, indisponiveis);
+    const m = await sincronizarMidias(cliente, armazem, igId, indisponiveis, {
+      todas: true,
+      agora: data,
+    });
+    registros += m.midias + m.insights;
+    estado.midiasCarregadas = true;
+    await armazem.salvarEstado(CHAVE_IG_HISTORICO, estado as unknown as Record<string, unknown>);
+  }
+
+  while (!estado.concluido && orcamento - (agora() - inicio) >= RESERVA_POR_SEMANA_MS) {
+    const desdeSemana = somarDias(estado.proximoAte, -6);
+    const desde = desdeSemana < estado.limite ? estado.limite : desdeSemana;
+    registros += await sincronizarInsightsConta(
+      cliente,
+      armazem,
+      igId,
+      { desde, ate: estado.proximoAte, fuso },
+      indisponiveis,
+      data,
+    );
+    estado.proximoAte = somarDias(desde, -1);
+    estado.semanasConcluidas += 1;
+    estado.concluido = estado.proximoAte < estado.limite;
+    await armazem.salvarEstado(CHAVE_IG_HISTORICO, estado as unknown as Record<string, unknown>);
+  }
+
+  return { registros, estado, indisponiveis: [...indisponiveis].sort() };
+}

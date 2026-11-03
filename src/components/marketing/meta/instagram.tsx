@@ -57,6 +57,7 @@ export function InstagramMeta({ periodo }: { periodo: Periodo }) {
 
 /** Métricas extras que aparecem só se a conta tiver dado delas. */
 const OUTRAS: { metrica: string; label: string }[] = [
+  { metrica: "accounts_engaged", label: "Contas engajadas" },
   { metrica: "likes", label: "Curtidas" },
   { metrica: "comments", label: "Comentários" },
   { metrica: "shares", label: "Compartilhamentos" },
@@ -81,8 +82,8 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
     return { valor: m?.valor, variacao: m ? variacao(m.valor, m.valor_anterior) : undefined };
   };
   const alcance = ind("reach");
+  const organico = ind("alcance_organico");
   const views = ind("views");
-  const engajadas = ind("accounts_engaged");
   const interacoes = ind("total_interactions");
   const outras = OUTRAS.map((o) => ({ ...o, dado: metricaIg(r, o.metrica) })).filter(
     (o) => o.dado?.valor != null,
@@ -92,7 +93,7 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
   return (
     <Bloco
       titulo="A conta no período"
-      descricao="Resultado orgânico, comparado ao período anterior de mesmo tamanho"
+      descricao="Comparado ao período anterior de mesmo tamanho, quando ele tem todos os dias com dado. O alcance da conta inclui quem viu os anúncios, porque o @moradasdeparaty é a identidade deles."
     >
       {q.isError ? (
         <QueryState query={q} skeleton={null}>
@@ -113,7 +114,7 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
               }
             />
             <Indicador
-              rotulo="Alcance"
+              rotulo="Alcance da conta (inclui anúncios)"
               carregando={carregando}
               valor={alcance.valor}
               formatar={formatQtd}
@@ -122,19 +123,21 @@ function NumerosDaConta({ periodo }: { periodo: Periodo }) {
               rodape="soma diária, aprox."
             />
             <Indicador
+              rotulo="Alcance orgânico"
+              destaque
+              carregando={carregando}
+              valor={organico.valor}
+              formatar={formatQtd}
+              variacao={organico.variacao}
+              sentido="maior_melhor"
+              rodape="soma dos posts não impulsionados"
+            />
+            <Indicador
               rotulo="Visualizações"
               carregando={carregando}
               valor={views.valor}
               formatar={formatQtd}
               variacao={views.variacao}
-              sentido="maior_melhor"
-            />
-            <Indicador
-              rotulo="Contas engajadas"
-              carregando={carregando}
-              valor={engajadas.valor}
-              formatar={formatQtd}
-              variacao={engajadas.variacao}
               sentido="maior_melhor"
             />
             <Indicador

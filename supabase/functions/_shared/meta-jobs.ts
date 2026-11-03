@@ -13,7 +13,11 @@ import { sincronizarEstruturaAds } from "./meta-ads-estrutura.ts";
 import { carregarHistorico, sincronizarIncremental } from "./meta-ads-insights.ts";
 import type { Armazem } from "./meta-armazem.ts";
 import { MetaRateLimitError, MetaTokenInvalidoError, type MetaGraphClient } from "./meta-graph.ts";
-import { sincronizarInstagramDiario, sincronizarStories } from "./meta-instagram.ts";
+import {
+  carregarHistoricoInstagram,
+  sincronizarInstagramDiario,
+  sincronizarStories,
+} from "./meta-instagram.ts";
 import { executarJob, type SaidaJob } from "./meta-sync-run.ts";
 
 export interface DepsJob {
@@ -46,7 +50,9 @@ async function bootTolerante(deps: DepsJob, cliente: MetaGraphClient): Promise<v
     // Token inválido e rate limit param o job; qualquer outra falha do boot é
     // diagnóstico (já logado) e não deve impedir o sync.
     if (e instanceof MetaTokenInvalidoError || e instanceof MetaRateLimitError) throw e;
-    console.warn(JSON.stringify({ origem: "meta-jobs", evento: "boot_falhou", erro: (e as Error).message }));
+    console.warn(
+      JSON.stringify({ origem: "meta-jobs", evento: "boot_falhou", erro: (e as Error).message }),
+    );
   }
 }
 
@@ -62,10 +68,19 @@ async function executarComoHttp(
   opcoes: OpcoesExecucao,
   trabalho: (cliente: MetaGraphClient) => Promise<SaidaJob>,
 ): Promise<ResultadoHttp> {
-  if (opcoes.guardaHoras && !opcoes.forcar && (await deps.armazem.execucaoRecente(job, opcoes.guardaHoras))) {
+  if (
+    opcoes.guardaHoras &&
+    !opcoes.forcar &&
+    (await deps.armazem.execucaoRecente(job, opcoes.guardaHoras))
+  ) {
     return {
       status: 200,
-      corpo: { ok: true, job, pulado: true, motivo: `já concluído nas últimas ${opcoes.guardaHoras} h` },
+      corpo: {
+        ok: true,
+        job,
+        pulado: true,
+        motivo: `já concluído nas últimas ${opcoes.guardaHoras} h`,
+      },
     };
   }
 
@@ -89,20 +104,39 @@ async function executarComoHttp(
   if (r.ok) {
     return {
       status: 200,
-      corpo: { ok: true, job, status: r.status, registros: r.registros, detalhes: r.detalhes, execucaoId: r.execucaoId },
+      corpo: {
+        ok: true,
+        job,
+        status: r.status,
+        registros: r.registros,
+        detalhes: r.detalhes,
+        execucaoId: r.execucaoId,
+      },
     };
   }
   return {
     status: 502,
-    corpo: { ok: false, job, erro: r.erro, codigoErro: r.codigoErro, tokenInvalido: r.tokenInvalido, execucaoId: r.execucaoId },
+    corpo: {
+      ok: false,
+      job,
+      erro: r.erro,
+      codigoErro: r.codigoErro,
+      tokenInvalido: r.tokenInvalido,
+      execucaoId: r.execucaoId,
+    },
   };
 }
 
 // --- jobs -----------------------------------------------------------------------------
 
-export function rodarSyncAds(deps: DepsJob, opcoes: { forcar?: boolean } = {}): Promise<ResultadoHttp> {
+export function rodarSyncAds(
+  deps: DepsJob,
+  opcoes: { forcar?: boolean } = {},
+): Promise<ResultadoHttp> {
   return executarComoHttp(
-    deps, "ads_diario", { guardaHoras: GUARDA_DIARIA_HORAS, forcar: opcoes.forcar },
+    deps,
+    "ads_diario",
+    { guardaHoras: GUARDA_DIARIA_HORAS, forcar: opcoes.forcar },
     async (cliente) => {
       const agora = deps.agora ?? Date.now;
       const inicio = agora();
@@ -111,23 +145,43 @@ export function rodarSyncAds(deps: DepsJob, opcoes: { forcar?: boolean } = {}): 
       // fica salvo e a próxima chamada do cron retoma.
       const restante = Math.max(20_000, ORCAMENTO_MS - (agora() - inicio));
       const incremental = await sincronizarIncremental(cliente, deps.armazem, {
-        data: deps.data, orcamentoMs: restante, agora: deps.agora, dormir: deps.dormir,
+        data: deps.data,
+        orcamentoMs: restante,
+        agora: deps.agora,
+        dormir: deps.dormir,
       });
       return {
-        registros: estrutura.campanhas + estrutura.conjuntos + estrutura.anuncios + incremental.registros,
+        registros:
+          estrutura.campanhas + estrutura.conjuntos + estrutura.anuncios + incremental.registros,
         parcial: !incremental.concluido,
-        detalhes: { estrutura, incremental: { concluido: incremental.concluido, janela: incremental.janela, ...incremental.detalhes } },
+        detalhes: {
+          estrutura,
+          incremental: {
+            concluido: incremental.concluido,
+            janela: incremental.janela,
+            ...incremental.detalhes,
+          },
+        },
       };
     },
   );
 }
 
-export function rodarSyncInstagram(deps: DepsJob, opcoes: { forcar?: boolean } = {}): Promise<ResultadoHttp> {
+export function rodarSyncInstagram(
+  deps: DepsJob,
+  opcoes: { forcar?: boolean } = {},
+): Promise<ResultadoHttp> {
   return executarComoHttp(
-    deps, "ig_diario", { guardaHoras: GUARDA_DIARIA_HORAS, forcar: opcoes.forcar },
+    deps,
+    "ig_diario",
+    { guardaHoras: GUARDA_DIARIA_HORAS, forcar: opcoes.forcar },
     async (cliente) => {
       const r = await sincronizarInstagramDiario(cliente, deps.armazem, { data: deps.data });
-      return { registros: r.registros, parcial: r.parcial, detalhes: r.detalhes as unknown as Record<string, unknown> };
+      return {
+        registros: r.registros,
+        parcial: r.parcial,
+        detalhes: r.detalhes as unknown as Record<string, unknown>,
+      };
     },
   );
 }
@@ -153,26 +207,45 @@ export interface OpcoesCargaInicial {
  * Carga inicial. Ads: cada chamada avança o quanto o tempo permite; repita até
  * `detalhes.concluido` ser true. Instagram: uma chamada só (acervo + 30 dias).
  */
-export function rodarCargaInicial(deps: DepsJob, opcoes: OpcoesCargaInicial = {}): Promise<ResultadoHttp> {
+export function rodarCargaInicial(
+  deps: DepsJob,
+  opcoes: OpcoesCargaInicial = {},
+): Promise<ResultadoHttp> {
   if (opcoes.escopo === "instagram") {
+    // Lotes semanais retomáveis: o cron chama de novo até `concluido`.
     return executarComoHttp(deps, "ig_carga_inicial", {}, async (cliente) => {
-      const r = await sincronizarInstagramDiario(cliente, deps.armazem, {
-        data: deps.data, todasMidias: true, diasConta: opcoes.dias ?? 30,
+      const r = await carregarHistoricoInstagram(cliente, deps.armazem, {
+        data: deps.data,
+        agora: deps.agora,
+        dias: opcoes.dias,
+        reiniciar: opcoes.reiniciar,
+        orcamentoMs: ORCAMENTO_MS,
       });
       return {
         registros: r.registros,
-        parcial: r.parcial,
-        detalhes: { concluido: true, ...(r.detalhes as unknown as Record<string, unknown>) },
+        parcial: !r.estado.concluido,
+        detalhes: {
+          concluido: r.estado.concluido,
+          semanasConcluidas: r.estado.semanasConcluidas,
+          semanasTotal: r.estado.semanasTotal,
+          proximoAte: r.estado.concluido ? null : r.estado.proximoAte,
+          indisponiveis: r.indisponiveis,
+        },
       };
     });
   }
   return executarComoHttp(deps, "ads_carga_inicial", {}, async (cliente) => {
     const estado = await deps.armazem.lerEstado("ads_historico");
     // A estrutura vem primeiro: os insights apontam para anúncios que precisam existir.
-    const estrutura = !estado || opcoes.reiniciar ? await sincronizarEstruturaAds(cliente, deps.armazem) : null;
+    const estrutura =
+      !estado || opcoes.reiniciar ? await sincronizarEstruturaAds(cliente, deps.armazem) : null;
     const r = await carregarHistorico(cliente, deps.armazem, {
-      data: deps.data, agora: deps.agora, dormir: deps.dormir,
-      meses: opcoes.meses, reiniciar: opcoes.reiniciar, orcamentoMs: ORCAMENTO_MS,
+      data: deps.data,
+      agora: deps.agora,
+      dormir: deps.dormir,
+      meses: opcoes.meses,
+      reiniciar: opcoes.reiniciar,
+      orcamentoMs: ORCAMENTO_MS,
     });
     return {
       registros: r.registros,
