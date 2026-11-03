@@ -13,7 +13,7 @@ export interface PontoLinhas {
 }
 
 /** Cores das séries: os tokens de gráfico do tema, em ordem. */
-export const CORES_SERIE = [
+const CORES_SERIE = [
   "var(--chart-1)",
   "var(--chart-2)",
   "var(--chart-3)",
