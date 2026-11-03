@@ -12,7 +12,7 @@
 //   preview_prompt — o prompt que seria montado agora para um lead.
 //   (sem ação)     — compatibilidade com o painel antigo: responde sem gravar.
 //
-// Só gestão (admin/gestor) ou service_role.
+// Só gestão (admin/gestor), service_role ou o segredo ai_agent_chat_secret.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -110,7 +110,11 @@ async function linhasDeAcao(leadId: string, desde: string): Promise<string[]> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  // Gestão pelo painel, service_role, ou o segredo interno (bancada de testes).
+  const chamador = await exigirChamador(req, {
+    papeis: PAPEIS_GESTAO,
+    segredos: ["ai_agent_chat_secret"],
+  });
   if (chamador instanceof Response) return chamador;
 
   try {

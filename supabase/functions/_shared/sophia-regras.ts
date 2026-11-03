@@ -206,3 +206,22 @@ export function instanteDaVisita(dataIso: string, hora: string): Date | null {
   const d = new Date(`${dataIso}T${h.padStart(2, "0")}:${m}:00-03:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+// ---------------------------------------------------------------------------
+// "Você é robô?"
+
+const PERGUNTA_IDENTIDADE =
+  /\b(vc|voce|tu|isso|aqui)\b.{0,20}\b(e|eh|sao)\b.{0,15}\b(robo|bot|ia|i a|inteligencia artificial|maquina|automatico|pessoa|humano|humana|gente de verdade|real)\b|\b(to|estou) falando com (um |uma )?(robo|bot|ia|maquina|pessoa|humano)\b/;
+
+function semAcento(texto: string): string {
+  return String(texto ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/** Pergunta curta sobre ser robô/pessoa: a resposta é fixa (RESPOSTA_IDENTIDADE). */
+export function perguntaIdentidade(texto: string): boolean {
+  const t = semAcento(texto).trim();
+  return t.length <= 80 && PERGUNTA_IDENTIDADE.test(t);
+}

@@ -8,6 +8,7 @@ import {
   mensagemDoHistorico,
   nomeDoConsultor,
   pediuAtendimentoHumano,
+  perguntaIdentidade,
   textoCondicao,
 } from "./sophia-regras.ts";
 
@@ -100,4 +101,23 @@ test("visita: texto e instante", () => {
   assert.equal(descreverVisita("2026-11-07", "14:30"), "sábado, 07/11 às 14h30");
   assert.equal(instanteDaVisita("2026-11-07", "10:00")?.toISOString(), "2026-11-07T13:00:00.000Z");
   assert.equal(instanteDaVisita("07/11", "10:00"), null);
+});
+
+test("identidade: pergunta curta sobre robô/pessoa", () => {
+  for (const q of [
+    "Oi, você é robô?",
+    "vc é uma IA?",
+    "to falando com um robô?",
+    "Você é uma pessoa de verdade?",
+    "isso é automático?",
+  ]) {
+    assert.equal(perguntaIdentidade(q), true, q);
+  }
+  for (const q of [
+    "Vocês têm lote de 360?",
+    "quero falar com uma pessoa",
+    "o robô aspirador funciona no condomínio?",
+  ]) {
+    assert.equal(perguntaIdentidade(q), false, q);
+  }
 });

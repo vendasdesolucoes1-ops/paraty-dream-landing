@@ -295,9 +295,13 @@ export async function responderLead(
 
   // Chegou mensagem nova enquanto a resposta era gerada: nada sai, nada é
   // feito, e a fila volta a pendente para gerar de novo com a conversa toda.
-  if (!teste && (await chegouMensagemNova(supabase, leadId, inicio))) {
+  if (await chegouMensagemNova(supabase, leadId, inicio)) {
     await fecharFila("pendente", null);
-    return fim("abortado", "lead escreveu de novo; resposta será refeita", { turno, leituras });
+    // No teste não há fila: quem gravou a mensagem mais nova responde por ela.
+    return fim("abortado", "lead escreveu de novo; a resposta é refeita com a conversa toda", {
+      turno,
+      leituras,
+    });
   }
 
   if (turno.mensagens.length === 0 && turno.acoes.length === 0) {

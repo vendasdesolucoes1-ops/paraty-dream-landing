@@ -61,6 +61,7 @@ import {
   mensagemDoHistorico,
   nomeDoConsultor,
   pediuAtendimentoHumano,
+  perguntaIdentidade,
   textoCondicao,
   type Consultor,
   type MensagemModelo,
@@ -242,7 +243,7 @@ ${abertura}
 ═══ PREÇO E PAGAMENTO ═══
 - Você NUNCA informa preço de lote, valor por m², valor total, faixa de valor, "a partir de", desconto, nem confirma ou nega um valor que o lead citar. Isso vale mesmo que o número esteja na base de conhecimento.
 ${condicao}
-- Quando o lead insistir no preço: explique que o valor muda conforme o lote (tamanho, quadra, posição) e ofereça TRÊS caminhos para ele saber o valor do lote que interessa: uma chamada de vídeo com o ${consultor}, uma ligação ou a visita. Deixe ele escolher.
+- Quando o lead perguntar ou insistir no preço: explique que o valor muda conforme o lote (tamanho, quadra, posição) e ofereça TRÊS caminhos para ele saber o valor do lote que interessa: uma chamada de vídeo com o ${consultor}, uma ligação ou a visita. Deixe ele escolher. Se ainda não souber o nome dele, termine perguntando como pode chamá-lo.
 
 ═══ DISTÂNCIA E "NÃO VOU SÓ PRA VER" ═══
 - Se o lead mora longe ou hesita em viajar, não insista na visita: ofereça vídeo com o consultor, ligação, e mande material (localização, fotos, vídeo) com enviar_midia quando houver.
@@ -255,7 +256,8 @@ COMO ESCREVER:
 - Português do Brasil, direto e natural, frases curtas.
 - NUNCA pergunte de novo algo que o lead já respondeu (no chat ou no anúncio). Releia o histórico e o bloco "O QUE VOCÊ JÁ SABE".
 - Se o lead responder "não sei" ou devolver a pergunta, mostre opções concretas (consultar_lotes) em vez de repetir a pergunta.
-- WhatsApp: *negrito* com um asterisco, sem listas numeradas (use •).
+- WhatsApp: *negrito* com um asterisco, sem listas numeradas (use •). Links sempre puros (https://...), nunca no formato [texto](link).
+- Se o lead disser que o consultor não retornou ou que está esperando alguém, peça desculpas em uma frase e use transferir_para_humano.
 - Separe a resposta em mensagens curtas com ||. Uma pergunta por vez, no fim.
 - Comente o que o lead disse antes de emendar a próxima pergunta; não repita "Perfeito, Fulano!" a cada mensagem.
 
@@ -362,7 +364,7 @@ ${campos.join("\n")}
       : ""
   }${
     querVisitar || compraLogo
-      ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá direto ao agendamento (ver_horarios_visita), sem refazer o roteiro.`
+      ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Antes de responder, chame ver_horarios_visita e já ofereça dois ou três horários concretos nesta resposta. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.`
       : ""
   }${
     texto(lead.sem_interesse_em)
@@ -508,14 +510,6 @@ export async function carregarHistorico(
 
 // ---------------------------------------------------------------------------
 // Atalhos determinísticos (antes do modelo)
-
-const PERGUNTA_IDENTIDADE =
-  /\b(vc|voce|você|tu|isso|aqui)\b.{0,20}\b(e|é|eh|sao|são)\b.{0,15}\b(robo|robô|bot|ia|i\.a\.|inteligencia artificial|inteligência artificial|maquina|máquina|automatico|automático|pessoa|humano|humana|gente de verdade|real)\b|\b(to|tô|estou) falando com (um |uma )?(robo|robô|bot|ia|maquina|máquina|pessoa|humano)\b/i;
-
-export function perguntaIdentidade(texto: string): boolean {
-  const t = String(texto ?? "").trim();
-  return t.length <= 80 && PERGUNTA_IDENTIDADE.test(t);
-}
 
 // ---------------------------------------------------------------------------
 // Geração
