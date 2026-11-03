@@ -222,6 +222,19 @@ test("mapearCampanha / mapearConjunto / mapearAnuncio cobrem todos os campos ped
     "act_1",
   );
   assert.equal(an.creative_id, "cr");
+  assert.equal(an.creative_ig_media_id, null);
+  assert.equal(
+    mapearAnuncio(
+      {
+        id: "a3",
+        adset_id: "s",
+        campaign_id: "c",
+        creative: { effective_instagram_media_id: "1816" },
+      },
+      "act_1",
+    ).creative_ig_media_id,
+    "1816",
+  );
   assert.deepEqual(an.creative_object_story_spec, { x: 1 });
   assert.equal(
     mapearAnuncio({ id: "a2", adset_id: "s", campaign_id: "c" }, "act_1").creative_id,
@@ -327,7 +340,7 @@ test("sincroniza conta, campanhas (inclui arquivadas), conjuntos e anúncios", a
   const ads = urls.find((x) => x.pathname.endsWith("/act_1/ads"))!;
   assert.match(
     ads.searchParams.get("fields")!,
-    /creative\{id,title,body,thumbnail_url,object_story_spec\}/,
+    /creative\{id,title,body,thumbnail_url,object_story_spec,effective_instagram_media_id\}/,
   );
 });
 

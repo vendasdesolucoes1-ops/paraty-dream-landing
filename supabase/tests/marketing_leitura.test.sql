@@ -111,7 +111,8 @@ begin
 
   -- Instagram: resumo com período anterior e seguidores.
   select * into r from public.marketing_ig_resumo('2026-10-01', '2026-10-02') where metrica = 'reach';
-  assert r.valor = 150 and r.valor_anterior = 30, 'alcance atual e anterior';
+  -- O anterior (29–30/09) só tem 30/09: base incompleta, sem comparação (etapa 3).
+  assert r.valor = 150 and r.valor_anterior is null, 'alcance atual; anterior incompleto não compara';
   select * into r from public.marketing_ig_resumo('2026-10-01', '2026-10-02') where metrica = 'seguidores';
   assert r.valor = 1210 and r.valor_anterior = 1200, 'seguidores no fim de cada período';
   select count(*) into n from public.marketing_ig_serie('2026-10-01', '2026-10-02');

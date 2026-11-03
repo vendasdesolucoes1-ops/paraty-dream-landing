@@ -23,7 +23,7 @@ export const CAMPOS_CONJUNTO =
 
 export const CAMPOS_ANUNCIO =
   "id,adset_id,campaign_id,name,status,effective_status,created_time,updated_time," +
-  "creative{id,title,body,thumbnail_url,object_story_spec},issues_info,ad_review_feedback,recommendations";
+  "creative{id,title,body,thumbnail_url,object_story_spec,effective_instagram_media_id},issues_info,ad_review_feedback,recommendations";
 
 // Sem o filtro a Meta devolve só o que não está arquivado/excluído.
 const STATUS_CAMPANHA = ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"];
@@ -168,6 +168,8 @@ export function mapearAnuncio(
     creative_body: texto(criativo.body),
     creative_thumbnail_url: texto(criativo.thumbnail_url),
     creative_object_story_spec: criativo.object_story_spec ?? null,
+    // Post do Instagram que o anúncio impulsiona: separa alcance orgânico do pago.
+    creative_ig_media_id: texto(criativo.effective_instagram_media_id),
     created_time: dataIso(a.created_time),
     updated_time: dataIso(a.updated_time),
     issues_info: listaOuNulo(a.issues_info),

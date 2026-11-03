@@ -178,3 +178,12 @@ minuto (e ao voltar para a aba); a função guarda o resultado por 30 s em memó
   Conta pós-paga: mostra o valor acumulado a cobrar (`balance`).
 - Os dias restantes usam o que acabar primeiro (saldo ou limite de gasto) dividido
   pela média diária dos últimos 7 dias. Abaixo de 3 dias aparece o aviso "Saldo acabando".
+
+## Carga histórica (etapa 3)
+
+- **Anúncios:** relatórios assíncronos da Meta, uma janela por mês, do mais recente até 37 meses atrás (estado `ads_historico`).
+- **Instagram:** métricas da conta em lotes de 7 dias, até 90 dias atrás (estado `ig_historico`). Na primeira chamada também entram a conta, a demografia e todas as mídias com métricas.
+- Cada chamada trabalha só enquanto cabe no limite de tempo da Edge Function e salva onde parou. Os crons `meta-carga-ads` e `meta-carga-instagram` chamam de novo a cada 10 minutos enquanto a carga não terminar.
+- O progresso aparece na aba Integração (`marketing_progresso_carga`).
+- O cron `meta-limpa-execucoes` marca como erro as execuções que ficaram "executando" porque a função foi encerrada pelo limite de tempo.
+- **Alcance orgânico do Instagram:** é a soma do alcance dos posts, reels e stories publicados no período que não viraram anúncio. Um post conta como anúncio quando `creative.effective_instagram_media_id` aponta para ele. Como a mesma pessoa pode ter visto mais de um post, essa soma não é um número de pessoas únicas.

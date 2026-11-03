@@ -7,6 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  carregarHistoricoInstagram,
   descobrirInstagram,
   diaDoPeriodo,
   epochInicioDia,
@@ -530,4 +531,47 @@ test("stories: sem stories no ar não é erro", async () => {
   const r = await sincronizarStories(cliente, armazemEmMemoria().armazem, { data: AGORA });
   assert.equal(r.stories, 0);
   assert.equal(r.registros, 0);
+});
+
+test("carga histórica do Instagram: lotes semanais, para no limite de tempo e retoma", async () => {
+  const { cliente, chamadas } = metaIg(handlerCompleto());
+  const { armazem, estados, tabelas } = armazemEmMemoria();
+  // Relógio falso: cada chamada à Meta "leva" 1 s.
+  let relogio = 0;
+  const agora = () => relogio;
+  const original = cliente.get.bind(cliente);
+  cliente.get = (async (c: string, p?: Record<string, unknown>) => {
+    relogio += 1_000;
+    return original(c, p);
+  }) as typeof cliente.get;
+
+  const a = await carregarHistoricoInstagram(cliente, armazem, {
+    data: AGORA,
+    agora,
+    dias: 21,
+    orcamentoMs: 160_000,
+  });
+  assert.equal(a.estado.semanasTotal, 3);
+  assert.equal(a.estado.midiasCarregadas, true);
+  assert.equal(a.estado.concluido, false, "não cabem as 3 semanas no orçamento");
+  const feitas = a.estado.semanasConcluidas;
+  assert.ok(feitas >= 1 && feitas < 3, `semanas na 1ª chamada: ${feitas}`);
+  assert.equal((estados.get("ig_historico") as Record<string, unknown>).semanasConcluidas, feitas);
+
+  // Segunda chamada continua de onde parou, sem recarregar as mídias.
+  const midiasAntes = chamadas.filter((c) => c.caminho === "IG1/media").length;
+  relogio = 0;
+  const b = await carregarHistoricoInstagram(cliente, armazem, {
+    data: AGORA,
+    agora,
+    dias: 21,
+    orcamentoMs: 400_000,
+  });
+  assert.equal(b.estado.concluido, true);
+  assert.equal(b.estado.semanasConcluidas, 3);
+  assert.equal(chamadas.filter((c) => c.caminho === "IG1/media").length, midiasAntes);
+  const dias = new Set([...tabelas.get("ig_insights_conta_diario")!.values()].map((l) => l.data));
+  assert.equal(dias.has("2026-10-29"), true, "ontem");
+  assert.equal(dias.has("2026-10-09"), true, "21º dia para trás");
+  assert.equal(dias.has("2026-10-08"), false, "nada antes do limite");
 });
