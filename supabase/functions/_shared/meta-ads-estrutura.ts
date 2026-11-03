@@ -9,18 +9,21 @@ import type { Armazem, Linha } from "./meta-armazem.ts";
 
 // --- campos pedidos à Graph API --------------------------------------------
 
+// issues_info: erros de veiculação; recommendations: avisos/recomendações da Meta;
+// ad_review_feedback: motivo de reprovação do anúncio; destination_type: para onde
+// o conjunto leva (WHATSAPP, ON_AD = formulário, MESSAGING_* = mensagens).
 export const CAMPOS_CAMPANHA =
   "id,name,status,effective_status,objective,buying_type,daily_budget,lifetime_budget," +
-  "start_time,stop_time,created_time,updated_time";
+  "start_time,stop_time,created_time,updated_time,issues_info,recommendations";
 
 export const CAMPOS_CONJUNTO =
   "id,campaign_id,name,status,effective_status,optimization_goal,billing_event,bid_strategy," +
   "daily_budget,lifetime_budget,budget_remaining,targeting,start_time,end_time," +
-  "created_time,updated_time";
+  "created_time,updated_time,destination_type,issues_info,recommendations,learning_stage_info";
 
 export const CAMPOS_ANUNCIO =
   "id,adset_id,campaign_id,name,status,effective_status,created_time,updated_time," +
-  "creative{id,title,body,thumbnail_url,object_story_spec}";
+  "creative{id,title,body,thumbnail_url,object_story_spec},issues_info,ad_review_feedback,recommendations";
 
 // Sem o filtro a Meta devolve só o que não está arquivado/excluído.
 const STATUS_CAMPANHA = ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"];
@@ -82,7 +85,19 @@ export function mapearConta(c: ContaMeta, agora = new Date()): Linha {
   };
 }
 
-export function mapearCampanha(c: Record<string, unknown>, contaId: string, agora = new Date()): Linha {
+/** Lista não vazia da Meta, ou null (sem aviso = coluna limpa no próximo sync). */
+export const listaOuNulo = (v: unknown): unknown[] | null =>
+  Array.isArray(v) && v.length > 0 ? v : null;
+const objetoOuNulo = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0
+    ? (v as Record<string, unknown>)
+    : null;
+
+export function mapearCampanha(
+  c: Record<string, unknown>,
+  contaId: string,
+  agora = new Date(),
+): Linha {
   return {
     id: c.id,
     conta_id: contaId,
@@ -97,11 +112,17 @@ export function mapearCampanha(c: Record<string, unknown>, contaId: string, agor
     stop_time: dataIso(c.stop_time),
     created_time: dataIso(c.created_time),
     updated_time: dataIso(c.updated_time),
+    issues_info: listaOuNulo(c.issues_info),
+    recommendations: listaOuNulo(c.recommendations),
     sincronizado_em: agora.toISOString(),
   };
 }
 
-export function mapearConjunto(c: Record<string, unknown>, contaId: string, agora = new Date()): Linha {
+export function mapearConjunto(
+  c: Record<string, unknown>,
+  contaId: string,
+  agora = new Date(),
+): Linha {
   return {
     id: c.id,
     campaign_id: c.campaign_id,
@@ -120,11 +141,19 @@ export function mapearConjunto(c: Record<string, unknown>, contaId: string, agor
     end_time: dataIso(c.end_time),
     created_time: dataIso(c.created_time),
     updated_time: dataIso(c.updated_time),
+    destination_type: texto(c.destination_type),
+    issues_info: listaOuNulo(c.issues_info),
+    recommendations: listaOuNulo(c.recommendations),
+    learning_stage_info: objetoOuNulo(c.learning_stage_info),
     sincronizado_em: agora.toISOString(),
   };
 }
 
-export function mapearAnuncio(a: Record<string, unknown>, contaId: string, agora = new Date()): Linha {
+export function mapearAnuncio(
+  a: Record<string, unknown>,
+  contaId: string,
+  agora = new Date(),
+): Linha {
   const criativo = (a.creative ?? {}) as Record<string, unknown>;
   return {
     id: a.id,
@@ -141,6 +170,9 @@ export function mapearAnuncio(a: Record<string, unknown>, contaId: string, agora
     creative_object_story_spec: criativo.object_story_spec ?? null,
     created_time: dataIso(a.created_time),
     updated_time: dataIso(a.updated_time),
+    issues_info: listaOuNulo(a.issues_info),
+    ad_review_feedback: objetoOuNulo(a.ad_review_feedback),
+    recommendations: listaOuNulo(a.recommendations),
     sincronizado_em: agora.toISOString(),
   };
 }
@@ -155,7 +187,10 @@ export interface ResumoEstrutura {
 }
 
 /** Lê moeda e fuso da conta e grava em meta_conta_anuncios. */
-export async function sincronizarConta(cliente: MetaGraphClient, armazem: Armazem): Promise<ContaMeta> {
+export async function sincronizarConta(
+  cliente: MetaGraphClient,
+  armazem: Armazem,
+): Promise<ContaMeta> {
   const contaId = exigirAtivo(cliente.config, "adAccountId");
   const conta = await cliente.get<ContaMeta>(contaId, {
     fields: "id,name,currency,timezone_name,account_status",
@@ -193,20 +228,29 @@ export async function sincronizarEstruturaAds(
   await sincronizarConta(cliente, armazem);
 
   const campanhas = await sincronizarNivel(
-    cliente, armazem, `${contaId}/campaigns`,
+    cliente,
+    armazem,
+    `${contaId}/campaigns`,
     { fields: CAMPOS_CAMPANHA, filtering: filtroStatus(STATUS_CAMPANHA), limit: 200 },
-    "meta_campanhas", (c) => mapearCampanha(c, contaId),
+    "meta_campanhas",
+    (c) => mapearCampanha(c, contaId),
   );
   const conjuntos = await sincronizarNivel(
-    cliente, armazem, `${contaId}/adsets`,
+    cliente,
+    armazem,
+    `${contaId}/adsets`,
     { fields: CAMPOS_CONJUNTO, filtering: filtroStatus(STATUS_CONJUNTO), limit: 200 },
-    "meta_conjuntos", (c) => mapearConjunto(c, contaId),
+    "meta_conjuntos",
+    (c) => mapearConjunto(c, contaId),
   );
   // Limite menor: o criativo expandido (object_story_spec) deixa a resposta pesada.
   const anuncios = await sincronizarNivel(
-    cliente, armazem, `${contaId}/ads`,
+    cliente,
+    armazem,
+    `${contaId}/ads`,
     { fields: CAMPOS_ANUNCIO, filtering: filtroStatus(STATUS_ANUNCIO), limit: 50 },
-    "meta_anuncios", (a) => mapearAnuncio(a, contaId),
+    "meta_anuncios",
+    (a) => mapearAnuncio(a, contaId),
   );
   return { conta: 1, campanhas, conjuntos, anuncios };
 }

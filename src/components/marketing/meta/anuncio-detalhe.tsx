@@ -2,6 +2,7 @@
 // período, evolução diária e os recortes de público (idade+gênero, plataforma,
 // região).
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Chip } from "@/components/ds/chip";
 import { Pill } from "@/components/ds/pill";
 import { PanelEmpty, QueryState, SkeletonRows } from "@/components/ds/query-state";
@@ -25,9 +26,15 @@ import {
   type NivelAnuncio,
   type TipoBreakdown,
   resultadoDaLinha,
+  avisosDaLinha,
+  formatNumero,
+  publicoCansado,
+  rotuloDestino,
+  type AlcanceItem,
 } from "@/lib/marketing-calculos";
 import { useBreakdown, useSerieAds } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
+import { cn } from "@/lib/utils";
 
 const NIVEL_LABEL: Record<NivelAnuncio, string> = {
   campanha: "Campanha",
@@ -46,18 +53,22 @@ export function AnuncioDetalhe({
   nivel,
   periodo,
   moeda,
+  alcance,
   onClose,
 }: {
   item: LinhaAnuncio | null;
   nivel: NivelAnuncio;
   periodo: Periodo;
   moeda: string | null | undefined;
+  alcance?: AlcanceItem;
   onClose: () => void;
 }) {
   return (
     <Sheet open={item !== null} onOpenChange={(aberto) => (aberto ? null : onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        {item ? <Conteudo item={item} nivel={nivel} periodo={periodo} moeda={moeda} /> : null}
+        {item ? (
+          <Conteudo item={item} nivel={nivel} periodo={periodo} moeda={moeda} alcance={alcance} />
+        ) : null}
       </SheetContent>
     </Sheet>
   );
@@ -68,11 +79,13 @@ function Conteudo({
   nivel,
   periodo,
   moeda,
+  alcance,
 }: {
   item: LinhaAnuncio;
   nivel: NivelAnuncio;
   periodo: Periodo;
   moeda: string | null | undefined;
+  alcance?: AlcanceItem;
 }) {
   const status = statusAnuncio(item.effective_status);
   const d = derivadas(item);
@@ -99,9 +112,17 @@ function Conteudo({
     ],
     ["Cliques no link", formatQtd(item.cliques_link)],
     ["CTR", formatTaxa(d.ctr)],
+    ["CPC no link", formatMoeda(d.cpc, moeda)],
+    ["Alcance", formatQtd(alcance?.alcance ?? null)],
+    [
+      publicoCansado(alcance?.frequencia) ? "Frequência · público cansado" : "Frequência",
+      formatNumero(alcance?.frequencia ?? null, 2),
+    ],
     ["Impressões", formatQtd(item.impressoes)],
     ["CPM", formatMoeda(d.cpm, moeda)],
   ];
+  const avisos = avisosDaLinha(item.avisos);
+  const destino = rotuloDestino(item.destino);
 
   return (
     <div className="space-y-8 pb-6">
@@ -118,6 +139,7 @@ function Conteudo({
               {status.label}
             </Pill>
             {item.objetivo ? <span>{rotuloObjetivo(item.objetivo)}</span> : null}
+            {destino ? <span>· {destino}</span> : null}
             {orcamento ? <span>· {orcamento}</span> : null}
           </div>
         </SheetDescription>
@@ -128,6 +150,26 @@ function Conteudo({
           </p>
         ) : null}
       </SheetHeader>
+
+      {avisos.length ? (
+        <section aria-label="Avisos da Meta" className="space-y-2">
+          {avisos.map((a) => (
+            <p
+              key={a.texto}
+              role={a.tom === "danger" ? "alert" : undefined}
+              className={cn(
+                "flex items-start gap-2 rounded-xl border px-4 py-3 text-[0.8125rem] text-foreground",
+                a.tom === "danger"
+                  ? "border-danger/40 bg-danger-soft [&_svg]:text-danger"
+                  : "border-warning/40 bg-warning-soft [&_svg]:text-warning",
+              )}
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              {a.texto}
+            </p>
+          ))}
+        </section>
+      ) : null}
 
       {nivel === "anuncio" ? (
         <section aria-label="Criativo" className="flex gap-4 rounded-xl border border-border p-4">

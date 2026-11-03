@@ -70,6 +70,40 @@ export interface LinhaAnuncio {
   reservas: number;
   criado_em: string | null;
   tipo_resultado: TipoResultado;
+  /** destination_type do conjunto: WHATSAPP, ON_AD (formulário), MESSAGING_*, WEBSITE… */
+  destino: string | null;
+  /** Avisos da Meta: erros de veiculação, reprovação e recomendações. */
+  avisos: AvisosMeta | null;
+}
+
+export interface AvisosMeta {
+  erros?: { error_summary?: string; error_message?: string; error_type?: string }[];
+  revisao?: Record<string, Record<string, string> | string>;
+  recomendacoes?: { title?: string; message?: string; importance?: string }[];
+}
+
+export interface PontoSerieCampanha {
+  data: string;
+  campanha_id: string;
+  campanha_nome: string | null;
+  effective_status: string | null;
+  tipo_resultado: TipoResultado;
+  investimento: number;
+  leads: number;
+  mensagens: number;
+}
+
+export interface AlcanceItem {
+  alcance: number | null;
+  frequencia: number | null;
+}
+
+export interface AlcancePeriodo {
+  inicio: string;
+  fim: string;
+  nivel: NivelAnuncio;
+  conta: AlcanceItem;
+  itens: Record<string, AlcanceItem>;
 }
 
 /** O que a campanha compra (pelo objetivo): leads, conversas ou cliques. */
@@ -338,6 +372,12 @@ const compacto = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFr
 const inteiro = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 /** 1.234 até 9.999; depois 12,3 mil / 1,2 mi. */
+/** Número com casas decimais fixas: frequência "1,91". */
+export function formatNumero(v: number | null | undefined, casas = 2): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+
 export function formatQtd(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
   return Math.abs(v) >= 10_000 ? compacto.format(v) : inteiro.format(v);
@@ -402,10 +442,10 @@ const STATUS_ANUNCIO: Record<string, { label: string; tone: Tom }> = {
   ADSET_PAUSED: { label: "Conjunto pausado", tone: "neutral" },
   ARCHIVED: { label: "Arquivado", tone: "neutral" },
   DELETED: { label: "Excluído", tone: "neutral" },
-  IN_PROCESS: { label: "Processando", tone: "info" },
+  IN_PROCESS: { label: "Em análise", tone: "info" },
   PENDING_REVIEW: { label: "Em análise", tone: "info" },
   PREAPPROVED: { label: "Pré-aprovado", tone: "info" },
-  WITH_ISSUES: { label: "Com problemas", tone: "warning" },
+  WITH_ISSUES: { label: "Erro de veiculação", tone: "danger" },
   PENDING_BILLING_INFO: { label: "Pagamento pendente", tone: "warning" },
   DISAPPROVED: { label: "Reprovado", tone: "danger" },
 };
@@ -773,4 +813,111 @@ export function ultimaSincronizacaoAds(jobs: StatusJob[]): string | null {
 /** O período termina hoje (ou depois): os números de hoje ainda estão entrando. */
 export function incluiHoje(periodo: { inicio: string; fim: string }, hoje: string): boolean {
   return periodo.inicio <= hoje && periodo.fim >= hoje;
+}
+
+// --- Etapa 2: alcance, avisos, destino e série por campanha -------------------
+
+/** Acima disso o público já viu o anúncio muitas vezes: hora de trocar o criativo. */
+export const FREQUENCIA_CANSADA = 2.5;
+
+export function publicoCansado(frequencia: number | null | undefined): boolean {
+  return frequencia != null && frequencia > FREQUENCIA_CANSADA;
+}
+
+export function rotuloDestino(destino: string | null | undefined): string | null {
+  if (!destino) return null;
+  if (destino === "WHATSAPP") return "WhatsApp";
+  if (destino === "ON_AD") return "Formulário";
+  if (destino === "WEBSITE") return "Site";
+  if (destino === "MESSENGER") return "Messenger";
+  if (destino === "INSTAGRAM_DIRECT") return "Direct";
+  if (destino.startsWith("MESSAGING")) return "Mensagens";
+  return humanizar(destino);
+}
+
+export interface Aviso {
+  tom: "danger" | "warning" | "info";
+  texto: string;
+}
+
+/**
+ * Avisos da Meta em frases curtas: erros de veiculação e reprovação (vermelho)
+ * e recomendações como "Resultados insatisfatórios" (amarelo). Sem repetir.
+ */
+export function avisosDaLinha(a: AvisosMeta | null | undefined): Aviso[] {
+  if (!a) return [];
+  const saida: Aviso[] = [];
+  const vistos = new Set<string>();
+  const add = (tom: Aviso["tom"], texto: string | undefined) => {
+    const t = texto?.trim();
+    if (!t || vistos.has(t)) return;
+    vistos.add(t);
+    saida.push({ tom, texto: t });
+  };
+  for (const e of a.erros ?? []) add("danger", e.error_message || e.error_summary);
+  for (const v of Object.values(a.revisao ?? {})) {
+    if (typeof v === "string") add("danger", v);
+    else for (const t of Object.values(v ?? {})) add("danger", t);
+  }
+  for (const r of a.recomendacoes ?? []) add("warning", r.title || r.message);
+  return saida;
+}
+
+export interface SerieCampanhas {
+  campanhas: { id: string; nome: string; tipo: TipoResultado }[];
+  dias: { data: string; valores: Record<string, number | null> }[];
+}
+
+/**
+ * Pivota a série por campanha para o gráfico de linhas: uma linha por campanha
+ * ativa (ou, sem nenhuma ativa, as que tiveram gasto). `resultado` = leads ou
+ * conversas conforme o objetivo; `custo` = investimento ÷ resultado do dia
+ * (sem resultado no dia, o ponto fica vazio em vez de zero).
+ */
+export function serieCampanhas(
+  pontos: PontoSerieCampanha[],
+  metrica: "resultado" | "custo",
+): SerieCampanhas {
+  const porCampanha = new Map<
+    string,
+    { nome: string; tipo: TipoResultado; ativa: boolean; gasto: number }
+  >();
+  for (const p of pontos) {
+    const c = porCampanha.get(p.campanha_id) ?? {
+      nome: p.campanha_nome ?? p.campanha_id,
+      tipo: p.tipo_resultado,
+      ativa: p.effective_status === "ACTIVE",
+      gasto: 0,
+    };
+    c.gasto += p.investimento;
+    porCampanha.set(p.campanha_id, c);
+  }
+  let ids = [...porCampanha].filter(([, c]) => c.ativa && c.tipo !== "clique").map(([id]) => id);
+  if (ids.length === 0) ids = [...porCampanha].filter(([, c]) => c.gasto > 0).map(([id]) => id);
+  const campanhas = ids
+    .map((id) => ({ id, nome: porCampanha.get(id)!.nome, tipo: porCampanha.get(id)!.tipo }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const escolhidas = new Set(ids);
+
+  const dias = new Map<string, Record<string, number | null>>();
+  for (const p of pontos) {
+    if (!escolhidas.has(p.campanha_id)) continue;
+    const resultado =
+      p.tipo_resultado === "lead" ? p.leads : p.tipo_resultado === "conversa" ? p.mensagens : 0;
+    const valor =
+      metrica === "resultado"
+        ? resultado
+        : resultado > 0
+          ? Math.round((p.investimento / resultado) * 100) / 100
+          : null;
+    const linha = dias.get(p.data) ?? {};
+    linha[p.campanha_id] = valor;
+    dias.set(p.data, linha);
+  }
+  return {
+    campanhas,
+    dias: [...dias]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([data, valores]) => ({ data, valores })),
+  };
 }
