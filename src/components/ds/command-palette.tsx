@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 
 const PaletaContext = createContext<{ abrir: () => void } | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook do mesmo contexto
 export function useCommandPalette() {
   const ctx = useContext(PaletaContext);
   if (!ctx) throw new Error("useCommandPalette deve ser usado dentro de CommandPaletteProvider");
@@ -105,11 +106,11 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   });
 
   const paginas = useMemo(() => {
-    const itens = navDoPerfil(profile?.role).flatMap((g) => g.items);
+    const itens = navDoPerfil(profile).flatMap((g) => g.items);
     const q = normalizar(busca.trim());
     if (!q) return itens;
     return itens.filter((i) => normalizar(`${i.label} ${i.palavras ?? ""}`).includes(q));
-  }, [profile?.role, busca]);
+  }, [profile, busca]);
 
   function fechar() {
     setAberta(false);

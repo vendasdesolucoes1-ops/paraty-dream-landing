@@ -20,6 +20,7 @@ import type { VisitaWithRelations } from "@/lib/types";
 import { useProfile } from "@/hooks/use-profile";
 import { startOfDay, startOfWeek } from "@/components/agenda/periodo";
 import { MarcaAgora } from "@/components/agenda/marca-agora";
+import { ModuloGuard } from "@/components/dashboard/role-guard";
 
 const VIEW_STORAGE_KEY = "agenda-view";
 type AgendaView = "lista" | "semana" | "mes";
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/dashboard/agenda")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: AgendaPage,
+  component: AgendaPageProtegida,
 });
 
 function endOfDay(date: Date) {
@@ -77,6 +78,14 @@ function computeRange(
     return { from: startOfDay(now).toISOString(), to: endOfDay(end).toISOString() };
   }
   return { from: null, to: null };
+}
+
+function AgendaPageProtegida() {
+  return (
+    <ModuloGuard modulo="agenda">
+      <AgendaPage />
+    </ModuloGuard>
+  );
 }
 
 function AgendaPage() {

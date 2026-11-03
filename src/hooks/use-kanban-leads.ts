@@ -15,7 +15,8 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { LEAD_ORIGEM_OPTIONS, LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import { LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
+import { ORIGENS } from "@/lib/lead-status";
 import {
   TAMANHO_PAGINA_KANBAN,
   aplicarLeadNaColuna,
@@ -61,6 +62,7 @@ function aplicarFiltros<Q extends ConsultaFiltravel<Q>>(consulta: Q, filtros: Fi
   if (filtros.vendedorId) q = q.eq("vendedor_id", filtros.vendedorId);
   if (!filtros.mostrarTestes) q = q.eq("is_teste", false);
   if (filtros.origem) q = q.eq("origem", filtros.origem);
+  if (filtros.semVendedor) q = q.is("vendedor_id", null);
   const busca = filtrosDeBusca(filtros.termo);
   if (busca) q = q.or(busca);
   return q;
@@ -131,6 +133,8 @@ export interface ResumoKanban {
   porOrigem: Record<string, number>;
   /** Leads de teste da carteira, para o chip "Mostrar leads de teste". */
   testes: number;
+  /** Leads (fora os de teste) ainda sem vendedor, para o chip da entrega manual. */
+  semVendedor: number;
 }
 
 /** Os números dos chips (origens e testes), também contados no banco. */
@@ -143,17 +147,23 @@ export function useResumoKanban(
     queryKey: chavesKanban.resumo(vendedorId, mostrarTestes),
     queryFn: async (): Promise<ResumoKanban> => {
       const base: FiltrosKanban = { vendedorId, mostrarTestes, origem: null, termo: "" };
-      const [todas, testes, ...origens] = await Promise.all([
+      const [todas, testes, semVendedor, ...origens] = await Promise.all([
         contar((q) => aplicarFiltros(q, base)),
         contar((q) => aplicarFiltros(q.eq("is_teste", true), { ...base, mostrarTestes: true })),
-        ...LEAD_ORIGEM_OPTIONS.map((o) =>
-          contar((q) => aplicarFiltros(q, { ...base, origem: o.value })),
+        contar((q) =>
+          aplicarFiltros(q.eq("is_teste", false), {
+            ...base,
+            mostrarTestes: true,
+            semVendedor: true,
+          }),
         ),
+        ...ORIGENS.map((o) => contar((q) => aplicarFiltros(q, { ...base, origem: o.value }))),
       ]);
       return {
         todas,
         testes,
-        porOrigem: Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o, i) => [o.value, origens[i]])),
+        semVendedor,
+        porOrigem: Object.fromEntries(ORIGENS.map((o, i) => [o.value, origens[i]])),
       };
     },
     placeholderData: keepPreviousData,

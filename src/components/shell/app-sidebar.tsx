@@ -67,7 +67,7 @@ function ItemNav({
 
 export function ListaNav({ recolhida, aoNavegar }: { recolhida: boolean; aoNavegar?: () => void }) {
   const { profile } = useProfile();
-  const grupos = navDoPerfil(profile?.role);
+  const grupos = navDoPerfil(profile);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navRef = useRef<HTMLElement>(null);
   const [marca, setMarca] = useState<{ top: number; left: number; w: number; h: number } | null>(

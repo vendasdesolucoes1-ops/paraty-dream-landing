@@ -35,7 +35,7 @@ begin
   assert n >= 1, 'distribuiu os que esperavam';
   select vendedor_id into l from public.leads where id = (r->>'lead_id')::uuid;
   assert l.vendedor_id = v_vend, 'lead em espera recebeu vendedor';
-  select count(*) into n from public.notifications where user_id = v_user and title = 'Leads do formulário atribuídos a você';
+  select count(*) into n from public.notifications where user_id = v_user and title = 'Leads atribuídos a você';
   assert n = 1, 'um aviso de distribuição';
   delete from public.notifications where user_id = v_user;
 

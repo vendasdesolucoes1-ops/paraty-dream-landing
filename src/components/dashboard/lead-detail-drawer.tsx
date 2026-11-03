@@ -70,6 +70,8 @@ import { atraso } from "@/components/ds/reveal";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Campo, ComIcone, Secao } from "@/components/crm/ficha";
 import { EtapaDot, EtapaPill } from "@/components/crm/etapa-pill";
+import { ResponsavelLead } from "@/components/crm/responsavel-lead";
+import { ORIGEM_LABEL } from "@/lib/lead-status";
 import { tempoRelativo } from "@/lib/format";
 import {
   Select,
@@ -1073,8 +1075,8 @@ function LeadDeleteSection({ lead, onDeleted }: { lead: Lead; onDeleted: () => v
             <AlertDialogDescription>
               Esta ação <strong>não pode ser desfeita</strong>. O lead será apagado do banco de
               dados junto com todo o histórico de conversas do WhatsApp, interações, visitas
-              agendadas, mensagens na fila de envio e o contato do WhatsApp desse número
-              (exclusão completa do titular, LGPD).
+              agendadas, mensagens na fila de envio e o contato do WhatsApp desse número (exclusão
+              completa do titular, LGPD).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1116,7 +1118,12 @@ export function LeadDetailDrawer({
   const canSeeClientes = profile?.role === "admin" || profile?.role === "gestor";
 
   const whatsapp = lead ? whatsappLink(lead.telefone) : null;
-  const origem = lead?.origem ? (ORIGEM_ROTULO[lead.origem] ?? lead.origem) : null;
+  const origem = lead?.origem
+    ? (ORIGEM_LABEL[lead.origem as keyof typeof ORIGEM_LABEL] ??
+      ORIGEM_ROTULO[lead.origem] ??
+      lead.origem)
+    : null;
+  const podeEntregar = profile?.role === "admin" || profile?.role === "gestor";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1171,6 +1178,19 @@ export function LeadDetailDrawer({
                     </Pill>
                     {lead.is_teste ? <Pill tone="warning">TESTE</Pill> : null}
                   </div>
+                  {lead.campanha_nome ? (
+                    <p
+                      className="mt-2 truncate text-[0.8125rem] text-muted-foreground"
+                      title={lead.campanha_nome}
+                    >
+                      Campanha: {lead.campanha_nome}
+                    </p>
+                  ) : null}
+                  {podeEntregar ? (
+                    <div className="mt-3">
+                      <ResponsavelLead leadId={lead.id} vendedorId={lead.vendedor_id} />
+                    </div>
+                  ) : null}
                 </div>
               </div>
               {whatsapp ? (

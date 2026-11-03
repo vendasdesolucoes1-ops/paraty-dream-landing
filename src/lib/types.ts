@@ -78,6 +78,8 @@ export interface Profile {
   vendedor_id: string | null;
   ativo: boolean;
   deletado_em: string | null;
+  /** Telas extras do vendedor além do CRM (agenda, lotes, lotes_3d). */
+  acessos?: string[] | null;
   created_at: string;
   updated_at: string;
 }

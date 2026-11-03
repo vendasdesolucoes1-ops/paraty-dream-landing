@@ -38,7 +38,10 @@ import { Pill } from "@/components/ds/pill";
 import { QueryState, SkeletonRows } from "@/components/ds/query-state";
 import { Reveal, atraso } from "@/components/ds/reveal";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { LoteStatusEditableBadge } from "@/components/dashboard/status-badge";
+import { LoteStatusBadge, LoteStatusEditableBadge } from "@/components/dashboard/status-badge";
+import { ModuloGuard } from "@/components/dashboard/role-guard";
+import { useProfile } from "@/hooks/use-profile";
+import { ehGestao, podeAcessar } from "@/lib/acessos";
 import { LOTE_STATUS_DOT } from "@/components/dashboard/lote-status";
 import { LoteFormDialog } from "@/components/dashboard/lote-form-dialog";
 import { LotePlantaViewer } from "@/components/dashboard/lote-planta-viewer";
@@ -76,8 +79,16 @@ export const Route = createFileRoute("/dashboard/lotes")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: LotesPage,
+  component: LotesProtegida,
 });
+
+function LotesProtegida() {
+  return (
+    <ModuloGuard modulo="lotes">
+      <LotesPage />
+    </ModuloGuard>
+  );
+}
 
 const QUADRA_OPTIONS = Array.from({ length: 10 }, (_, i) => String(i + 1));
 const PAGE_SIZE = 20;
@@ -118,6 +129,12 @@ function formatMetragem(value: number | null) {
 
 function LotesPage() {
   const queryClient = useQueryClient();
+  // Vendedor: só consulta disponibilidade (sem preço, sem edição), nas visões
+  // liberadas no cadastro dele. Gestão vê e edita tudo.
+  const { profile } = useProfile();
+  const gestao = ehGestao(profile?.role);
+  const verTabela = gestao || (profile?.acessos ?? []).includes("lotes");
+  const ver3d = gestao || podeAcessar(profile, "lotes_3d");
 
   // Initial state: no filter active.
   const [quadraFilter, setQuadraFilter] = useState("");
@@ -127,11 +144,16 @@ function LotesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editingLote, setEditingLote] = useState<Lote | null>(null);
-  const [view, setView] = useState<LotesView>(() => {
+  const [viewEscolhida, setView] = useState<LotesView>(() => {
     if (typeof window === "undefined") return "tabela";
     const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
     return stored === "planta" || stored === "3d" ? stored : "tabela";
   });
+  const view: LotesView =
+    viewEscolhida === "3d" ? (ver3d ? "3d" : "tabela") : verTabela ? viewEscolhida : "3d";
+  const abrirLote = (lote: Lote) => {
+    if (gestao) setEditingLote(lote);
+  };
 
   useEffect(() => {
     window.localStorage.setItem(VIEW_STORAGE_KEY, view);
@@ -208,6 +230,8 @@ function LotesPage() {
   );
 
   const filtered = lotes ?? [];
+  // O preço é de uso interno: o vendedor não o vê na planta nem no 3D.
+  const lotesVisiveis = gestao ? filtered : filtered.map((l) => ({ ...l, valor: null }));
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -280,19 +304,35 @@ function LotesPage() {
                   valor={view}
                   onChange={setView}
                   opcoes={[
-                    { valor: "tabela", rotulo: "Tabela", icone: <Table2 aria-hidden /> },
-                    { valor: "planta", rotulo: "Planta", icone: <MapIcon aria-hidden /> },
-                    { valor: "3d", rotulo: "3D", icone: <Box aria-hidden /> },
+                    ...(verTabela
+                      ? [
+                          {
+                            valor: "tabela" as const,
+                            rotulo: "Tabela",
+                            icone: <Table2 aria-hidden />,
+                          },
+                          {
+                            valor: "planta" as const,
+                            rotulo: "Planta",
+                            icone: <MapIcon aria-hidden />,
+                          },
+                        ]
+                      : []),
+                    ...(ver3d
+                      ? [{ valor: "3d" as const, rotulo: "3D", icone: <Box aria-hidden /> }]
+                      : []),
                   ]}
                 />
-                <LoteFormDialog
-                  trigger={
-                    <Button>
-                      <Plus className="h-4 w-4" aria-hidden />
-                      Novo Lote
-                    </Button>
-                  }
-                />
+                {gestao ? (
+                  <LoteFormDialog
+                    trigger={
+                      <Button>
+                        <Plus className="h-4 w-4" aria-hidden />
+                        Novo Lote
+                      </Button>
+                    }
+                  />
+                ) : null}
               </>
             }
           />
@@ -419,8 +459,8 @@ function LotesPage() {
               <QueryState query={{ ...consulta, isPending: false }} skeleton={null}>
                 {() => (
                   <LotePlantaViewer
-                    lotes={filtered}
-                    onSelectLote={setEditingLote}
+                    lotes={lotesVisiveis}
+                    onSelectLote={abrirLote}
                     selecionadoId={editingLote?.id ?? null}
                     carregando={isLoading}
                   />
@@ -438,7 +478,7 @@ function LotesPage() {
                   </div>
                 }
               >
-                <Loteamento3DView lotes={filtered} onSelectLote={setEditingLote} />
+                <Loteamento3DView lotes={lotesVisiveis} onSelectLote={abrirLote} />
               </Suspense>
             ) : (
               <QueryState
@@ -457,10 +497,12 @@ function LotesPage() {
                             <TableHead>Nº Lote</TableHead>
                             <TableHead className="text-right">Metragem</TableHead>
                             <TableHead>Tipo</TableHead>
-                            <TableHead className="text-right">Valor</TableHead>
+                            {gestao ? <TableHead className="text-right">Valor</TableHead> : null}
                             <TableHead>Status</TableHead>
                             <TableHead>Observações</TableHead>
-                            <TableHead className="pr-4 text-right">Ações</TableHead>
+                            {gestao ? (
+                              <TableHead className="pr-4 text-right">Ações</TableHead>
+                            ) : null}
                           </TableRow>
                         </TableHeader>
                         <TableBody key={`${currentPage}|${filtrosKey}`}>
@@ -486,11 +528,17 @@ function LotesPage() {
                                   "—"
                                 )}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatCurrency(lote.valor)}
-                              </TableCell>
+                              {gestao ? (
+                                <TableCell className="text-right tabular-nums">
+                                  {formatCurrency(lote.valor)}
+                                </TableCell>
+                              ) : null}
                               <TableCell>
-                                <LoteStatusEditableBadge loteId={lote.id} status={lote.status} />
+                                {gestao ? (
+                                  <LoteStatusEditableBadge loteId={lote.id} status={lote.status} />
+                                ) : (
+                                  <LoteStatusBadge status={lote.status} />
+                                )}
                               </TableCell>
                               <TableCell className="max-w-[180px] text-muted-foreground">
                                 {lote.observacoes ? (
@@ -512,34 +560,36 @@ function LotesPage() {
                                   "—"
                                 )}
                               </TableCell>
-                              <TableCell className="pr-3">
-                                <div className="flex items-center justify-end gap-0.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                    onClick={() => setEditingLote(lote)}
-                                    title="Editar lote"
-                                    aria-label={`Editar lote ${lote.numero_lote}`}
-                                  >
-                                    <Pencil className="h-4 w-4" aria-hidden />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:bg-danger-soft hover:text-danger"
-                                    title="Excluir lote"
-                                    aria-label={`Excluir lote ${lote.numero_lote}`}
-                                    onClick={() => {
-                                      if (window.confirm(`Excluir o lote ${lote.numero_lote}?`)) {
-                                        deleteMutation(lote.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" aria-hidden />
-                                  </Button>
-                                </div>
-                              </TableCell>
+                              {gestao ? (
+                                <TableCell className="pr-3">
+                                  <div className="flex items-center justify-end gap-0.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      onClick={() => setEditingLote(lote)}
+                                      title="Editar lote"
+                                      aria-label={`Editar lote ${lote.numero_lote}`}
+                                    >
+                                      <Pencil className="h-4 w-4" aria-hidden />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                                      title="Excluir lote"
+                                      aria-label={`Excluir lote ${lote.numero_lote}`}
+                                      onClick={() => {
+                                        if (window.confirm(`Excluir o lote ${lote.numero_lote}?`)) {
+                                          deleteMutation(lote.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" aria-hidden />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              ) : null}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -581,7 +631,7 @@ function LotesPage() {
           </div>
         </Reveal>
 
-        {editingLote ? (
+        {editingLote && gestao ? (
           <LoteFormDialog
             lote={editingLote}
             open={Boolean(editingLote)}
