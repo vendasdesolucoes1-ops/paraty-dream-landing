@@ -16,6 +16,8 @@ const COR: Record<LeadOrigem, string> = {
   instagram: "bg-chart-4",
   whatsapp_contato: "bg-chart-5",
   google_maps: "bg-chart-6",
+  anuncio_whatsapp: "bg-chart-2",
+  formulario_meta: "bg-chart-1",
 };
 
 type Dia = { dia: Date; total: number };

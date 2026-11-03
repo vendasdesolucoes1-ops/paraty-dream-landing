@@ -575,3 +575,32 @@ test("progresso da carga histórica em texto", async () => {
   assert.equal(ads.fracao, 1);
   assert.match(ads.detalhe, /^Concluída: dados desde/);
 });
+
+test("funil do anúncio à venda: somas e custo por etapa", async () => {
+  const { totaisFunil } = await import("./marketing-calculos.ts");
+  const linha = {
+    campanha_id: "c",
+    campanha_nome: "C",
+    effective_status: "ACTIVE",
+    tipo_resultado: "conversa" as const,
+    investimento: 500,
+    contatos_meta: 100,
+    leads_crm: 40,
+    qualificados: 20,
+    agendados: 10,
+    visitas: 5,
+    propostas: 2,
+    vendas: 1,
+  };
+  const t = totaisFunil([
+    linha,
+    { ...linha, campanha_id: "d", investimento: 300, vendas: 0, contatos_meta: 60, leads_crm: 20 },
+  ]);
+  assert.equal(t.investimento, 800);
+  assert.equal(t.agendados, 20);
+  assert.equal(t.custoPorAgendada, 40);
+  assert.equal(t.custoPorVisita, 80);
+  assert.equal(t.custoPorVenda, 800);
+  assert.equal(t.rastreados, 60 / 160);
+  assert.equal(totaisFunil([]).custoPorVenda, null);
+});

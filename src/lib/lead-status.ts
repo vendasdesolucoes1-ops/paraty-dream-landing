@@ -24,6 +24,8 @@ export const STATUS_LABEL = Object.fromEntries(
 export const ORIGENS: { value: LeadOrigem; label: string; importada: boolean }[] = [
   { value: "lp", label: "Landing Page", importada: false },
   { value: "whatsapp", label: "WhatsApp", importada: false },
+  { value: "anuncio_whatsapp", label: "Anúncio WhatsApp", importada: false },
+  { value: "formulario_meta", label: "Formulário Meta", importada: false },
   { value: "indicacao", label: "Indicação", importada: false },
   { value: "instagram", label: "Instagram", importada: false },
   { value: "whatsapp_contato", label: "Contatos do WhatsApp", importada: true },

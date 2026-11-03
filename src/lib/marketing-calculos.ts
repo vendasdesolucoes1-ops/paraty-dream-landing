@@ -971,3 +971,70 @@ export function resumoProgresso(p: ProgressoCarga): {
     fracao,
   };
 }
+
+// --- Etapa 4: funil do anúncio à venda ------------------------------------------
+
+export interface LinhaFunil {
+  campanha_id: string;
+  campanha_nome: string | null;
+  effective_status: string | null;
+  tipo_resultado: TipoResultado;
+  investimento: number;
+  contatos_meta: number;
+  leads_crm: number;
+  qualificados: number;
+  agendados: number;
+  visitas: number;
+  propostas: number;
+  vendas: number;
+}
+
+export interface TotaisFunil {
+  investimento: number;
+  contatos_meta: number;
+  leads_crm: number;
+  qualificados: number;
+  agendados: number;
+  visitas: number;
+  propostas: number;
+  vendas: number;
+  custoPorAgendada: number | null;
+  custoPorVisita: number | null;
+  custoPorVenda: number | null;
+  /** Parte dos contatos da Meta que virou lead identificado no CRM (0–1). */
+  rastreados: number | null;
+}
+
+/** Soma do funil e custos por etapa (investimento ÷ etapa). */
+export function totaisFunil(linhas: LinhaFunil[]): TotaisFunil {
+  const t = linhas.reduce(
+    (a, l) => ({
+      investimento: a.investimento + l.investimento,
+      contatos_meta: a.contatos_meta + l.contatos_meta,
+      leads_crm: a.leads_crm + l.leads_crm,
+      qualificados: a.qualificados + l.qualificados,
+      agendados: a.agendados + l.agendados,
+      visitas: a.visitas + l.visitas,
+      propostas: a.propostas + l.propostas,
+      vendas: a.vendas + l.vendas,
+    }),
+    {
+      investimento: 0,
+      contatos_meta: 0,
+      leads_crm: 0,
+      qualificados: 0,
+      agendados: 0,
+      visitas: 0,
+      propostas: 0,
+      vendas: 0,
+    },
+  );
+  const r = razao(t.leads_crm, t.contatos_meta);
+  return {
+    ...t,
+    custoPorAgendada: razao(t.investimento, t.agendados),
+    custoPorVisita: razao(t.investimento, t.visitas),
+    custoPorVenda: razao(t.investimento, t.vendas),
+    rastreados: r === null ? null : Math.min(1, r),
+  };
+}

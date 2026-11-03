@@ -14,6 +14,7 @@ import type {
   LinhaAnuncio,
   LinhaBreakdown,
   LinhaDemografia,
+  LinhaFunil,
   MidiaIg,
   NivelAnuncio,
   PontoSerieAds,
@@ -471,5 +472,31 @@ export function useProgressoCarga() {
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
+  });
+}
+
+/** Funil por campanha: investimento → contatos → etapas do CRM → vendas. */
+export function useFunilCampanhas(periodo: Periodo) {
+  return useQuery({
+    queryKey: [...chaveMarketing, "funil", periodo.inicio, periodo.fim],
+    queryFn: async () => {
+      const linhas = await rpc("marketing_funil_campanhas", {
+        p_inicio: periodo.inicio,
+        p_fim: periodo.fim,
+      });
+      return linhas.map((l) =>
+        numeros<LinhaFunil>(l, [
+          "investimento",
+          "contatos_meta",
+          "leads_crm",
+          "qualificados",
+          "agendados",
+          "visitas",
+          "propostas",
+          "vendas",
+        ]),
+      );
+    },
+    staleTime: FRESCO_MS,
   });
 }
