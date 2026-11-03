@@ -31,7 +31,12 @@ function lerEnv(nome: string): string {
  * CHECK da migração 20260711000000_ai_agent_config_fields.sql e o tipo
  * AiAgentModelo em src/lib/types.ts — mudar um exige mudar os três.
  */
-export const MODELOS_SOPHIA_PERMITIDOS = ["gpt-4o-mini", "gpt-4o"] as const;
+export const MODELOS_SOPHIA_PERMITIDOS = [
+  "gpt-4o-mini",
+  "gpt-4.1-mini",
+  "gpt-4o",
+  "gpt-4.1",
+] as const;
 export type ModeloSophia = (typeof MODELOS_SOPHIA_PERMITIDOS)[number];
 export const MODELO_SOPHIA_PADRAO: ModeloSophia = "gpt-4o-mini";
 
@@ -47,10 +52,10 @@ export function resolverModeloSophia(valor: unknown): ModeloSophia {
 export const MODELOS = {
   /**
    * Sophia (ai-agent-chat). O ID efetivo vem de ai_agents.modelo via
-   * resolverModeloSophia; este é o padrão. 0.4 segura a variação de fraseado
-   * sem deixar a resposta robótica.
+   * resolverModeloSophia; este é o padrão. 0.3: pouca variação de fato e de
+   * fraseado (com 1.0 ela inventava distâncias), ainda sem soar robótica.
    */
-  sophiaChat: { id: MODELO_SOPHIA_PADRAO, temperatura: 0.4, maxTokens: 1000 },
+  sophiaChat: { id: MODELO_SOPHIA_PADRAO, temperatura: 0.3, maxTokens: 1000 },
   /**
    * Reserva da Sophia, só via env OPENAI_FALLBACK_MODEL. Vazio desliga o
    * fallback (comportamento padrão); usa os mesmos parâmetros do principal.
@@ -103,5 +108,7 @@ export const MODELOS = {
 export const PRECO_POR_MILHAO: Record<string, { entrada: number; saida: number }> = {
   "gpt-4o-mini": { entrada: 0.15, saida: 0.6 },
   "gpt-4o": { entrada: 2.5, saida: 10 },
+  "gpt-4.1-mini": { entrada: 0.4, saida: 1.6 },
+  "gpt-4.1": { entrada: 2, saida: 8 },
   "text-embedding-3-small": { entrada: 0.02, saida: 0 },
 };

@@ -1,58 +1,35 @@
-// Supabase Edge Function — AI sales agent chat completion (OpenAI; modelo em _shared/modelos.ts).
-// Qualifies leads and drives toward scheduling a site visit, never closing the sale in-chat.
+// Supabase Edge Function — Sophia pelo painel (Configurações → Agente IA).
+//
+// O cérebro mora em _shared/sophia.ts e o caminho completo de uma resposta em
+// _shared/resposta-ia.ts (o mesmo que o webhook usa). Aqui ficam só as ações
+// do painel:
+//   testar         — "Testar agente": grava a mensagem no lead de teste e roda
+//                    o caminho de produção (decisão, histórico, pausa, opt-out,
+//                    ferramentas, ações), sem WhatsApp e sem debounce.
+//   simular_equipe — grava uma mensagem "da equipe pelo celular" no lead de
+//                    teste e pausa a IA, como o webhook faz.
+//   ultimo_prompt  — o que foi de fato enviado ao modelo na última chamada.
+//   preview_prompt — o prompt que seria montado agora para um lead.
+//   (sem ação)     — compatibilidade com o painel antigo: responde sem gravar.
+//
+// Só gestão (admin/gestor) ou service_role.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
-import { handleLeadQualification } from "../_shared/lead-qualification.ts";
-import { handleVisitaAgendada } from "../_shared/lead-visita.ts";
 import { pauseAI } from "../_shared/ai-takeover.ts";
-import { ehPedidoDeParada } from "../_shared/contato-bloqueado.ts";
+import { bloquearPorPedidoDeParada, ehPedidoDeParada } from "../_shared/contato-bloqueado.ts";
+import { jidDoTelefone } from "../_shared/envio-registrado.ts";
+import { responderLead } from "../_shared/resposta-ia.ts";
+import {
+  carregarContexto,
+  carregarHistorico,
+  gerarRespostaSophia,
+  montarPromptSistema,
+} from "../_shared/sophia.ts";
+import { resolverConhecimento } from "../_shared/rag.ts";
+import { lerConsultor, type Consultor, type MensagemModelo } from "../_shared/sophia-regras.ts";
 import { temTexto } from "../_shared/mensagem-entrada.ts";
-import { fetchComRetry } from "../_shared/http.ts";
-import { notificarResponsaveis } from "../_shared/notificar.ts";
-import { proximosDias } from "../_shared/data-br.ts";
-import {
-  CHAVE_JANELAS_VISITA,
-  MENSAGEM_VISITA_A_CONFIRMAR,
-  descreverJanelas,
-  lerJanelasVisita,
-  type JanelasVisita,
-} from "../_shared/janela-visita.ts";
-import { carregarLead } from "../_shared/lead-record.ts";
-import { registrarChamadaIA } from "../_shared/telemetria.ts";
-import {
-  FORMATO_SAIDA,
-  INSTRUCAO_SAIDA,
-  lerSaidaEstruturada,
-  textoComMarcasConfiaveis,
-} from "../_shared/saida-sophia.ts";
-import {
-  buscarTrechos,
-  formatarTrechos,
-  registrarConsultaRag,
-  resolverConhecimento,
-  type ConhecimentoParaPrompt,
-} from "../_shared/rag.ts";
-import {
-  blocoFerramentas,
-  ferramentasDoNivel,
-  horariosLivres,
-  nivelAutonomia,
-  patchDoLead,
-  permite,
-  resumirLotes,
-  resumoDoRegistro,
-  type NivelAutonomia,
-} from "../_shared/ferramentas-sophia.ts";
-import { MODELOS, resolverModeloSophia } from "../_shared/modelos.ts";
-import {
-  blocoEstiloAgente,
-  blocoInstrucoesEquipe,
-  mensagemTransferencia,
-  temperaturaAgente,
-  type PreferenciasEstilo,
-} from "../_shared/estilo-agente.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -63,1304 +40,198 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// O modelo principal vem do agente (ai_agents.modelo, validado contra a lista
-// do registro); o fallback, do env OPENAI_FALLBACK_MODEL via registro.
-const OPENAI_FALLBACK_MODEL = MODELOS.sophiaFallback.id;
-const VISITA_AGENDADA_TAG = "[VISITA_AGENDADA]";
-const TRANSFERIR_HUMANO_TAG = "[TRANSFERIR_HUMANO]";
-// Mesma marca que whatsapp-webhook.ts procura para disparar a atribuição por
-// round-robin (LEAD_QUALIFICADO_MARKER). Precisa bater exatamente — esse
-// prompt padrão só citava [VISITA_AGENDADA]/[TRANSFERIR_HUMANO] antes, então
-// se o agente ativo estivesse sem system_prompt customizado no banco, o
-// round-robin nunca disparava.
-const LEAD_QUALIFICADO_TAG = "[LEAD_QUALIFICADO]";
+const json = (corpo: unknown, status = 200) =>
+  new Response(JSON.stringify(corpo), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
-// A quarta saída do agente, e a primeira que não é avanço no funil. As outras
-// três significam "seguiu adiante"; esta significa "não quer", que até agora
-// não tinha como ser dito nem onde ser guardado.
-const LEAD_SEM_INTERESSE_TAG = "[LEAD_SEM_INTERESSE]";
-
-// Nível leve: recusou a visita, mas ainda não disse que quer sumir. Não mexe no
-// funil e não bloqueia nada — existe para a recusa SOBREVIVER à mensagem
-// seguinte, que é o que faltava. Sem persistir isso, o modelo reconhece o
-// "não", responde bem, e volta a convidar duas mensagens depois.
-const RECUSOU_VISITA_TAG = "[RECUSOU_VISITA]";
-
-// Duas recusas na mesma conversa promovem de "recusou a visita" para "sem
-// interesse" sozinhas, em código. É a rede de segurança: perceber intenção é
-// do modelo e falha às vezes, mas contar quantas vezes ele já percebeu é
-// determinístico, e insistir depois da segunda recusa é o que gera denúncia.
-const RECUSAS_ATE_SEM_INTERESSE = 2;
-
-// Janela do calendário injetado no prompt. Três semanas cobrem com folga o
-// horizonte de uma visita agendada por WhatsApp sem inchar o prompt.
-const DIAS_NO_CALENDARIO = 21;
-
-// Linhas de whatsapp_messages carregadas como histórico.
-//
-// Eram 10, e 10 é pouco pelo modo como gravamos: cada parte do `||` é uma
-// linha, então uma resposta da Sophia gasta 2 a 4 e a janela cobria só ~3
-// trocas. Numa conversa real o "morar" que o lead respondeu às 00:03 já tinha
-// saído da janela às 00:12, e a Sophia perguntou de novo — três vezes.
-//
-// 80 linhas ≈ 25 trocas, ou seja, a conversa inteira na prática. O custo é
-// pequeno perto do system prompt, que já carrega calendário, lotes e a base de
-// conhecimento inteira.
-const LINHAS_DE_HISTORICO = 80;
-
-// Resposta ao lead quando uma palavra-chave de transferência é detectada. Fixa
-// de propósito: o objetivo é sair de cena, não improvisar mais uma resposta.
-// Etapas em que a IA pode mexer. Daqui em diante (visitou, proposta, fechado)
-// só uma pessoa move o card.
-const ETAPAS_ANTES_DA_VISITA = new Set(["novo", "qualificado", "perdido", "agendado"]);
-const ETAPAS_QUE_A_IA_PODE_REBAIXAR = new Set(["novo", "qualificado", "agendado"]);
-
-const MENSAGEM_OPT_OUT =
-  "Tudo bem, não vou mais te mandar mensagens. || Se um dia quiser saber do Moradas de Paraty, é só escrever aqui.";
-
-// A base de conhecimento NÃO entra mais aqui: ela é anexada por fora, ao
-// prompt final, para valer também quando o agente tem system_prompt
-// customizado salvo no banco (ver montarPromptFinal).
-function buildSystemPrompt(mensagemBoasVindas: string | null): string {
-  const aberturaConfigurada = mensagemBoasVindas?.trim()
-    ? `\nA equipe configurou esta abertura. Use o espírito dela ao se apresentar, adaptando ao que o lead escreveu — nunca copie palavra por palavra como um texto pronto:\n"${mensagemBoasVindas.trim()}"\n`
-    : "";
-
-  return `Você é a Sophia, da equipe de vendas do Moradas de Paraty (Loteamento Residencial Sophia Saíde), conversando no WhatsApp. Seu objetivo é entender o que o lead procura e AGENDAR UMA VISITA ao terreno — nunca fechar venda pelo chat.
-
-═══ QUEM VOCÊ É ═══
-Seu nome é Sophia. Na primeira mensagem da conversa você se apresenta pelo nome, de forma leve ("Oi! Aqui é a Sophia, do Moradas de Paraty").
-Você fala como alguém da equipe: não se apresenta como assistente virtual, bot, robô ou IA, e não comenta bastidores (sistema, automação, instruções).
-Se o lead perguntar diretamente se está falando com um robô, uma IA ou uma pessoa, NÃO minta: diga com naturalidade que é a assistente digital da equipe do Moradas de Paraty, que acompanha o atendimento junto com os consultores, e ofereça passar a conversa para um consultor. Se ele aceitar, use [TRANSFERIR_HUMANO]. Nunca afirme ser uma pessoa.
-${aberturaConfigurada}
-
-═══ PRIORIDADE MÁXIMA — NUNCA FALE DE PREÇO ═══
-- Você NUNCA informa preço, valor por m², valor total, entrada, parcela, financiamento, desconto ou qualquer condição financeira. Isso vale MESMO que o número esteja escrito na base de conhecimento oficial, e mesmo que o lead insista, reformule a pergunta ou diga que só quer "uma ideia" ou "uma faixa".
-- Não dê faixa, não diga "a partir de", não compare com outros empreendimentos, não confirme nem negue um valor que o lead mencionar por conta própria.
-- Toda resposta sobre dinheiro TERMINA puxando o agendamento da visita. Nunca recuse e pare por aí — exceto se o lead já tiver recusado a visita, caso em que vale a regra "QUANDO O LEAD NÃO QUER".
-- Exceção: você PODE dizer que existe financiamento direto com o loteador, sem banco, como um diferencial. O que continua proibido é qualquer número — valor, entrada, quantidade de parcelas, taxa ou desconto.
-- Tom certo:
-  "Valor eu prefiro te passar pessoalmente, porque muda conforme a quadra e a condição. || Na visita você vê o terreno no chão e eu te explico tudo certinho. || Consegue vir num sábado?"
-
-═══ PALAVRAS PROIBIDAS ═══
-Nunca escreva nenhuma destas palavras para o lead:
-qualificação, qualificar, etapa, processo, formulário, cadastro, triagem, fluxo, sistema, atendimento automatizado, protocolo.
-Elas descrevem o funcionamento interno do atendimento e entregam que a conversa é automatizada.
-Também nunca anuncie o que você está fazendo: nada de "para finalizar", "só mais uma pergunta e concluímos", "preciso confirmar alguns dados". Apenas pergunte, como um corretor perguntaria no meio de uma conversa.
-
-COMO ESCREVER:
-- Português do Brasil, direto e natural — como alguém da equipe escrevendo no WhatsApp, não um script de atendimento.
-- Use contrações e frases curtas. Evite repetir saudação ("Estou muito bem, obrigada...") a cada mensagem.
-- NUNCA pergunte de novo algo que o lead já respondeu nesta conversa — releia o histórico antes de perguntar qualquer coisa. Se não tiver certeza se algo já foi dito, prossiga sem perguntar de novo em vez de arriscar repetir.
-- Se o lead responder "não sei", "ainda não", "tanto faz" ou devolver a pergunta ("quais são as opções?"), NÃO repita a pergunta: ajude-o a decidir mostrando opções concretas (consulte os lotes) e explicando a diferença entre elas.
-- Markdown é o do WhatsApp, não o padrão de blog: *negrito* com UM asterisco de cada lado (nunca **dois**), _itálico_ com underscore. Nunca use listas numeradas ("1. 2. 3.") — para listar, quebre linha e use • no início, nunca números.
-
-═══ EMOJIS — NUNCA USE (regra dura) ═══
-NENHUM emoji, em NENHUMA mensagem. Zero. Nem na saudação, nem na abertura da conversa, nem para suavizar uma recusa, nem para comemorar algo que o lead disse.
-Isso vale mesmo que algum exemplo em outra parte destas instruções contenha um: a regra acima vence o exemplo.
-O calor da conversa vem das palavras que você escolhe, não de um ícone no fim da frase.
-
-═══ QUEBRAR EM VÁRIAS MENSAGENS (regra dura) ═══
-Separe a resposta em mensagens curtas usando ||. Praticamente toda resposta deve ter pelo menos um ||. Uma pessoa real não manda parágrafo único no WhatsApp.
-
-ERRADO (bloco único, parece e-mail):
-"Oi, Marisa! Que bom que você se interessou pelo empreendimento. O loteamento fica bem pertinho do centro histórico, com toda a infraestrutura pronta: ruas pavimentadas, água e energia. É um lugar muito tranquilo, cercado de verde. Você está pensando em morar ou investir? E que tamanho de terreno você tem em mente?"
-
-CERTO (mesma resposta fatiada, uma pergunta só no fim):
-"Oi, Marisa! || O loteamento fica pertinho do centro histórico, cercado de verde. || Já tá tudo pronto: rua pavimentada, água e energia. || Você tá pensando em morar ou é mais pra investir?"
-
-Repare: cada || é uma mensagem que faz sentido sozinha, e a pergunta vem por último, uma de cada vez.
-
-COMO REAGIR: depois que o lead responde algo, comente brevemente sobre O QUE ELE DISSE antes de emendar a próxima pergunta — não abra a próxima mensagem elogiando ou repetindo o nome dele. "Prazer, Danilo!", "Ótimo, Danilo!", "Perfeito!" toda hora soa formulário lido em voz alta. Em vez disso:
-- Se disser que quer pra moradia, comente algo sobre morar ali antes de perguntar o tamanho.
-- Se disser investimento, comente algo sobre a região antes da próxima pergunta.
-- Varie a transição a cada mensagem — nunca repita a mesma estrutura "[elogio], [Nome]!" duas vezes na mesma conversa. Às vezes nem precisa de transição, só emenda.
-
-O QUE DESCOBRIR AO LONGO DA CONVERSA (sem parecer interrogatório):
-nome, cidade onde mora, objetivo (moradia/investimento/temporada), tamanho de terreno que procura, e como conheceu o Moradas de Paraty (Instagram, indicação, Google, site, anúncio...).
-NÃO pergunte forma de pagamento — isso é conversa da visita, não do WhatsApp.
-
-DISPONIBILIDADE:
-- O estoque real vem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA" e da ferramenta consultar_lotes. Só afirme que existe terreno de um tamanho se ele aparecer ali.
-- Se o tamanho pedido não estiver lá, mostre o que existe de mais próximo. Se o estoque estiver vazio, siga a orientação do bloco de lotes: apresente o empreendimento pela base de conhecimento, sem travar a conversa.
-- Nunca cite número de lote específico.
-
-═══ COMO CONDUZIR A CONVERSA ═══
-A conversa tem três momentos: entender, apresentar e convidar. É um roteiro, não uma trava: se o lead pedir as opções antes de você saber tudo, MOSTRE as opções na hora (consultar_lotes) e depois continue entendendo o que ele procura. Quem pergunta e recebe "deixa eu ver com a equipe" desiste.
-
-1) ENTENDER — descubra as quatro informações ao longo do papo, UMA pergunta por vez, sem parecer interrogatório: nome, cidade onde mora, objetivo e tamanho de terreno.
-   O NOME VEM PRIMEIRO. Sua primeira pergunta da conversa é o nome dele, sempre — antes de perguntar objetivo, tamanho ou qualquer outra coisa. Peça de um jeito leve, emendado na apresentação, nunca como um campo a preencher.
-   Exemplo de abertura: "Oi! Aqui é a Sophia, do Moradas de Paraty || Antes de mais nada, como posso te chamar?"
-   Se o lead já tiver dito o nome (ou ele vier junto da mensagem dele), não pergunte de novo — use e siga.
-   O CANAL é a única das cinco informações que você pode já ter de graça: se o lead disser espontaneamente por onde chegou ("vi no Instagram", "um amigo indicou", "achei no Google"), apenas registre e NUNCA pergunte de novo.
-   Se ele não mencionar, pergunte UMA vez, em algum ponto natural — nunca como primeira nem como última coisa, e nunca emendada em outra pergunta. Exemplo: "Ah, deixa eu te perguntar: como você acabou conhecendo a gente?"
-   Se ele desconversar ou não responder, siga em frente e não insista: é a única que não vale travar a conversa.
-
-2) APRESENTAR — assim que souber o objetivo ou o tamanho (ou quando o lead pedir), mostre pelo menos UMA opção concreta que combine com o que a pessoa contou: a metragem, a quadra e um diferencial de verdade (a parte do loteamento onde fica, área verde por perto, infraestrutura pronta). A metragem e a quadra saem do bloco "LOTES REALMENTE DISPONÍVEIS AGORA"; o diferencial sai da base de conhecimento. Nunca cite número de lote e nunca cite preço.
-   Exemplo: "Pelo que você me contou, acho que tenho a cara do que você procura. || Tem terreno de 250m² na quadra 3, numa parte bem tranquila do loteamento. || Rua pavimentada, água e luz já prontas."
-
-3) CONVIDAR — só depois de apresentar a opção, proponha a visita.
-
-Não proponha visita antes de apresentar pelo menos uma opção: convidar cedo demais soa como pressão. Mas se o próprio lead pedir para agendar, acolha e agende — no máximo, pergunte junto o que for essencial (o nome, se ainda não souber).
-
-═══ QUANDO O LEAD NÃO QUER (regra dura, vale acima de todas as anteriores) ═══
-
-Se o lead demonstrar que não quer agendar, que não tem interesse, ou pedir para parar, você PARA. Isso vale acima de qualquer regra deste prompt que mande puxar a visita — inclusive as de preço, de disponibilidade e de "não sei, vou confirmar com a equipe".
-
-Você reconhece a INTENÇÃO, não frases específicas. "Não quero agendar", "não é pra mim", "agora não dá", "só estava olhando", "para de insistir", "me tira dessa lista" — e qualquer reformulação. Um lead que desconversa duas vezes seguidas sobre a visita também está dizendo não, mesmo sem usar a palavra.
-
-O que fazer, na ordem:
-
-1. Na mesma mensagem em que ele recusa, você NÃO convida de novo. Nem suavizado, nem "quem sabe mais pra frente", nem "se mudar de ideia posso te chamar sábado". Acolha e pare. Responda com ${RECUSOU_VISITA_TAG} no início da mensagem (sinal interno, não aparece pro lead).
-   Exemplo: "Entendi, sem problema nenhum. || Obrigada pelo seu tempo."
-
-2. Pergunte UMA única vez, e só uma, se ele prefere não receber mais contato — ou apenas se coloque à disposição, sem propor próximo passo.
-   Exemplo: "Se quiser, eu fico à disposição por aqui e não te mando mais nada. || Você prefere assim?"
-
-3. Se ele confirmar que não quer seguir, encerre com educação e responda com ${LEAD_SEM_INTERESSE_TAG} no início da mensagem. Não tente reengajar, não faça uma última oferta, não pergunte o motivo.
-   Exemplo: "Combinado. || Qualquer coisa, é só me chamar por aqui. || Boa semana!"
-
-4. DEPOIS DE UMA RECUSA, o convite de visita está proibido pelo resto da conversa. Se ele continuar falando por outro motivo — tirar uma dúvida, perguntar sobre a região, mandar um "obrigado" — responda normalmente e NÃO volte a propor visita, data ou horário. Nem uma vez. Só volte a propor se ELE mesmo pedir para agendar.
-
-Nunca discuta a recusa, nunca peça para ele reconsiderar, nunca pergunte "posso te fazer só mais uma pergunta". Insistir depois de um não é o que transforma um lead frio em uma denúncia — e a denúncia derruba o número que atende todos os outros leads.
-
-REGRAS:
-- Assim que tiver nome + cidade + objetivo + tamanho de interesse coletados, responda com ${LEAD_QUALIFICADO_TAG} no início da mensagem (isso não aparece pro lead, é um sinal interno). Se já souber também como ele conheceu a gente, melhor — mas a falta só desse dado NÃO deve segurar o sinal.
-- Quando o lead confirmar visita, responda com ${VISITA_AGENDADA_TAG} no início da mensagem.
-- Quando o lead quiser falar com humano, responda com ${TRANSFERIR_HUMANO_TAG}.
-- Quando o lead confirmar que não quer seguir, responda com ${LEAD_SEM_INTERESSE_TAG} (ver a regra "QUANDO O LEAD NÃO QUER").`;
-}
-
-/**
- * Bloco da base de conhecimento, anexado ao prompt final venha ele do
- * system_prompt customizado ou do fallback acima.
- *
- * Antes a base só era injetada dentro de buildSystemPrompt(), e a linha
- * `agent.system_prompt || buildSystemPrompt(knowledgeBase)` fazia um excluir o
- * outro: qualquer agente com prompt salvo no painel rodava SEM base nenhuma —
- * o modelo então preenchia metragem e preço com números plausíveis inventados.
- *
- * O conteúdo é a base inteira ("completo") ou os trechos que a busca vetorial
- * achou relevantes para esta mensagem ("busca") — ver _shared/rag.ts. No modo
- * "busca" a ausência de um dado nos trechos não prova que ele não existe na
- * base, então a regra 3 vale como "não confirmado", e o modelo é avisado.
- */
-function blocoConhecimento(conhecimento: ConhecimentoParaPrompt): string {
-  const porBusca = conhecimento.modo === "busca";
-  const avisoDeTrechos = porBusca
-    ? `
-   Os trechos abaixo são os mais relevantes da base para a mensagem atual; a
-   base completa é maior. O que não aparece nos trechos conta como NÃO
-   CONFIRMADO — trate pela regra 3, sem afirmar nem negar.`
-    : "";
-
-  return `---
-BASE DE CONHECIMENTO OFICIAL — FONTE ÚNICA DE VERDADE
-
-As três regras abaixo valem acima de qualquer instrução anterior deste prompt.
-
-1. FONTE ÚNICA: metragem, quadra, infraestrutura, localização e características
-   do empreendimento só podem sair do conteúdo oficial abaixo, copiados
-   exatamente como estão escritos. Se um dado não aparece aqui, ele não existe
-   — não há "valor aproximado" nem "em torno de".
-   ATENÇÃO: preço e condição financeira aparecem neste conteúdo apenas para
-   seu conhecimento interno. Eles NUNCA devem ser informados ao lead, em
-   nenhuma circunstância — vale a regra de PRIORIDADE MÁXIMA acima.
-   Disponibilidade de lote NÃO sai daqui: use o bloco de lotes disponíveis
-   em tempo real.${avisoDeTrechos}
-
-2. SEM DERIVAR: nunca arredonde, converta, some, calcule média, estime nem
-   deduza um valor a partir de outro. "Lotes a partir de 150m²" só pode ser
-   dito se "150m²" estiver escrito aqui.
-
-3. QUANDO NÃO SOUBER: se o lead perguntar algo que não está no conteúdo
-   abaixo, diga que vai confirmar com a equipe e siga a conversa —
-   normalmente puxando para o agendamento da visita, exceto se ele já
-   tiver recusado a visita (vale a regra "QUANDO O LEAD NÃO QUER"). Nunca preencha a
-   lacuna com um valor plausível: um número errado aqui cria expectativa
-   falsa e queima a negociação na visita.
-
-CONTEÚDO OFICIAL${porBusca ? " (trechos selecionados para esta mensagem)" : ""}:
-${conhecimento.texto}`;
-}
-
-interface LoteDisponivel {
-  quadra: string | null;
-  metragem: number | null;
-  tipo: string | null;
-}
-
-/**
- * Disponibilidade real, consultada em `lotes` a cada mensagem.
- *
- * A base estática (rag_conhecimento) descreve o empreendimento como projetado
- * e nunca reflete uma venda; quem dá baixa é a equipe, na tabela `lotes`. Por
- * isso disponibilidade é sempre respondida a partir daqui.
- *
- * Agregado por metragem+tipo em vez de lote a lote: são ~100 lotes, e a lista
- * item a item entraria em TODA mensagem, além de convidar o agente a citar um
- * número de lote específico que pode ser vendido antes da visita.
- */
-function blocoLotesDisponiveis(lotes: LoteDisponivel[]): string {
-  if (lotes.length === 0) {
-    return `---
-LOTES REALMENTE DISPONÍVEIS AGORA (consultado em tempo real)
-
-Nenhum lote está marcado como disponível no cadastro neste momento (o
-cadastro pode estar desatualizado). Não trave a conversa e não fique dizendo
-que vai confirmar com a equipe:
-- apresente o empreendimento pelo que está na base de conhecimento (tamanhos
-  de lote previstos no projeto, localização, infraestrutura, diferenciais),
-  deixando claro que a disponibilidade exata o consultor confirma na visita;
-- continue entendendo o que o lead procura e convide para a visita;
-- nunca diga que não há lotes nem invente quadra.`;
-  }
-
-  // chave: "metragem|tipo" -> quadras distintas e total
-  const grupos = new Map<
-    string,
-    { metragem: number; tipo: string; quadras: Set<string>; n: number }
-  >();
-  for (const lote of lotes) {
-    if (lote.metragem == null) continue;
-    const tipo = lote.tipo ?? "residencial";
-    const chave = `${lote.metragem}|${tipo}`;
-    const grupo = grupos.get(chave) ?? {
-      metragem: Number(lote.metragem),
-      tipo,
-      quadras: new Set<string>(),
-      n: 0,
-    };
-    if (lote.quadra) grupo.quadras.add(String(lote.quadra));
-    grupo.n += 1;
-    grupos.set(chave, grupo);
-  }
-
-  const linhas = [...grupos.values()]
-    .sort((a, b) => a.metragem - b.metragem || a.tipo.localeCompare(b.tipo))
-    .map((g) => {
-      const quadras = [...g.quadras].sort((a, b) => Number(a) - Number(b)).join(", ");
-      const m = g.metragem.toFixed(2).replace(".", ",");
-      const plural = g.n === 1 ? "disponível" : "disponíveis";
-      return `- ${m}m² (${g.tipo}) — ${g.n} ${plural}${quadras ? `, quadra(s) ${quadras}` : ""}`;
-    });
-
-  return `---
-LOTES REALMENTE DISPONÍVEIS AGORA (consultado em tempo real)
-
-Esta é a ÚNICA fonte válida sobre o que está livre. Ignore o que a base
-estática disser sobre quais lotes existem ou estão disponíveis — ela descreve
-o projeto, não o estoque de hoje.
-Só confirme que existe terreno de um tamanho se ele aparecer nesta lista. Se
-o tamanho pedido não aparecer, ofereça o mais próximo que aparece. Nunca cite
-número de lote específico.
-
-${linhas.join("\n")}`;
-}
-
-export interface LeadConhecido {
+interface PerfilTeste {
   nome?: string | null;
   cidade?: string | null;
-  objetivo?: string | null;
-  metragem_interesse?: string | null;
-  canal_origem?: string | null;
-  recusou_visita_em?: string | null;
-  sem_interesse_em?: string | null;
-  recusas_visita?: number | null;
+  finalidade?: string | null;
+  prazo_compra?: string | null;
+  quer_visitar?: string | null;
+  campanha_nome?: string | null;
 }
 
-/**
- * O que já sabemos sobre este lead, vindo do formulário do site ou de conversas
- * anteriores.
- *
- * Antes isto não existia: o modelo só via o system prompt e as últimas 10
- * mensagens. Tudo que o lead digitou no formulário era invisível para ele, e o
- * resultado era perguntar de novo o nome e a metragem que a pessoa acabara de
- * informar — e, pior, nunca emitir [LEAD_QUALIFICADO], porque na conta dele
- * ainda faltavam dados que já estavam no banco.
- *
- * A janela de 10 mensagens agrava: a abertura da Sophia sozinha ocupa 4 delas,
- * então o começo da conversa sai de vista rápido. Este bloco não expira.
- */
-function blocoLeadConhecido(lead: LeadConhecido | null): string {
-  if (!lead) return "";
-
-  const campos: string[] = [];
-  const add = (rotulo: string, valor: unknown) => {
-    const limpo = String(valor ?? "").trim();
-    if (limpo) campos.push(`- ${rotulo}: ${limpo}`);
-  };
-
-  add("Nome", lead.nome);
-  add("Cidade onde mora", lead.cidade);
-  add("Objetivo (morar/investir/temporada)", lead.objetivo);
-  add("Tamanho de terreno que procura", lead.metragem_interesse);
-  add("Como conheceu a gente", lead.canal_origem);
-
-  if (campos.length === 0) return "";
-
-  return `---
-O QUE VOCÊ JÁ SABE SOBRE ESTA PESSOA (regra dura)
-
-Estes dados já estão registrados — vieram do formulário do site ou de conversas
-anteriores. Trate cada um como se a própria pessoa tivesse acabado de te contar.
-
-${campos.join("\n")}
-
-- NUNCA pergunte do zero nada que já esteja nesta lista. Perguntar como se não
-  soubesse o que a pessoa acabou de informar é o erro que mais rápido destrói a
-  confiança dela.
-- Se precisar tocar num desses assuntos — para confirmar, para atualizar ou
-  porque a conversa levou até ele — RECONHEÇA o que você já sabe dentro da
-  própria pergunta, nunca pergunte em branco:
-  ERRADO: "Que tamanho de terreno você procura?"
-  CERTO:  "Vi que você marcou 450m² no site. || Ainda é essa a ideia ou mudou?"
-  ERRADO: "Você é de onde?"
-  CERTO:  "Você tá em Ubatuba, né? || É perto, dá pra vir num fim de semana."
-- Use naturalmente na conversa, sem recapitular a lista inteira para ela e sem
-  dizer palavras como "cadastro" ou "formulário" (estão proibidas): "vi que
-  você marcou no site", "você tinha me falado", "se não me engano" resolvem.
-- Para a regra de ${LEAD_QUALIFICADO_TAG}, estes dados CONTAM como coletados.
-  Se nome, cidade, objetivo e tamanho já estiverem todos aqui, emita a marca na
-  sua próxima resposta — não espere a pessoa repetir pelo chat o que ela já
-  respondeu no site.
-- Só pergunte o que estiver FALTANDO nesta lista.`;
-}
-
-/**
- * Data de hoje, para a Sophia poder falar de dia da semana sem chutar.
- *
- * Sem esta âncora o modelo não tem como saber que "sábado" e "09/08" são
- * incompatíveis — foi assim que ele confirmou uma visita num domingo achando
- * que era sábado. Modelo de linguagem não tem relógio.
- */
-function blocoDataDeHoje(agora: Date): string {
-  const dias = proximosDias(agora, DIAS_NO_CALENDARIO);
-  const hoje = dias[0];
-  const tabela = dias
-    .map((d, i) => `${d.ddmm} - ${d.diaSemana}${i === 0 ? "  <- hoje" : ""}`)
-    .join("\n");
-
-  return `---
-CALENDÁRIO (regra dura — leia antes de falar qualquer data)
-
-Hoje é ${hoje.ddmm} (${hoje.iso}), ${hoje.diaSemana}, no horário de Paraty.
-
-${tabela}
-
-- Você NUNCA calcula dia da semana. Nunca. Toda vez que for dizer, confirmar ou
-  interpretar uma data, LEIA a linha correspondente na tabela acima e use o que
-  está escrito nela. A tabela é a única fonte — sua intuição sobre calendário
-  está errada com frequência.
-- Isso vale nos dois sentidos: para descobrir o dia da semana de uma data
-  ("dia 9" -> procure "09/" na tabela) e para descobrir a data de um dia da
-  semana ("sexta que vem" -> ache a próxima linha com "sexta").
-- Se a pessoa citar um dia da semana e uma data que NÃO batem na tabela, não
-  escolha um dos dois e não confirme: mostre a divergência e pergunte. Exemplo:
-  "Só confirmando: dia 9 cai num domingo. || Pode ser domingo mesmo ou você
-  quis dizer outro dia?"
-- Se a data que ela mencionar NÃO estiver na tabela (mais de ${DIAS_NO_CALENDARIO} dias à
-  frente), não arrisque: pergunte qual dia da semana ela tem em mente, ou
-  proponha uma data que esteja na tabela.
-- Visita marcada no dia errado faz alguém viajar à toa.`;
-}
-
-/**
- * Janelas de visita configuradas no painel (issue #56). Sem isto a Sophia
- * confirmava domingo às 20h; o horário fora da janela continua sendo pego
- * depois, na criação da visita, mas o ideal é ela nem propor.
- */
-function blocoHorariosVisita(janelas: JanelasVisita): string {
-  return `---
-HORÁRIOS DE VISITA
-
-Horários de visita disponíveis: ${descreverJanelas(janelas)}. Cada visita dura cerca de ${janelas.duracao_min} minutos.
-
-- Só proponha dias e horários dentro destas janelas.
-- Se o lead pedir um dia ou horário fora delas, NÃO confirme: diga que vai checar a agenda com o consultor e ofereça uma opção dentro da janela.
-- O horário só fica confirmado depois de conferido com a agenda do consultor; não prometa que está garantido.`;
-}
-
-/** Prompt base (customizado ou padrão) + hoje + lead + disponibilidade + base. */
-/**
- * A recusa, dita de volta ao modelo a cada mensagem.
- *
- * Esta é a peça que resolve o problema relatado. O modelo até reconhece o "não"
- * na hora — o que ele não tem é memória de que já reconheceu: duas mensagens
- * depois, sem nada no contexto dizendo o contrário, as três regras que mandam
- * "puxar a visita" voltam a valer e ele convida de novo. A janela de histórico
- * ajuda, mas depender dela é apostar que o "não" não vai rolar para fora da
- * janela numa conversa longa — e é justamente na conversa longa que a
- * insistência irrita mais.
- */
-function blocoRecusaAnterior(lead: LeadConhecido | null): string {
-  if (!lead) return "";
-
-  if (lead.sem_interesse_em) {
-    return `---
-ESTA PESSOA PEDIU PARA NÃO SER MAIS PROCURADA (regra dura, acima de tudo)
-
-Ela já disse que não quer seguir. Se está escrevendo agora, foi ela quem
-procurou você — responda só o que ela perguntou, com educação.
-
-- NÃO proponha visita, data nem horário. Em hipótese alguma.
-- NÃO pergunte de novo se ela mudou de ideia.
-- NÃO retome a qualificação (objetivo, tamanho, cidade).
-- Se ela mesma pedir para agendar, aí sim siga normalmente.`;
-  }
-
-  if (lead.recusou_visita_em) {
-    return `---
-ESTA PESSOA JÁ RECUSOU A VISITA (regra dura, acima de tudo)
-
-Ela já disse não a um convite de visita nesta conversa. O convite está
-proibido pelo resto da conversa — inclusive nas respostas sobre preço, sobre
-disponibilidade e nas de "vou confirmar com a equipe", cujas regras mandam
-puxar o agendamento e NÃO valem mais aqui.
-
-- NÃO proponha visita, data nem horário, de nenhuma forma, nem suavizada.
-- Continue respondendo normalmente o que ela perguntar.
-- Só volte a propor visita se ELA mesma pedir para agendar.`;
-  }
-
-  return "";
-}
-
-/** Canal das interações de recusa, para o histórico do lead no CRM. */
-const CANAL_RECUSA = "recusa";
-
-/**
- * Grava a recusa e, quando for o caso, promove para "sem interesse".
- *
- * A promoção automática na segunda recusa é a rede de segurança: perceber
- * intenção é do modelo e falha às vezes, mas CONTAR quantas vezes ele já
- * percebeu é determinístico — e insistir depois do segundo não é exatamente o
- * que vira denúncia.
- *
- * `contato_bloqueado` não é derivado de status_crm='perdido' de propósito: um
- * lead dado como perdido por sumiço continua elegível para reengajamento; um
- * que pediu para parar, não. Derivar um do outro faria o opt-out sumir no dia
- * em que alguém reabrisse o card.
- */
-async function registrarRecusa(leadId: string, confirmouSemInteresse: boolean): Promise<void> {
-  const { data: atual, error } = await supabase
+/** Lead de teste novo, com telefone fictício único (não existe no WhatsApp). */
+async function criarLeadDeTeste(perfil: PerfilTeste | null): Promise<string> {
+  const telefone = `5500${String(Date.now()).slice(-9)}`;
+  const deFormulario = Boolean(perfil?.prazo_compra || perfil?.quer_visitar);
+  const { data, error } = await supabase
     .from("leads")
-    .select("recusas_visita, recusou_visita_em, sem_interesse_em, status_crm")
-    .eq("id", leadId)
-    .maybeSingle();
+    .insert({
+      nome: perfil?.nome?.trim() || "Lead de Teste (painel)",
+      telefone,
+      cidade: perfil?.cidade ?? null,
+      origem: deFormulario ? "formulario_meta" : "whatsapp",
+      status_crm: deFormulario ? "qualificado" : "novo",
+      is_teste: true,
+      finalidade: perfil?.finalidade ?? null,
+      prazo_compra: perfil?.prazo_compra ?? null,
+      quer_visitar: perfil?.quer_visitar ?? null,
+      campanha_nome: perfil?.campanha_nome ?? null,
+      formulario_nome: deFormulario ? "Formulário de teste" : null,
+      leadgen_id: deFormulario ? `teste-${crypto.randomUUID()}` : null,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
 
-  // Migration pendente: as colunas ainda não existem. Registrar isso e seguir é
-  // melhor que derrubar a resposta ao lead — mesma lição da regressão do
-  // canal_origem, que parou a captação inteira por uma coluna opcional.
-  if (error) {
-    console.error("[ai-agent-chat] MIGRATION PENDENTE? recusa não registrada:", error.message);
-    return;
-  }
-  if (!atual) return;
-
-  // Já estava sem interesse: não empilha outra linha no histórico, mas garante
-  // o bloqueio — um "pare" depois de um desbloqueio manual precisa valer de novo.
-  if (atual.sem_interesse_em) {
-    await supabase
+async function leadDeTeste(leadId: string | null, perfil: PerfilTeste | null) {
+  if (leadId) {
+    const { data } = await supabase
       .from("leads")
-      .update({ contato_bloqueado: true })
+      .select("id, telefone, is_teste")
       .eq("id", leadId)
-      .eq("contato_bloqueado", false);
-    return;
+      .maybeSingle();
+    if (!data?.is_teste) throw new Error("o teste só roda em lead de teste");
+    return { id: data.id as string, telefone: String(data.telefone) };
   }
-
-  const recusas = (atual.recusas_visita ?? 0) + (confirmouSemInteresse ? 0 : 1);
-  const viraSemInteresse = confirmouSemInteresse || recusas >= RECUSAS_ATE_SEM_INTERESSE;
-  const agoraIso = new Date().toISOString();
-
-  const patch: Record<string, unknown> = {
-    recusas_visita: recusas,
-    recusou_visita_em: atual.recusou_visita_em ?? agoraIso,
-  };
-
-  if (viraSemInteresse) {
-    patch.sem_interesse_em = agoraIso;
-    patch.contato_bloqueado = true;
-    // Não rebaixa quem já comprou: 'fechado' é desfecho, não etapa. Mesmo
-    // cuidado que a qualificação já toma ao promover status.
-    // Só rebaixa quem ainda está no começo do funil: visita feita, proposta e
-    // venda são fatos que uma recusa no chat não desfaz (auditoria R-09).
-    if (ETAPAS_QUE_A_IA_PODE_REBAIXAR.has(atual.status_crm ?? "novo")) {
-      patch.status_crm = "perdido";
-    }
-  }
-
-  const { error: erroUpdate } = await supabase.from("leads").update(patch).eq("id", leadId);
-  if (erroUpdate) {
-    console.error(
-      "[ai-agent-chat] MIGRATION PENDENTE? update de recusa falhou:",
-      erroUpdate.message,
-    );
-    return;
-  }
-
-  // O vendedor não é notificado (recusa vira ruído no WhatsApp dele), mas
-  // precisa conseguir entender depois por que o card foi para "perdido".
-  await supabase.from("interacoes").insert({
-    lead_id: leadId,
-    tipo: "sistema",
-    canal: CANAL_RECUSA,
-    conteudo: viraSemInteresse
-      ? confirmouSemInteresse
-        ? "Lead confirmou que não quer seguir. Movido para perdido e bloqueado para contato ativo."
-        : `Lead recusou a visita ${recusas} vezes. Movido para perdido e bloqueado para contato ativo.`
-      : "Lead recusou o convite de visita. A Sophia não vai convidar de novo nesta conversa.",
-  });
+  const id = await criarLeadDeTeste(perfil);
+  const { data } = await supabase.from("leads").select("telefone").eq("id", id).single();
+  return { id, telefone: String(data!.telefone) };
 }
 
-/**
- * O lead pediu uma pessoa: fica no histórico e alguém é avisado de verdade.
- * Antes só a pausa acontecia — a Sophia prometia "já estou chamando alguém" e
- * ninguém ficava sabendo.
- */
-async function registrarHandoff(
-  leadId: string,
-  instanceId: string | null,
-  origem: string,
-): Promise<void> {
-  await supabase.from("interacoes").insert({
-    lead_id: leadId,
-    tipo: "sistema",
-    canal: "handoff",
-    conteudo: `Lead pediu atendimento humano (${origem}). A IA foi pausada para esta conversa.`,
-  });
-
-  const { data: instancia } = instanceId
-    ? await supabase
-        .from("whatsapp_instances")
-        .select("id, api_url, api_key, instance_name")
-        .eq("id", instanceId)
-        .maybeSingle()
-    : { data: null };
-
-  await notificarResponsaveis(
-    supabase,
-    leadId,
-    {
-      tipo: "handoff",
-      titulo: "Lead pediu atendimento humano",
-      corpo: "A IA foi pausada. Responda pelo CRM o quanto antes.",
-    },
-    instancia,
-  );
-}
-
-function montarPromptFinal(
-  customPrompt: string | null,
-  conhecimento: ConhecimentoParaPrompt,
-  lotes: LoteDisponivel[],
-  mensagemBoasVindas: string | null,
-  lead: LeadConhecido | null,
-  agora: Date,
-  janelas: JanelasVisita,
-  estilo: PreferenciasEstilo,
-  nivel: NivelAutonomia,
-): string {
-  const basePrompt = customPrompt?.trim() ? customPrompt : buildSystemPrompt(mensagemBoasVindas);
-  // Os blocos vêm por FORA do prompt base, nunca dentro dele: um system_prompt
-  // customizado salvo no painel substitui a base inteira, e foi assim que a
-  // base de conhecimento já ficou sem ser injetada uma vez. O que é essencial
-  // não pode depender de o texto do painel lembrar de incluir.
-  return [
-    basePrompt,
-    // Logo após a base, cujas regras de estilo ele ajusta (tom, emoji, tamanho).
-    blocoEstiloAgente(estilo),
-    blocoInstrucoesEquipe(estilo.instrucoes_extras),
-    blocoFerramentas(nivel),
-    blocoDataDeHoje(agora),
-    blocoHorariosVisita(janelas),
-    blocoLeadConhecido(lead),
-    // Depois do bloco de dados e antes dos lotes: a recusa precisa vir tarde no
-    // prompt, porque é ela que revoga as regras de "puxe a visita" que vieram
-    // antes.
-    blocoRecusaAnterior(lead),
-    blocoLotesDisponiveis(lotes),
-    blocoConhecimento(conhecimento),
-  ]
-    .filter((b) => b.trim())
-    .join("\n\n");
-}
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-/**
- * Junta linhas consecutivas do mesmo remetente numa mensagem só.
- *
- * Cada parte do `||` vira uma linha em whatsapp_messages, então uma única
- * resposta da Sophia chega aqui como 2 a 4 mensagens de assistant seguidas, e
- * o lead que escreve em blocos vira várias de user. Para o modelo isso lê como
- * uma dúzia de turnos picados em vez da meia dúzia de trocas que de fato
- * aconteceram — e é assim que "tudo bem?" e "morar", digitados com 2 segundos
- * de diferença, viram dois turnos distintos e o segundo passa despercebido.
- *
- * Agrupar é transformação em memória: o banco continua com uma linha por
- * mensagem enviada, que é o que o CRM precisa exibir.
- */
-function agruparConsecutivas(mensagens: ChatMessage[]): ChatMessage[] {
-  const agrupadas: ChatMessage[] = [];
-
-  for (const m of mensagens) {
-    const conteudo = String(m.content ?? "").trim();
-    if (!conteudo) continue;
-
-    const anterior = agrupadas[agrupadas.length - 1];
-    if (anterior && anterior.role === m.role) {
-      anterior.content = `${anterior.content}\n${conteudo}`;
-    } else {
-      agrupadas.push({ role: m.role, content: conteudo });
-    }
-  }
-
-  return agrupadas;
-}
-
-interface ChatRequestBody {
-  agent_id: string;
-  /** "preview_prompt" devolve o prompt montado sem chamar a OpenAI. */
-  action?: string;
-  message: string;
-  contact_phone: string;
-  contact_name?: string | null;
-  lead_id: string | null;
-  session_id: string;
-  // Histórico explícito, opcional — usado pelo painel "Testar Agente", que
-  // não tem um lead_id real pra buscar no banco. Quando ausente, cai no
-  // fallback de buscar em whatsapp_messages por lead_id (fluxo real do
-  // WhatsApp).
-  history?: ChatMessage[];
+async function linhasDeAcao(leadId: string, desde: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("interacoes")
+    .select("conteudo")
+    .eq("lead_id", leadId)
+    .eq("canal", "sophia_acao")
+    .gte("created_at", desde)
+    .order("created_at");
+  return (data ?? []).map((r) => String(r.conteudo));
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
   if (chamador instanceof Response) return chamador;
 
   try {
-    const body: ChatRequestBody = await req.json();
-    const { agent_id, message, lead_id, session_id, history: explicitHistory, action } = body;
+    const body = await req.json();
+    const acao = String(body.action ?? "");
+    const agentId = String(body.agent_id ?? "");
+    if (!agentId) return json({ error: "agent_id obrigatório" }, 400);
 
-    // Conferência do prompt no painel: monta e devolve, sem gastar chamada de
-    // modelo — e por isso também não exige a chave da OpenAI configurada.
-    const apenasPreview = action === "preview_prompt";
-
-    if (!apenasPreview && !OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
-    }
-
-    // Mensagem vazia (áudio, mídia sem legenda) não vai ao modelo: ele
-    // responderia a algo que não leu (issue #55).
-    if (!apenasPreview && !temTexto(message)) {
-      return new Response(JSON.stringify({ error: "mensagem sem texto" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { data: agent, error: agentError } = await supabase
-      .from("ai_agents")
-      .select("*")
-      .eq("id", agent_id)
-      .single();
-    if (agentError || !agent) {
-      return new Response(JSON.stringify({ error: "agent not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Pedido explícito de parar ("pare", "me tira da lista"...): determinístico,
-    // antes do modelo. O modelo às vezes ignora e segue a conversa; um opt-out
-    // não pode depender disso. Bloqueia o envio ativo e se despede uma vez.
-    if (lead_id && !apenasPreview && ehPedidoDeParada(message)) {
-      await registrarRecusa(lead_id, true);
-      return new Response(
-        JSON.stringify({
-          messages: MENSAGEM_OPT_OUT.split("||").map((m) => m.trim()),
-          session_id,
-          lead_qualificado: false,
-          opt_out: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Palavras-chave de transferência: checagem determinística, ANTES de chamar
-    // o modelo. Se o lead pediu humano, não faz sentido gastar uma chamada de
-    // IA nem deixar o modelo decidir se atende ao pedido — ele às vezes ignora
-    // e segue vendendo. Também economiza o custo da chamada.
-    const palavrasTransferencia = ((agent.transfer_keywords ?? []) as string[])
-      .map((p) => String(p).trim().toLowerCase())
-      .filter((p) => p.length > 0);
-    const mensagemLower = String(message ?? "").toLowerCase();
-    const pediuHumano =
-      agent.transfer_to_human_enabled !== false &&
-      palavrasTransferencia.some((p) => mensagemLower.includes(p));
-
-    if (pediuHumano) {
-      await pauseAI(supabase, session_id, agent.id);
-      if (lead_id)
-        await registrarHandoff(lead_id, agent.instance_id, "palavra-chave de transferência");
-      return new Response(
-        JSON.stringify({
-          messages: mensagemTransferencia(agent.mensagem_transferencia),
-          session_id,
-          lead_qualificado: false,
-          transferido_para_humano: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // A base inteira e o interruptor de modo vêm juntos; quem decide se a Sophia
-    // vê a base toda ou só os trechos da busca é resolverConhecimento(), abaixo,
-    // depois que o histórico existe (a busca usa a conversa como contexto).
-    const { data: configRag } = await supabase
-      .from("configuracoes")
-      .select("chave, valor")
-      .in("chave", ["rag_conhecimento", "rag_modo", CHAVE_JANELAS_VISITA]);
-    const configPorChave = new Map((configRag ?? []).map((c) => [c.chave, c.valor as string]));
-    const knowledgeBase =
-      configPorChave.get("rag_conhecimento") ?? "Nenhuma informação cadastrada ainda.";
-
-    // lead_id=null (painel de teste) faz .eq("lead_id", null) não casar NADA
-    // no Postgres — NULL nunca é igual a NULL. Sem lead_id, a busca no banco
-    // é pulada e usamos o histórico explícito mandado no corpo da requisição.
-    let history: ChatMessage[];
-    if (explicitHistory) {
-      history = agruparConsecutivas(explicitHistory);
-    } else if (lead_id) {
-      const { data: historyRows } = await supabase
-        .from("whatsapp_messages")
-        .select("content, from_me, created_at")
-        .eq("lead_id", lead_id)
-        .order("created_at", { ascending: false })
-        .limit(LINHAS_DE_HISTORICO);
-
-      const linhas: ChatMessage[] = (historyRows ?? [])
-        .slice()
-        .reverse()
-        .map((row) => ({
-          role: row.from_me ? "assistant" : ("user" as const),
-          content: row.content ?? "",
-        }));
-
-      // O whatsapp-webhook grava a mensagem recebida no banco ANTES de
-      // chamar esta function, então ela já vem dentro das linhas acima — sem
-      // isto, ela seria enviada duplicada (uma vez do histórico, outra já
-      // embaixo como a mensagem atual).
-      //
-      // Precisa acontecer ANTES do agrupamento: depois de agrupado, o último
-      // bloco do lead seria "tudo bem?\nmorar", que não é igual a "morar", a
-      // comparação falharia e a mensagem apareceria duas vezes.
-      const ultima = linhas[linhas.length - 1];
-      const semDuplicata =
-        ultima && ultima.role === "user" && ultima.content === message
-          ? linhas.slice(0, -1)
-          : linhas;
-
-      history = agruparConsecutivas(semDuplicata);
-    } else {
-      history = [];
-    }
-
-    // Disponibilidade real. Falha aqui não pode derrubar a conversa: sem a
-    // lista, blocoLotesDisponiveis manda o agente confirmar com a equipe em
-    // vez de arriscar afirmar disponibilidade a partir da base estática.
-    const { data: lotesRows, error: lotesError } = await supabase
-      .from("lotes")
-      .select("quadra, metragem, tipo")
-      .eq("status", "disponivel");
-    if (lotesError) {
-      console.error("[ai-agent-chat] consulta de lotes falhou:", lotesError.message);
-    }
-    const lotesDisponiveis = (lotesRows ?? []) as LoteDisponivel[];
-
-    // Dados já conhecidos do lead. Falha aqui não derruba a conversa: sem o
-    // bloco a Sophia volta a perguntar o que já sabe, o que é ruim mas não
-    // impede o atendimento.
-    // Tolerante a migration pendente: com canal_origem ausente, o select antigo
-    // falhava inteiro e o bloco simplesmente não era montado — a Sophia voltava
-    // a perguntar nome e metragem que já estavam no banco, sem nada no log que
-    // ligasse um sintoma ao outro.
-    let leadConhecido: LeadConhecido | null = null;
-    if (lead_id) {
-      leadConhecido = (await carregarLead(supabase, lead_id)) as LeadConhecido | null;
-    }
-
-    const conhecimento = await resolverConhecimento(supabase, OPENAI_API_KEY, {
-      baseCompleta: knowledgeBase,
-      modoConfigurado: configPorChave.get("rag_modo"),
-      message,
-      history,
-    });
-    // A prévia do painel não é conversa de verdade: não polui o log de consultas.
-    if (!apenasPreview) {
-      await registrarConsultaRag(supabase, {
-        lead_id,
-        consulta: conhecimento.consulta,
-        modo: conhecimento.modo,
-        motivo_recuo: conhecimento.motivoRecuo,
-        trechos: conhecimento.trechos,
-        latencia_ms: conhecimento.latenciaMs,
-      });
-    }
-
-    const nivel = nivelAutonomia(agent.autonomia);
-    const janelas = lerJanelasVisita(configPorChave.get(CHAVE_JANELAS_VISITA) ?? null);
-    const systemPrompt = montarPromptFinal(
-      agent.system_prompt,
-      conhecimento,
-      lotesDisponiveis,
-      agent.mensagem_boas_vindas ?? null,
-      leadConhecido,
-      new Date(),
-      janelas,
-      agent,
-      nivel,
-    );
-
-    if (apenasPreview) {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          prompt: systemPrompt,
-          usa_prompt_customizado: Boolean(agent.system_prompt?.trim()),
-          lotes_disponiveis: lotesDisponiveis.length,
-          // Para conferir no painel o que a busca trouxe para esta mensagem.
-          rag: {
-            modo: conhecimento.modo,
-            motivo_recuo: conhecimento.motivoRecuo,
-            consulta: conhecimento.consulta,
-            latencia_ms: conhecimento.latenciaMs,
-            trechos: conhecimento.trechos.map((t) => ({
-              secao: t.secao,
-              similaridade: Number(t.similaridade.toFixed(3)),
-            })),
-          },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Ações executadas pelas ferramentas nesta resposta: vão para o painel de
-    // teste e para o log.
-    const acoes: { ferramenta: string; resumo: string }[] = [];
-
-    /** Executa uma ferramenta pedida pelo modelo. Nunca lança: erro vira texto. */
-    async function executarFerramenta(nome: string, argsTexto: string): Promise<string> {
-      let args: Record<string, unknown> = {};
-      try {
-        args = JSON.parse(argsTexto || "{}");
-      } catch {
-        return JSON.stringify({ erro: "argumentos inválidos" });
-      }
-      try {
-        if (nome === "consultar_lotes") {
-          const grupos = resumirLotes(lotesDisponiveis, {
-            metragem_min: (args.metragem_min as number | null) ?? null,
-            metragem_max: (args.metragem_max as number | null) ?? null,
-            quadra: (args.quadra as string | null) ?? null,
-          });
-          acoes.push({
-            ferramenta: nome,
-            resumo: `Consultou lotes: ${grupos.length ? `${grupos.length} opção(ões)` : "nenhuma no filtro"}`,
-          });
-          return JSON.stringify({
-            total_disponiveis_no_cadastro: lotesDisponiveis.length,
-            opcoes: grupos,
-            ...(lotesDisponiveis.length === 0
-              ? {
-                  aviso:
-                    "Nenhum lote marcado como disponível no cadastro. Apresente o empreendimento pela base, sem garantir disponibilidade, e convide para a visita.",
-                }
-              : grupos.length === 0
-                ? {
-                    aviso:
-                      "Nada nesse filtro. Mostre as opções mais próximas (consulte sem filtro).",
-                  }
-                : {}),
-          });
-        }
-
-        if (nome === "buscar_informacao") {
-          const pergunta = String(args.pergunta ?? "").slice(0, 300);
-          const r = OPENAI_API_KEY
-            ? await buscarTrechos(supabase, OPENAI_API_KEY, pergunta)
-            : { ok: false as const, trechos: [] };
-          acoes.push({ ferramenta: nome, resumo: `Buscou na base: "${pergunta.slice(0, 60)}"` });
-          if (r.trechos.length) return JSON.stringify({ trechos: formatarTrechos(r.trechos) });
-          // Sem índice (ou nada relevante): a base inteira resolve, limitada.
-          return JSON.stringify({ base: knowledgeBase.slice(0, 12_000) });
-        }
-
-        if (nome === "registrar_dados_lead") {
-          if (!permite(nivel, "qualificar"))
-            return JSON.stringify({ erro: "não permitido neste nível" });
-          if (!lead_id) return JSON.stringify({ ok: false, motivo: "conversa sem lead" });
-          const { data: atual } = await supabase
-            .from("leads")
-            .select("nome, telefone")
-            .eq("id", lead_id)
-            .maybeSingle();
-          const patch = patchDoLead(args, atual ?? {});
-          const observacao = (args.observacao as string | null) ?? null;
-          if (Object.keys(patch).length) {
-            const { error } = await supabase.from("leads").update(patch).eq("id", lead_id);
-            if (error) return JSON.stringify({ ok: false, erro: error.message });
-          }
-          const resumo = resumoDoRegistro(patch, observacao);
-          if (resumo) {
-            await supabase.from("interacoes").insert({
-              lead_id,
-              tipo: "sistema",
-              canal: "sophia",
-              conteudo: `Sophia registrou: ${resumo}`,
-            });
-            acoes.push({ ferramenta: nome, resumo: `Registrou no CRM: ${resumo}` });
-          }
-          return JSON.stringify({ ok: true, registrado: patch });
-        }
-
-        if (nome === "ver_horarios_visita") {
-          if (!permite(nivel, "agendar"))
-            return JSON.stringify({ erro: "não permitido neste nível" });
-          let ocupados: Date[] = [];
-          if (lead_id) {
-            const { data: dono } = await supabase
-              .from("leads")
-              .select("vendedor_id")
-              .eq("id", lead_id)
-              .maybeSingle();
-            if (dono?.vendedor_id) {
-              const { data: agenda } = await supabase
-                .from("visitas")
-                .select("data_hora")
-                .eq("vendedor_id", dono.vendedor_id)
-                .in("status", ["agendada", "a_confirmar", "confirmada"])
-                .gte("data_hora", new Date().toISOString());
-              ocupados = (agenda ?? []).map((v) => new Date(String(v.data_hora)));
-            }
-          }
-          const livres = horariosLivres(new Date(), janelas, ocupados, {
-            data: (args.data as string | null) ?? null,
-          });
-          acoes.push({
-            ferramenta: nome,
-            resumo: `Viu horários livres: ${livres.map((d) => `${d.dia_semana} ${d.data.slice(8)}/${d.data.slice(5, 7)}`).join(", ") || "nenhum"}`,
-          });
-          return JSON.stringify({ horarios_livres: livres, duracao_min: janelas.duracao_min });
-        }
-
-        return JSON.stringify({ erro: `ferramenta desconhecida: ${nome}` });
-      } catch (e) {
-        console.error(`[ai-agent-chat] ferramenta ${nome} falhou:`, e);
-        return JSON.stringify({ erro: "falha ao executar; siga a conversa sem esse dado" });
-      }
-    }
-
-    // Timeout e uma nova tentativa no modelo principal; se ainda falhar e
-    // houver OPENAI_FALLBACK_MODEL configurado, uma tentativa nele. Quem chama
-    // (whatsapp-webhook) trata a falha final com uma resposta segura.
-    // Mensagens no formato da OpenAI (inclui tool_calls e respostas de ferramenta).
-    const conversa: Record<string, unknown>[] = [
-      { role: "system", content: systemPrompt + INSTRUCAO_SAIDA },
-      ...history,
-      { role: "user", content: message },
-    ];
-    const ferramentas = ferramentasDoNivel(nivel);
-    const chamarModelo = (modelo: string, comFerramentas: boolean) =>
-      fetchComRetry(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: new Headers([
-            ["Content-Type", "application/json"],
-            ["Authorization", `Bearer ${OPENAI_API_KEY}`],
-          ]),
-          body: JSON.stringify({
-            model: modelo,
-            max_tokens: MODELOS.sophiaChat.maxTokens,
-            temperature: temperaturaAgente(agent.temperatura, MODELOS.sophiaChat.temperatura),
-            response_format: FORMATO_SAIDA,
-            ...(comFerramentas ? { tools: ferramentas, parallel_tool_calls: false } : {}),
-            messages: conversa,
-          }),
-        },
-        { timeoutMs: 20_000, retries: 1 },
-      );
-
-    const modeloPrincipal = resolverModeloSophia(agent.modelo);
-    let modeloUsado: string = modeloPrincipal;
-    let conteudoModelo = "";
-
-    // Até MAX_RODADAS idas ao modelo: nas primeiras ele pode pedir ferramentas;
-    // a última é sempre sem ferramentas, para garantir uma resposta ao lead.
-    const MAX_RODADAS = 5;
-    for (let rodada = 1; rodada <= MAX_RODADAS; rodada++) {
-      const comFerramentas = rodada < MAX_RODADAS;
-      const inicioModelo = Date.now();
-      let openaiResponse = await chamarModelo(modeloUsado, comFerramentas).catch((e) => e as Error);
-      if (
-        (openaiResponse instanceof Error || !openaiResponse.ok) &&
-        OPENAI_FALLBACK_MODEL &&
-        OPENAI_FALLBACK_MODEL !== modeloUsado
-      ) {
-        console.warn("[ai-agent-chat] modelo principal falhou; usando fallback", {
-          erro: openaiResponse instanceof Error ? openaiResponse.message : openaiResponse.status,
-        });
-        modeloUsado = OPENAI_FALLBACK_MODEL;
-        openaiResponse = await chamarModelo(modeloUsado, comFerramentas).catch((e) => e as Error);
-      }
-      if (openaiResponse instanceof Error) throw openaiResponse;
-      if (!openaiResponse.ok) {
-        const errText = await openaiResponse.text();
-        await registrarChamadaIA(supabase, {
-          funcao: "sophia",
-          modelo: modeloUsado,
-          leadId: lead_id,
-          latenciaMs: Date.now() - inicioModelo,
-          erro: `HTTP ${openaiResponse.status}: ${errText.slice(0, 200)}`,
-        });
-        throw new Error(`OpenAI API error (${modeloUsado}): ${errText.slice(0, 300)}`);
-      }
-
-      const openaiResult = await openaiResponse.json();
-      await registrarChamadaIA(supabase, {
-        funcao: "sophia",
-        modelo: modeloUsado,
-        leadId: lead_id,
-        usage: openaiResult.usage,
-        latenciaMs: Date.now() - inicioModelo,
-      });
-      const resposta = openaiResult.choices?.[0]?.message;
-      const pedidos = (resposta?.tool_calls ?? []) as {
-        id: string;
-        function: { name: string; arguments: string };
-      }[];
-      if (!pedidos.length) {
-        conteudoModelo = resposta?.content ?? "";
-        break;
-      }
-      conversa.push({ role: "assistant", content: resposta.content ?? null, tool_calls: pedidos });
-      const resultados = await Promise.all(
-        pedidos.map((c) => executarFerramenta(c.function?.name, c.function?.arguments)),
-      );
-      pedidos.forEach((c, i) =>
-        conversa.push({ role: "tool", tool_call_id: c.id, content: resultados[i] }),
-      );
-    }
-    if (acoes.length) console.log("=== AÇÕES DA SOPHIA ===", JSON.stringify({ lead_id, acoes }));
-    // Saída estruturada: sinais só do campo `sinais`; marcas no texto são
-    // descartadas. Se o JSON vier quebrado, cai na leitura antiga por marcas.
-    const estruturada = lerSaidaEstruturada(conteudoModelo);
-    if (!estruturada) console.warn("[ai-agent-chat] saída fora do schema; lendo marcas do texto");
-    const rawText = estruturada ? textoComMarcasConfiaveis(estruturada) : conteudoModelo;
-
-    // O nível de autonomia decide o que os sinais podem fazer: abaixo de
-    // "agendar" a visita não é criada (o vendedor é avisado para combinar), e
-    // abaixo de "qualificar" o card não anda nem dispara a pós-qualificação.
-    const pediuVisita = rawText.includes(VISITA_AGENDADA_TAG);
-    const hasVisitaAgendada = pediuVisita && permite(nivel, "agendar");
-    const hasTransferirHumano = rawText.includes(TRANSFERIR_HUMANO_TAG);
-    const hasLeadQualificado = rawText.includes(LEAD_QUALIFICADO_TAG);
-    const hasRecusouVisita = rawText.includes(RECUSOU_VISITA_TAG);
-    const hasSemInteresse = rawText.includes(LEAD_SEM_INTERESSE_TAG);
-
-    // Recusa cancela a qualificação quando as duas marcas caem na mesma
-    // resposta (acontece quando o lead completa os quatro dados e recusa no
-    // mesmo fôlego: "moro em Ubatuba, quero 450 pra investir, mas não quero
-    // visitar"). Sem isto o vendedor receberia no WhatsApp o resumo animado de
-    // um lead que acabou de mandar parar.
-    const qualificaAgora = hasLeadQualificado && !hasSemInteresse && permite(nivel, "qualificar");
-
-    // Log dedicado às marcas. O `=== AI RESPONSE ===` da whatsapp-webhook corta
-    // em 300 caracteres e as flags ficam no FIM do JSON, depois das mensagens —
-    // ou seja, some justamente o que se precisa ver para saber se o modelo
-    // emitiu a marca ou se ela se perdeu depois. Aqui sai antes de qualquer
-    // limpeza, com o começo do texto cru para conferência.
-    console.log(
-      "=== MARCAS DO MODELO ===",
-      JSON.stringify({
-        lead_id,
-        lead_qualificado: hasLeadQualificado,
-        visita_agendada: hasVisitaAgendada,
-        transferir_humano: hasTransferirHumano,
-        recusou_visita: hasRecusouVisita,
-        sem_interesse: hasSemInteresse,
-        raw_tamanho: rawText.length,
-      }),
-    );
-
-    // As três marcas são limpas aqui, na única função que fala com o modelo —
-    // antes, só VISITA_AGENDADA/TRANSFERIR_HUMANO eram removidas aqui e
-    // LEAD_QUALIFICADO só era filtrada dentro do whatsapp-webhook. Isso
-    // deixava a marca vazando pro painel "Testar Agente", que consome esta
-    // function direto sem passar pelo webhook.
-    const cleanedText = rawText
-      .replace(VISITA_AGENDADA_TAG, "")
-      .replace(TRANSFERIR_HUMANO_TAG, "")
-      .replace(LEAD_QUALIFICADO_TAG, "")
-      .replace(RECUSOU_VISITA_TAG, "")
-      .replace(LEAD_SEM_INTERESSE_TAG, "")
-      .trim();
-
-    let messages = cleanedText
-      .split("||")
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0);
-
-    // Conversation bookkeeping
-    let { data: conversation } = await supabase
-      .from("ai_agent_conversations")
-      .select("id")
-      .eq("session_id", session_id)
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (!conversation) {
-      const { data: created } = await supabase
-        .from("ai_agent_conversations")
-        .insert({ agent_id, session_id, status: "active" })
-        .select("id")
-        .single();
-      conversation = created;
-    }
-
-    if (hasVisitaAgendada) {
-      // Só avança: quem já visitou, está em proposta ou fechou não volta para
-      // "agendado" porque marcou outra visita (auditoria R-09).
-      await supabase
-        .from("leads")
-        .update({ status_crm: "agendado" })
-        .eq("id", lead_id)
-        .in("status_crm", [...ETAPAS_ANTES_DA_VISITA]);
-
-      // Criação da visita AQUI só para lead de teste. Para lead real quem
-      // dispara é a whatsapp-webhook, ao ver `visita_agendada` na resposta —
-      // mesmo desenho de `lead_qualificado`. Se as duas pontas criassem, todo
-      // lead real ganharia a visita duas vezes (a segunda reagendando a
-      // primeira, com uma linha a mais no histórico).
-      if (lead_id) {
-        const { data: leadVisita } = await supabase
-          .from("leads")
-          .select("id, nome, vendedor_id, is_teste")
-          .eq("id", lead_id)
-          .maybeSingle();
-
-        if (leadVisita?.is_teste) {
-          try {
-            const visita = await handleVisitaAgendada(supabase, leadVisita, OPENAI_API_KEY);
-            // Mesmo comportamento do fluxo real (resposta-ia): fora da janela
-            // ou em conflito, a confirmação do modelo não sai.
-            if (visita.aConfirmar) {
-              messages = MENSAGEM_VISITA_A_CONFIRMAR.split("||").map((m) => m.trim());
-            }
-          } catch (e) {
-            // A conversa não pode cair por causa da agenda.
-            console.error("[ai-agent-chat] criação da visita de teste falhou:", e);
-          }
-        }
-      }
-    }
-
-    if (pediuVisita && !hasVisitaAgendada && lead_id) {
-      await supabase.from("interacoes").insert({
-        lead_id,
-        tipo: "sistema",
-        canal: "sophia",
-        conteudo:
-          "Lead quer visitar o terreno. A Sophia não agenda nesta conta: combine o dia com ele.",
-      });
-      await notificarResponsaveis(supabase, lead_id, {
-        tipo: "visita_pedida",
-        titulo: "Lead quer agendar visita",
-        corpo: "Combine o dia e o horário com ele pelo CRM.",
-      });
-    }
-
-    // pauseAI em vez de insert direto: o insert cru empilhava uma linha de
-    // takeover por mensagem, e a checagem com maybeSingle() erra com mais de
-    // uma — mesmo bug já corrigido na whatsapp-webhook.
-    if (hasTransferirHumano) {
-      await pauseAI(supabase, session_id, agent.id);
-      if (lead_id)
-        await registrarHandoff(lead_id, agent.instance_id, "a Sophia identificou o pedido");
-    }
-
-    if ((hasRecusouVisita || hasSemInteresse) && lead_id) {
-      try {
-        await registrarRecusa(lead_id, hasSemInteresse);
-      } catch (e) {
-        // Mesma regra das outras automações: a conversa não cai por causa do
-        // bookkeeping. No pior caso o lead não é bloqueado agora, e a próxima
-        // recusa tenta de novo.
-        console.error("[ai-agent-chat] registro de recusa falhou:", e);
-      }
-    }
-
-    // Pós-qualificação SÓ para lead de teste. Em produção quem dispara é a
-    // whatsapp-webhook, ao ver `lead_qualificado` na resposta abaixo — se esta
-    // função também disparasse, a sequência inteira (round-robin, notificação,
-    // resumo) rodaria duas vezes para todo lead real.
-    if (qualificaAgora && lead_id) {
-      const { data: leadDoTeste } = await supabase
-        .from("leads")
+    if (acao === "ultimo_prompt") {
+      const { data } = await supabase
+        .from("ai_chamadas")
         .select(
-          "id, nome, telefone, cidade, objetivo, metragem_interesse, status_crm, vendedor_id, is_teste",
+          "criado_em, canal, modelo, temperatura, lead_id, prompt, mensagens, resposta, ferramentas, tokens_entrada, tokens_saida, custo_usd, latencia_ms, erro",
         )
-        .eq("id", lead_id)
+        .eq("funcao", "sophia")
+        .not("prompt", "is", null)
+        .order("criado_em", { ascending: false })
+        .limit(1)
         .maybeSingle();
-
-      if (leadDoTeste?.is_teste) {
-        const { data: instanciaTeste } = await supabase
-          .from("whatsapp_instances")
-          .select("api_url, api_key, instance_name")
-          .eq("id", agent.instance_id)
-          .maybeSingle();
-
-        if (instanciaTeste) {
-          try {
-            await handleLeadQualification(supabase, leadDoTeste, instanciaTeste, OPENAI_API_KEY);
-          } catch (e) {
-            // A conversa de teste não pode cair por causa da automação — o erro
-            // aparece no log e no histórico do lead.
-            console.error("[ai-agent-chat] pós-qualificação de teste falhou:", e);
-          }
-        }
-      }
+      return json({ ok: true, chamada: data ?? null });
     }
 
-    return new Response(
-      JSON.stringify({
-        messages,
-        session_id,
-        lead_qualificado: qualificaAgora,
-        visita_agendada: hasVisitaAgendada,
-        // A whatsapp-webhook ainda não consome estes dois (é o commit 2), mas
-        // devolvê-los agora evita ter que mexer duas vezes na assinatura.
-        recusou_visita: hasRecusouVisita,
-        sem_interesse: hasSemInteresse,
-        // O que a Sophia fez com as ferramentas (painel de teste).
-        acoes,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    if (acao === "preview_prompt") {
+      const leadId = (body.lead_id as string | null) ?? null;
+      const mensagem = String(body.message ?? "");
+      const ctx = await carregarContexto(supabase, agentId, leadId);
+      const historico = leadId ? await carregarHistorico(supabase, leadId, mensagem) : [];
+      const conhecimento = await resolverConhecimento(supabase, OPENAI_API_KEY, {
+        baseCompleta: ctx.baseConhecimento,
+        modoConfigurado: ctx.ragModo,
+        message: mensagem,
+        history: historico.filter((m) => m.role !== "system") as never,
+      });
+      return json({
+        ok: true,
+        prompt: montarPromptSistema(ctx, conhecimento, new Date()),
+        usa_prompt_customizado: Boolean(String(ctx.agent.system_prompt ?? "").trim()),
+        lotes_disponiveis: ctx.lotes.length,
+        rag: { modo: conhecimento.modo, motivo_recuo: conhecimento.motivoRecuo },
+      });
+    }
+
+    if (acao === "simular_equipe") {
+      const lead = await leadDeTeste(body.lead_id ?? null, body.perfil ?? null);
+      const texto = String(body.message ?? "").trim();
+      if (!temTexto(texto)) return json({ error: "mensagem vazia" }, 400);
+      await supabase.from("whatsapp_messages").insert({
+        lead_id: lead.id,
+        remote_jid: jidDoTelefone(lead.telefone),
+        message_id: `teste:${crypto.randomUUID()}`,
+        from_me: true,
+        autor: "equipe_celular",
+        message_type: "text",
+        content: texto,
+        status: "sent",
+      });
+      await pauseAI(supabase, lead.telefone, agentId, "equipe_celular");
+      return json({ ok: true, lead_id: lead.id, pausada: true });
+    }
+
+    if (acao === "testar") {
+      const texto = String(body.message ?? "").trim();
+      if (!temTexto(texto)) return json({ error: "mensagem vazia" }, 400);
+      const lead = await leadDeTeste(body.lead_id ?? null, body.perfil ?? null);
+      const inicio = new Date().toISOString();
+
+      // Mesmo que o webhook: a mensagem do lead é gravada primeiro.
+      await supabase.from("whatsapp_messages").insert({
+        lead_id: lead.id,
+        remote_jid: jidDoTelefone(lead.telefone),
+        message_id: `teste:${crypto.randomUUID()}`,
+        from_me: false,
+        autor: "lead",
+        message_type: "text",
+        content: texto,
+        status: "received",
+      });
+      if (ehPedidoDeParada(texto)) await bloquearPorPedidoDeParada(supabase, lead.id);
+
+      const consultor: Consultor | null = lerConsultor(body.consultor_teste ?? null);
+      const detalhe = await responderLead(supabase, null, lead.id, {
+        teste: { agentId, consultor, modelo: (body.modelo as string | null) ?? null },
+      });
+      return json({
+        ok: true,
+        lead_id: lead.id,
+        resultado: detalhe.resultado,
+        motivo: detalhe.motivo ?? null,
+        messages: detalhe.mensagens,
+        acoes: await linhasDeAcao(lead.id, inicio),
+        leituras: detalhe.leituras,
+        modelo: detalhe.turno?.modelo ?? null,
+        atalho: detalhe.turno?.atalho ?? null,
+      });
+    }
+
+    // Compatibilidade: painel antigo manda {message, history} e espera {messages}.
+    const mensagem = String(body.message ?? "").trim();
+    if (!temTexto(mensagem)) return json({ error: "mensagem sem texto" }, 400);
+    const historico = ((body.history ?? []) as MensagemModelo[]).map((m) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content ?? ""),
+    })) as MensagemModelo[];
+    const turno = await gerarRespostaSophia(supabase, OPENAI_API_KEY, {
+      agentId,
+      leadId: null,
+      sessionId: String(body.session_id ?? "painel"),
+      mensagem,
+      canal: "teste",
+      historicoExplicito: historico,
+    });
+    return json({
+      messages: turno.mensagens,
+      session_id: body.session_id ?? null,
+      acoes: [
+        ...turno.leituras,
+        ...turno.acoes.map((a) => ({ ferramenta: a.tipo, resumo: a.resumo })),
+      ],
+    });
   } catch (error) {
     console.error("ai-agent-chat error", error);
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: String((error as Error)?.message ?? error) }, 500);
   }
 });

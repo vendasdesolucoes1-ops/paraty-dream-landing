@@ -12,6 +12,18 @@ export interface ChamadaIA {
   latenciaMs?: number;
   erro?: string | null;
   versaoPrompt?: string | null;
+  /** "producao" | "teste" — de onde veio a chamada. */
+  canal?: string | null;
+  sessionId?: string | null;
+  /** Prompt de sistema exatamente como foi enviado. */
+  prompt?: string | null;
+  /** Demais mensagens enviadas (histórico, resultados de ferramenta). */
+  mensagens?: unknown;
+  /** Texto devolvido pelo modelo. */
+  resposta?: string | null;
+  /** Ferramentas pedidas nesta chamada: [{nome, argumentos}]. */
+  ferramentas?: unknown;
+  temperatura?: number | null;
 }
 
 export function custoEstimado(modelo: string, entrada = 0, saida = 0): number | null {
@@ -35,6 +47,13 @@ export async function registrarChamadaIA(supabase: SupabaseClient, c: ChamadaIA)
       latencia_ms: c.latenciaMs ?? null,
       erro: c.erro ? c.erro.slice(0, 500) : null,
       versao_prompt: c.versaoPrompt ?? null,
+      canal: c.canal ?? null,
+      session_id: c.sessionId ?? null,
+      prompt: c.prompt ?? null,
+      mensagens: c.mensagens ?? null,
+      resposta: c.resposta ? String(c.resposta).slice(0, 20_000) : null,
+      ferramentas: c.ferramentas ?? null,
+      temperatura: c.temperatura ?? null,
     });
   } catch (e) {
     console.error("[telemetria] falhou:", (e as Error)?.message);

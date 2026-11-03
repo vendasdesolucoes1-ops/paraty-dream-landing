@@ -114,3 +114,33 @@ export async function sendWhatsAppAudio(
   }
   return result;
 }
+
+/** Envia um pin de localização (aparece como mapa no WhatsApp). */
+export async function sendWhatsAppLocation(
+  apiUrl: string,
+  apiKey: string,
+  instanceName: string,
+  number: string,
+  local: { latitude: number; longitude: number; nome: string; endereco?: string | null },
+) {
+  const response = await fetchComRetry(
+    `${apiUrl}/message/sendLocation/${instanceName}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({
+        number,
+        name: local.nome,
+        address: local.endereco ?? "",
+        latitude: local.latitude,
+        longitude: local.longitude,
+      }),
+    },
+    { timeoutMs: TIMEOUT_EVOLUTION_MS },
+  );
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`Evolution sendLocation error: ${response.status} ${JSON.stringify(result)}`);
+  }
+  return result;
+}

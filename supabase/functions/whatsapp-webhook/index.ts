@@ -33,6 +33,7 @@ import {
   ehPedidoDeParada,
 } from "../_shared/contato-bloqueado.ts";
 import { classificarRespostaFollowUp } from "../_shared/classificar-resposta.ts";
+import { lerConsultor } from "../_shared/sophia-regras.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -144,7 +145,36 @@ async function findOrCreateContact(phone: string, name: string | null, remoteJid
 const isHumanTakeoverActive = (sessionId: string) => takeoverAtivo(supabase, sessionId);
 
 const pauseAIForHumanTakeover = (agentId: string | null, sessionId: string) =>
-  pausarIA(supabase, sessionId, agentId);
+  pausarIA(supabase, sessionId, agentId, "equipe_celular");
+
+/**
+ * Remetente com o mapa @lid → telefone. Quando a Evolution manda o @lid junto
+ * com o telefone (remoteJidAlt/senderPn), o par é guardado; quando manda só o
+ * @lid (comum em mensagens enviadas pelo celular), o mapa resolve. Sem nenhum
+ * dos dois, a mensagem continua descartada: virar os dígitos do LID em
+ * telefone criaria leads falsos.
+ */
+async function resolverRemetenteComMapa(data: Record<string, any>) {
+  const jid = String(data.key?.remoteJid ?? "");
+  const direto = resolverRemetente(data);
+  if (direto) {
+    if (jid.includes("@lid") && direto.viaAlternativo) {
+      await supabase
+        .from("whatsapp_lid_map")
+        .upsert({ lid: jid, telefone: direto.telefone, atualizado_em: new Date().toISOString() });
+    }
+    return direto;
+  }
+  if (!jid.includes("@lid")) return null;
+  const { data: mapa } = await supabase
+    .from("whatsapp_lid_map")
+    .select("telefone")
+    .eq("lid", jid)
+    .maybeSingle();
+  if (!mapa?.telefone) return null;
+  const telefone = String(mapa.telefone);
+  return { telefone, jid: `${telefone}@s.whatsapp.net`, viaAlternativo: true };
+}
 
 async function handleIncomingMessage(instance: Record<string, any>, data: Record<string, any>) {
   const messageId: string = data.key?.id;
@@ -158,8 +188,8 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     .maybeSingle();
   if (existingMessage) return;
 
-  // 3. Normalize phone (@lid usa remoteJidAlt/senderPn quando houver)
-  const remetente = resolverRemetente(data);
+  // 3. Normalize phone (@lid usa remoteJidAlt/senderPn ou o mapa aprendido)
+  const remetente = await resolverRemetenteComMapa(data);
   if (!remetente) {
     // Sem JID no log (LGPD): só se havia alternativa.
     console.warn("=== UNRESOLVED WHATSAPP JID ===", {
@@ -234,6 +264,7 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
       remote_jid: remoteJid,
       message_id: messageId,
       from_me: false,
+      autor: "lead",
       message_type: data.messageType ?? "text",
       content: text,
       status: "received",
@@ -295,7 +326,12 @@ async function handleIncomingMessage(instance: Record<string, any>, data: Record
     aguardarDebounce: true,
     recebidaEm: (recebida?.created_at as string | undefined) ?? new Date().toISOString(),
   });
-  console.log("=== RESPOSTA ===", { leadId: lead.id, resultado });
+  console.log("=== RESPOSTA ===", {
+    leadId: lead.id,
+    resultado: resultado.resultado,
+    motivo: resultado.motivo ?? null,
+    acoes: resultado.acoes.length,
+  });
 }
 
 /** Áudio não transcrito: a Sophia pede o texto e o vendedor fica sabendo. */
@@ -311,7 +347,7 @@ async function pedirTextoAoLead(
     instance as InstanciaWhatsapp,
     phone,
     MENSAGEM_PEDIDO_TEXTO,
-    { lead_id: leadId, contact_id: contactId },
+    { lead_id: leadId, contact_id: contactId, autor: "sistema" },
   ).catch((e) => console.error("[webhook] pedido de texto não enviado:", (e as Error).message));
   await supabase.from("interacoes").insert({
     lead_id: leadId,
@@ -356,6 +392,14 @@ async function avisarMidiaSemLegenda(instance: Record<string, any>, leadId: stri
 async function ehTelefoneDeVendedor(phone: string): Promise<boolean> {
   const chave = chaveTelefone(phone);
   if (!chave) return false;
+  // O consultor responsável (painel do agente) também é equipe.
+  const { data: config } = await supabase
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", "consultor_responsavel")
+    .maybeSingle();
+  const consultor = lerConsultor(config?.valor ?? null);
+  if (consultor?.telefone && chaveTelefone(consultor.telefone) === chave) return true;
   const { data } = await supabase
     .from("vendedores")
     .select("telefone")
@@ -377,7 +421,7 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
   if (existingMessage) return;
 
   // 2. Manual message sent by a human salesperson
-  const remetente = resolverRemetente(data);
+  const remetente = await resolverRemetenteComMapa(data);
   if (!remetente) {
     console.warn("=== UNRESOLVED OUTGOING WHATSAPP JID ===", {
       lid: String(data.key?.remoteJid).includes("@lid"),
@@ -414,6 +458,7 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
     remote_jid: remoteJid,
     message_id: messageId,
     from_me: true,
+    autor: "equipe_celular",
     message_type: data.messageType ?? "text",
     content: text,
     status: "sent",

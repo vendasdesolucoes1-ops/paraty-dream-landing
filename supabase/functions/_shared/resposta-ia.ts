@@ -16,20 +16,28 @@
 //      (processar-fila-mensagens), que chama esta mesma função sem debounce.
 //   4. O modelo só é chamado depois do debounce, então os efeitos no CRM
 //      correspondem à resposta que de fato sai.
+//   5. As ações da Sophia (agendar, qualificar, transferir, bloquear, enviar
+//      material) voltam do modelo como PENDENTES e só rodam depois que todas
+//      as mensagens saíram. Chegou mensagem nova do lead enquanto a resposta
+//      era gerada? Nada sai, nada é feito, e a resposta é gerada de novo
+//      considerando a conversa inteira.
+//
+// O "Testar agente" do painel passa por aqui também (opção `teste`): mesma
+// decisão, mesmo histórico, mesmas ações — só sem debounce, sem exigir a IA
+// ligada e sem sair pelo WhatsApp (as mensagens são gravadas no lead de teste).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isHumanTakeoverActive, pauseAI } from "./ai-takeover.ts";
 import { sendWhatsAppText } from "./evolution-send.ts";
 import { enviarTextoRegistrado, jidDoTelefone } from "./envio-registrado.ts";
 import { fetchComRetry } from "./http.ts";
-import { handleLeadQualification } from "./lead-qualification.ts";
-import { handleVisitaAgendada } from "./lead-visita.ts";
-import { MENSAGEM_VISITA_A_CONFIRMAR } from "./janela-visita.ts";
 import { notificarResponsaveis } from "./notificar.ts";
 import { temTexto } from "./mensagem-entrada.ts";
+import { ehPedidoDeParada } from "./contato-bloqueado.ts";
+import { gerarRespostaSophia, type TurnoSophia } from "./sophia.ts";
+import { executarAcoes } from "./sophia-acoes.ts";
+import { lerConsultor, type Consultor } from "./sophia-regras.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
   .trim()
   .replace(/[\r\n\t]/g, "")
@@ -51,6 +59,17 @@ export interface InstanciaWhatsapp {
 }
 
 export type ResultadoResposta = "enviado" | "abortado" | "falhou" | "sem_resposta";
+
+export interface DetalheResposta {
+  resultado: ResultadoResposta;
+  motivo?: string;
+  mensagens: string[];
+  /** Linhas "⚙" executadas depois do envio. */
+  acoes: string[];
+  /** Ferramentas de leitura usadas (lotes, base, horários). */
+  leituras: string[];
+  turno?: TurnoSophia;
+}
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -103,36 +122,30 @@ async function reivindicar(supabase: SupabaseClient, leadId: string): Promise<st
   return (data?.id as string | undefined) ?? null;
 }
 
-async function finalizar(
+async function chegouMensagemNova(
   supabase: SupabaseClient,
-  filaId: string,
   leadId: string,
-  inicio: string,
-  erro: string | null,
-) {
-  // Chegou mensagem nova do lead enquanto esta resposta era gerada: a linha
-  // volta para a fila, e a próxima resposta já considera a conversa inteira.
-  const { data: novas } = await supabase
+  desde: string,
+): Promise<boolean> {
+  const { data } = await supabase
     .from("whatsapp_messages")
     .select("id")
     .eq("lead_id", leadId)
     .eq("from_me", false)
+    // Mídia/áudio sem texto não dispara resposta (issue #55).
     .neq("content", "")
-    .gt("created_at", inicio)
+    .gt("created_at", desde)
     .limit(1);
+  return Boolean(data?.length);
+}
 
-  const agora = new Date().toISOString();
-  if (novas?.length) {
-    await supabase
-      .from("mensagens_agendadas")
-      .update({ status: "pendente", agendado_para: agora, erro: null, atualizado_em: agora })
-      .eq("id", filaId);
-    return;
-  }
-  await supabase
-    .from("mensagens_agendadas")
-    .update({ status: "enviado", enviado_em: agora, erro, atualizado_em: agora })
-    .eq("id", filaId);
+async function consultorDoPainel(supabase: SupabaseClient): Promise<Consultor | null> {
+  const { data } = await supabase
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", "consultor_responsavel")
+    .maybeSingle();
+  return lerConsultor(data?.valor ?? null);
 }
 
 interface Opcoes {
@@ -142,6 +155,8 @@ interface Opcoes {
   recebidaEm?: string;
   /** Linha já reivindicada pelo cron (caminho durável). */
   filaId?: string;
+  /** "Testar agente": sem WhatsApp, sem debounce, sem exigir a IA ligada. */
+  teste?: { agentId: string; consultor?: Consultor | null; modelo?: string | null };
 }
 
 /**
@@ -150,59 +165,70 @@ interface Opcoes {
  */
 export async function responderLead(
   supabase: SupabaseClient,
-  instancia: InstanciaWhatsapp,
+  instancia: InstanciaWhatsapp | null,
   leadId: string,
   opcoes: Opcoes = {},
-): Promise<ResultadoResposta> {
+): Promise<DetalheResposta> {
+  const teste = opcoes.teste ?? null;
+  const fim = (
+    resultado: ResultadoResposta,
+    motivo?: string,
+    extra: Partial<DetalheResposta> = {},
+  ) => ({ resultado, motivo, mensagens: [], acoes: [], leituras: [], ...extra }) as DetalheResposta;
+
   const { data: lead } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
-  if (!lead?.telefone) return "abortado";
+  if (!lead?.telefone) return fim("abortado", "lead sem telefone");
   const telefone = String(lead.telefone).replace(/\D/g, "");
   const sessionId = telefone;
 
-  if (opcoes.aguardarDebounce) {
+  if (!teste && instancia && opcoes.aguardarDebounce) {
     await digitando(instancia, telefone);
     await dormir(DEBOUNCE_MS);
-    if (opcoes.recebidaEm) {
-      const { data: maisNovas } = await supabase
-        .from("whatsapp_messages")
-        .select("id")
-        .eq("lead_id", leadId)
-        .eq("from_me", false)
-        // Mídia/áudio sem texto não dispara resposta (issue #55): não pode
-        // abortar a resposta a um texto anterior.
-        .neq("content", "")
-        .gt("created_at", opcoes.recebidaEm)
-        .limit(1);
-      // A mensagem mais nova tem o próprio debounce: ela responde.
-      if (maisNovas?.length) return "abortado";
+    // A mensagem mais nova tem o próprio debounce: ela responde.
+    if (opcoes.recebidaEm && (await chegouMensagemNova(supabase, leadId, opcoes.recebidaEm))) {
+      return fim("abortado", "mensagem mais nova vai responder");
     }
   }
 
-  const filaId = opcoes.filaId ?? (await reivindicar(supabase, leadId));
-  if (!filaId) return "abortado";
+  const filaId = teste ? null : (opcoes.filaId ?? (await reivindicar(supabase, leadId)));
+  if (!teste && !filaId) return fim("abortado", "outra execução respondeu");
   const inicio = new Date().toISOString();
 
-  const cancelar = async (motivo: string) => {
+  const fecharFila = async (status: "enviado" | "cancelado" | "pendente", erro: string | null) => {
+    if (!filaId) return;
+    const agora = new Date().toISOString();
     await supabase
       .from("mensagens_agendadas")
-      .update({ status: "cancelado", erro: motivo, atualizado_em: new Date().toISOString() })
+      .update({
+        status,
+        erro,
+        atualizado_em: agora,
+        ...(status === "enviado" ? { enviado_em: agora } : {}),
+        ...(status === "pendente" ? { agendado_para: agora } : {}),
+      })
       .eq("id", filaId);
   };
 
   if (await isHumanTakeoverActive(supabase, sessionId)) {
-    await cancelar("atendimento humano em andamento");
-    return "abortado";
+    await fecharFila("cancelado", "atendimento humano em andamento");
+    return fim("abortado", "atendimento humano em andamento");
   }
 
-  const { data: agente } = await supabase
-    .from("ai_agents")
-    .select("id")
-    .eq("instance_id", instancia.id)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!agente) {
-    await cancelar("IA desativada");
-    return "abortado";
+  let agentId: string;
+  if (teste) {
+    agentId = teste.agentId;
+  } else {
+    const { data: agente } = await supabase
+      .from("ai_agents")
+      .select("id")
+      .eq("instance_id", instancia!.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!agente) {
+      await fecharFila("cancelado", "IA desativada");
+      return fim("abortado", "IA desativada");
+    }
+    agentId = agente.id as string;
   }
 
   const { data: ultima } = await supabase
@@ -215,69 +241,68 @@ export async function responderLead(
     .limit(1)
     .maybeSingle();
 
-  // Nunca chama o modelo com mensagem vazia: a Sophia responderia a algo que
-  // não leu (áudio, mídia sem legenda). O webhook já trata esses casos.
+  // Nunca chama o modelo com mensagem vazia (áudio, mídia sem legenda).
   if (!temTexto(ultima?.content)) {
-    await cancelar("mensagem sem texto");
-    return "abortado";
+    await fecharFila("cancelado", "mensagem sem texto");
+    return fim("abortado", "mensagem sem texto");
   }
+  const mensagem = String(ultima!.content).trim();
 
-  const resposta = await fetchComRetry(
-    `${SUPABASE_URL}/functions/v1/ai-agent-chat`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        agent_id: agente.id,
-        message: String(ultima!.content).trim(),
-        contact_phone: telefone,
-        contact_name: lead.nome ?? null,
-        lead_id: leadId,
-        session_id: sessionId,
-      }),
-    },
-    { timeoutMs: 60_000 },
-  ).catch((e) => e as Error);
-
-  if (resposta instanceof Error || !resposta.ok) {
-    const motivo = resposta instanceof Error ? resposta.message : `HTTP ${resposta.status}`;
-    console.error("[resposta-ia] IA falhou", { leadId, motivo });
-    await responderFalhaDaIA(supabase, instancia, leadId, telefone, sessionId, agente.id);
-    await finalizar(supabase, filaId, leadId, inicio, `IA falhou: ${motivo}`.slice(0, 500));
-    return "falhou";
-  }
-
-  const resultado = await resposta.json();
-  let partes = ((resultado.messages ?? []) as string[])
-    .map((m) => String(m).trim())
-    .filter((m) => m.length > 0);
-
-  if (resultado.lead_qualificado) {
-    await handleLeadQualification(supabase, lead, instancia, OPENAI_API_KEY).catch((e) =>
-      console.error("[resposta-ia] pós-qualificação falhou:", (e as Error)?.message),
-    );
-  }
-  if (resultado.visita_agendada) {
-    const visita = await handleVisitaAgendada(supabase, lead, OPENAI_API_KEY, instancia).catch(
-      (e) => {
-        console.error("[resposta-ia] criação da visita falhou:", (e as Error)?.message);
-        return null;
-      },
-    );
-    // Fora da janela ou em conflito na agenda do vendedor: a confirmação que o
-    // modelo escreveu não sai — o lead fica sabendo que o horário vai ser
-    // confirmado, e o vendedor já foi avisado.
-    if (visita?.aConfirmar) {
-      partes = MENSAGEM_VISITA_A_CONFIRMAR.split("||").map((m) => m.trim());
+  // Quem pediu para sair não recebe resposta automática (a não ser a
+  // despedida, quando o pedido é ESTA mensagem). A equipe fica sabendo.
+  if (lead.contato_bloqueado && !ehPedidoDeParada(mensagem)) {
+    await fecharFila("cancelado", "contato bloqueado (opt-out)");
+    if (!teste) {
+      await notificarResponsaveis(
+        supabase,
+        leadId,
+        {
+          tipo: "lead_bloqueado_escreveu",
+          titulo: "Lead que pediu para sair escreveu",
+          corpo:
+            "A IA não responde contatos bloqueados. Veja a mensagem e responda pelo CRM, se fizer sentido.",
+        },
+        instancia,
+      );
     }
+    return fim("abortado", "contato bloqueado");
   }
 
-  if (partes.length === 0) {
-    await finalizar(supabase, filaId, leadId, inicio, null);
-    return "sem_resposta";
+  const consultor = teste?.consultor ?? (await consultorDoPainel(supabase));
+
+  let turno: TurnoSophia;
+  try {
+    turno = await gerarRespostaSophia(supabase, OPENAI_API_KEY, {
+      agentId,
+      leadId,
+      sessionId,
+      mensagem,
+      canal: teste ? "teste" : "producao",
+      consultorTeste: teste?.consultor ?? null,
+      modeloForcado: teste?.modelo ?? null,
+    });
+  } catch (e) {
+    const motivo = (e as Error)?.message ?? String(e);
+    console.error("[resposta-ia] IA falhou", { leadId, motivo });
+    if (!teste && instancia) {
+      await responderFalhaDaIA(supabase, instancia, leadId, telefone, sessionId, agentId);
+    }
+    await fecharFila("enviado", `IA falhou: ${motivo}`.slice(0, 500));
+    return fim("falhou", motivo);
+  }
+
+  const leituras = turno.leituras.map((l) => `${l.ferramenta}: ${l.resumo}`);
+
+  // Chegou mensagem nova enquanto a resposta era gerada: nada sai, nada é
+  // feito, e a fila volta a pendente para gerar de novo com a conversa toda.
+  if (!teste && (await chegouMensagemNova(supabase, leadId, inicio))) {
+    await fecharFila("pendente", null);
+    return fim("abortado", "lead escreveu de novo; resposta será refeita", { turno, leituras });
+  }
+
+  if (turno.mensagens.length === 0 && turno.acoes.length === 0) {
+    await fecharFila("enviado", null);
+    return fim("sem_resposta", turno.atalho ?? undefined, { turno, leituras });
   }
 
   const { data: contato } = await supabase
@@ -286,25 +311,72 @@ export async function responderLead(
     .eq("phone", telefone)
     .maybeSingle();
 
-  for (const [indice, texto] of partes.entries()) {
-    if (indice > 0) {
-      // Um vendedor pode ter assumido no meio da resposta: a máquina para.
-      if (await isHumanTakeoverActive(supabase, sessionId)) break;
-      await digitando(instancia, telefone);
-      await dormir(atrasoHumano(texto));
+  // Envio. Qualquer falha aqui interrompe ANTES das ações.
+  const enviadas: string[] = [];
+  try {
+    for (const [indice, texto] of turno.mensagens.entries()) {
+      if (teste) {
+        await supabase.from("whatsapp_messages").insert({
+          lead_id: leadId,
+          contact_id: (contato?.id as string | undefined) ?? null,
+          remote_jid: jidDoTelefone(telefone),
+          message_id: `teste:${crypto.randomUUID()}`,
+          from_me: true,
+          autor: "sophia",
+          message_type: "text",
+          content: texto,
+          status: "sent",
+        });
+        enviadas.push(texto);
+        continue;
+      }
+      if (indice > 0) {
+        // Um vendedor pode ter assumido no meio da resposta: a máquina para.
+        if (await isHumanTakeoverActive(supabase, sessionId)) break;
+        await digitando(instancia!, telefone);
+        await dormir(atrasoHumano(texto));
+      }
+      await enviarTextoRegistrado(
+        supabase,
+        (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
+        instancia!,
+        telefone,
+        texto,
+        {
+          lead_id: leadId,
+          contact_id: (contato?.id as string | undefined) ?? null,
+          autor: "sophia",
+        },
+      );
+      enviadas.push(texto);
     }
-    await enviarTextoRegistrado(
-      supabase,
-      (i, tel, txt) => sendWhatsAppText(i.api_url, i.api_key, i.instance_name, tel, txt),
-      instancia,
-      telefone,
-      texto,
-      { lead_id: leadId, contact_id: (contato?.id as string | undefined) ?? null },
-    );
+  } catch (e) {
+    const motivo = `envio falhou: ${(e as Error)?.message ?? e}`.slice(0, 500);
+    console.error("[resposta-ia]", motivo);
+    await fecharFila("enviado", motivo);
+    return fim("falhou", motivo, { mensagens: enviadas, turno, leituras });
   }
 
-  await finalizar(supabase, filaId, leadId, inicio, null);
-  return "enviado";
+  // Resposta interrompida (humano assumiu no meio): as ações não rodam.
+  const acoes =
+    enviadas.length === turno.mensagens.length
+      ? await executarAcoes(
+          supabase,
+          {
+            leadId,
+            sessionId,
+            agentId,
+            instancia: teste ? null : instancia,
+            consultor,
+            openaiKey: OPENAI_API_KEY,
+            telefone,
+          },
+          turno.acoes,
+        )
+      : [];
+
+  await fecharFila("enviado", null);
+  return { resultado: "enviado", mensagens: enviadas, acoes, leituras, turno };
 }
 
 async function responderFalhaDaIA(
@@ -315,7 +387,7 @@ async function responderFalhaDaIA(
   sessionId: string,
   agentId: string,
 ) {
-  await pauseAI(supabase, sessionId, agentId);
+  await pauseAI(supabase, sessionId, agentId, "falha_ia");
   await supabase.from("interacoes").insert({
     lead_id: leadId,
     tipo: "sistema",
@@ -329,7 +401,7 @@ async function responderFalhaDaIA(
     instancia,
     telefone,
     MENSAGEM_FALHA_IA,
-    { lead_id: leadId },
+    { lead_id: leadId, autor: "sistema" },
   ).catch((e) =>
     console.error("[resposta-ia] mensagem de espera não enviada:", (e as Error).message),
   );

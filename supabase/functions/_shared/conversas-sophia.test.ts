@@ -292,7 +292,8 @@ test("conversa 37: conta em 'responder' não tem como gravar no CRM nem marcar v
   const nomes = ferramentasDoNivel("responder").map((f) => f.function.name);
   assert.ok(!nomes.includes("registrar_dados_lead"));
   assert.ok(!nomes.includes("ver_horarios_visita"));
-  assert.match(blocoFerramentas("responder"), /não emita lead_qualificado nem visita_agendada/);
+  assert.ok(!nomes.includes("agendar_visita"));
+  assert.match(blocoFerramentas("responder"), /não registra, não qualifica e não marca visita/);
 });
 
 test("conversa 38: conta em 'qualificar' registra mas manda o consultor combinar a visita", () => {
