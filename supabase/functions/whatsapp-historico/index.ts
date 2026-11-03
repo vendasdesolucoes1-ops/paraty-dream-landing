@@ -270,12 +270,20 @@ async function importar(i: Instancia, plano: Plano, criarLeads: boolean) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const chamador = await exigirChamador(req, { papeis: PAPEIS_GESTAO });
+  // O segredo interno (bancada de testes) só lê: importar e mudar o webhook
+  // ficam com a gestão no painel.
+  const chamador = await exigirChamador(req, {
+    papeis: PAPEIS_GESTAO,
+    segredos: ["ai_agent_chat_secret"],
+  });
   if (chamador instanceof Response) return chamador;
 
   try {
     const body = await req.json().catch(() => ({}));
     const acao = String(body.acao ?? "");
+    if (chamador.tipo === "maquina" && !["conversa", "contar", "ver_webhook"].includes(acao)) {
+      return json({ error: "ação não permitida para este chamador" }, 403);
+    }
     const i = await instancia();
 
     if (acao === "conversa") {
