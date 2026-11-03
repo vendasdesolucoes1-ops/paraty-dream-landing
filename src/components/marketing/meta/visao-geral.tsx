@@ -23,7 +23,6 @@ import {
   serieCampanhas,
   type SerieCampanhas,
   type TipoResultado,
-  formatMoeda,
   formatQtd,
   formatTaxa,
   melhoresAnuncios,
@@ -34,6 +33,7 @@ import {
   variacao,
   type TipoMidia,
 } from "@/lib/marketing-calculos";
+import { formatarMoeda } from "@/lib/moeda";
 import {
   useAnuncios,
   useMidiasIg,
@@ -99,7 +99,7 @@ function ResumoAnuncios({
   const ca = atual ? custosPorObjetivo(atual) : null;
   const cb = anterior ? custosPorObjetivo(anterior) : null;
   const carregando = q.isPending;
-  const dinheiro = (n: number) => formatMoeda(n, moeda);
+  const dinheiro = (n: number) => formatarMoeda(n, moeda);
 
   return (
     <Bloco
@@ -203,11 +203,12 @@ function EvolucaoDiaria({ periodo }: { periodo: Periodo }) {
           {(serie) => (
             <GraficoSerie
               titulo="Investimento por dia"
-              total={formatMoeda(
+              total={formatarMoeda(
                 serie.reduce((s, p) => s + p.investimento, 0),
                 moeda,
               )}
               pontos={serie.map((p) => ({ data: p.data, valor: p.investimento }))}
+              formatar={(v) => formatarMoeda(v, moeda)}
             />
           )}
         </QueryState>
@@ -225,7 +226,7 @@ function EvolucaoDiaria({ periodo }: { periodo: Periodo }) {
             <GraficoCampanhas
               titulo="Custo por resultado por dia"
               serie={serieCampanhas(pontos, "custo")}
-              formatar={(n) => formatMoeda(n, moeda)}
+              formatar={(n) => formatarMoeda(n, moeda)}
               className="lg:col-span-2"
             />
           )}
@@ -386,7 +387,7 @@ function Destaques({ periodo }: { periodo: Periodo }) {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-[0.875rem] font-medium tabular-nums text-foreground">
-                        {formatMoeda(a.resultado.custo, moeda)}
+                        {formatarMoeda(a.resultado.custo, moeda)}
                       </p>
                       <p className="text-[0.75rem] tabular-nums text-muted-foreground">
                         {formatQtd(a.resultado.quantidade)} {a.resultado.rotulo}

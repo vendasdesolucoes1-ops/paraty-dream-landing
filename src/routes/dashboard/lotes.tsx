@@ -163,7 +163,7 @@ function LotesPage() {
     queryKey: ["lotes", quadraFilter, statusFilter, tipoFilter, metragemFilter, search],
     queryFn: async () => {
       let query = supabase
-        .from("lotes")
+        .from("lotes_painel")
         .select("*")
         .order("quadra", { ascending: true })
         .order("numero_lote", { ascending: true });

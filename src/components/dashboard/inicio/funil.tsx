@@ -17,6 +17,7 @@ const COR: Record<LeadStatus, string> = {
   proposta: "bg-chart-4",
   fechado: "bg-success",
   perdido: "bg-chart-muted",
+  nutricao: "bg-muted-foreground",
 };
 
 /**

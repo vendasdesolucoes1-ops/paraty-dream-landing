@@ -41,6 +41,12 @@ export function Notificacoes({ className }: { className?: string }) {
   const { data } = useQuery({
     queryKey: chave,
     enabled: !!userId,
+    // O tempo real (abaixo) é o caminho principal; o intervalo de 60 s só cobre
+    // uma queda do canal. Se a consulta falhar (ex.: coluna ausente → 400), o
+    // sino para de tentar em vez de martelar o banco a cada render.
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => (query.state.status === "error" ? false : 60_000),
     queryFn: async () => {
       // A RLS já limita às próprias; o filtro explícito usa o índice.
       const [lista, naoLidas] = await Promise.all([

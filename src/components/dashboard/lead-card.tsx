@@ -1,23 +1,29 @@
 import { forwardRef, type HTMLAttributes, type KeyboardEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { ClipboardList, Headset, MapPin, Megaphone, Ruler, UserX } from "lucide-react";
+import {
+  CalendarX,
+  ClipboardList,
+  Headset,
+  MapPin,
+  Megaphone,
+  Ruler,
+  Sparkles,
+  UserX,
+} from "lucide-react";
 import { Avatar } from "@/components/ds/avatar";
 import { Pill } from "@/components/ds/pill";
 import { atraso } from "@/components/ds/reveal";
 import { cn } from "@/lib/utils";
 import { formatTelefone, tempoRelativo } from "@/lib/format";
-import { ORIGEM_LABEL } from "@/lib/lead-status";
-import { LEAD_ORIGEM_OPTIONS, type Lead } from "@/lib/types";
-
-// Todas as origens (inclui anúncio e extratores), não só as do formulário manual.
-const ORIGEM_LABELS: Record<string, string> = {
-  ...Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label])),
-  ...ORIGEM_LABEL,
-};
+import { rotuloOrigem } from "@/lib/lead-status";
+import { cidadeValida, nomeExibicao, resumoRespostas } from "@/lib/lead-exibicao";
+import type { Lead } from "@/lib/types";
 
 type VistaProps = {
   lead: Lead;
   hasHumanTakeover?: boolean;
+  /** Lead em "Agendado" sem visita marcada: o cartão avisa. */
+  semVisita?: boolean;
   draggable?: boolean;
   /** "fantasma": o cartão de origem enquanto o clone é arrastado. "clone": o que segue o cursor. */
   modo?: "normal" | "fantasma" | "clone";
@@ -25,14 +31,23 @@ type VistaProps = {
 
 /** O cartão em si, sem lógica de arrastar: serve ao Kanban e ao clone do arrasto. */
 export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function LeadCardView(
-  { lead, hasHumanTakeover, draggable = true, modo = "normal", className, ...rest },
+  { lead, hasHumanTakeover, semVisita, draggable = true, modo = "normal", className, ...rest },
   ref,
 ) {
-  const origem = lead.origem ? (ORIGEM_LABELS[lead.origem] ?? lead.origem) : null;
+  const origem = lead.origem ? rotuloOrigem(lead.origem) : null;
+  // Entrou de novo por outro canal (ex.: veio do WhatsApp e depois preencheu o formulário).
+  const voltouPor =
+    lead.origem_ultima && lead.origem_ultima !== lead.origem
+      ? rotuloOrigem(lead.origem_ultima)
+      : null;
+  const nome = nomeExibicao(lead);
+  const cidade = cidadeValida(lead.cidade);
+  const respostas = resumoRespostas(lead);
   // Lead de anúncio: a campanha (ou o anúncio) aparece numa linha própria,
   // cortada com reticências, para não estourar o cartão.
   const campanha = lead.campanha_nome ?? lead.anuncio_nome ?? null;
-  const deFormulario = lead.origem === "formulario_meta";
+  const deFormulario =
+    lead.origem === "formulario_meta" || (lead.canais_entrada ?? []).includes("formulario_meta");
   const deAnuncioWhats = lead.origem === "anuncio_whatsapp";
   const semVendedor = !lead.vendedor_id && !lead.is_teste;
 
@@ -54,10 +69,15 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
       )}
     >
       <div className="flex items-start gap-3">
-        <Avatar nome={lead.nome} />
+        <Avatar nome={nome === "Sem nome" ? "?" : nome} />
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 break-words text-[0.875rem] font-semibold leading-snug tracking-[-0.011em] text-foreground">
-            {lead.nome}
+          <p
+            className={cn(
+              "line-clamp-2 break-words text-[0.875rem] font-semibold leading-snug tracking-[-0.011em]",
+              nome === "Sem nome" ? "italic text-muted-foreground" : "text-foreground",
+            )}
+          >
+            {nome}
           </p>
           {lead.telefone ? (
             <p className="mt-0.5 truncate text-[0.78rem] tabular-nums text-muted-foreground">
@@ -73,12 +93,12 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
         </span>
       </div>
 
-      {lead.cidade || lead.metragem_interesse ? (
+      {cidade || lead.metragem_interesse ? (
         <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-[0.78rem] text-muted-foreground">
-          {lead.cidade ? (
-            <span className="inline-flex items-center gap-1.5">
+          {cidade ? (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {lead.cidade}
+              <span className="truncate">{cidade}</span>
             </span>
           ) : null}
           {lead.metragem_interesse ? (
@@ -88,6 +108,20 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
             </span>
           ) : null}
         </div>
+      ) : null}
+
+      {respostas ? (
+        <p className="mt-2.5 flex min-w-0 items-center gap-1.5 text-[0.75rem] font-medium text-foreground">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-info" aria-hidden />
+          <span className="truncate">{respostas}</span>
+        </p>
+      ) : null}
+
+      {semVisita ? (
+        <p className="mt-2.5 flex items-center gap-1.5 rounded-md bg-warning-soft px-2 py-1 text-[0.75rem] font-medium text-warning">
+          <CalendarX className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Agendado sem visita marcada
+        </p>
       ) : null}
 
       {campanha && (deFormulario || deAnuncioWhats) ? (
@@ -101,7 +135,11 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-2.5">
-        {lead.is_teste ? (
+        {lead.interno ? (
+          <span title="Contato interno (equipe ou a própria empresa): fora do funil e dos números.">
+            <Pill>INTERNO</Pill>
+          </span>
+        ) : lead.is_teste ? (
           <span title="Lead gerado pelo painel Testar Agente — não é um cliente real.">
             <Pill tone="warning">TESTE</Pill>
           </span>
@@ -117,6 +155,11 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
           ) : (
             <Pill>{origem}</Pill>
           )
+        ) : null}
+        {voltouPor ? (
+          <span title={`Última entrada: ${voltouPor}`}>
+            <Pill tone="info">+ {voltouPor}</Pill>
+          </span>
         ) : null}
         {semVendedor ? (
           <span title="Ainda sem vendedor responsável. Abra a ficha para entregar a alguém.">
@@ -146,12 +189,14 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
 export function LeadCard({
   lead,
   hasHumanTakeover,
+  semVisita,
   onClick,
   draggable = true,
   indice = 0,
 }: {
   lead: Lead;
   hasHumanTakeover?: boolean;
+  semVisita?: boolean;
   onClick?: () => void;
   draggable?: boolean;
   /** Posição na coluna: define o atraso da entrada em cascata. */
@@ -179,6 +224,7 @@ export function LeadCard({
         ref={setNodeRef}
         lead={lead}
         hasHumanTakeover={hasHumanTakeover}
+        semVisita={semVisita}
         draggable={draggable}
         modo={isDragging ? "fantasma" : "normal"}
         {...(draggable ? attributes : { role: "button", tabIndex: 0 })}

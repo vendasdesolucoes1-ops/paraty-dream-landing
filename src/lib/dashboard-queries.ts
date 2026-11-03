@@ -101,7 +101,7 @@ export function useResumoLeads(escopo: Escopo, enabled: boolean) {
       const hoje = inicioDoDia();
       const ontem = somarDias(hoje, -1);
 
-      const [porStatus, porOrigem, novosHoje, novosOntem] = await Promise.all([
+      const [porStatus, porOrigem, novosHoje, novosOntem, semOrigem] = await Promise.all([
         Promise.all(
           LEAD_STATUS_COLUMNS.map(async ({ value }) => ({
             status: value,
@@ -111,7 +111,10 @@ export function useResumoLeads(escopo: Escopo, enabled: boolean) {
         Promise.all(
           ORIGENS.map(async ({ value }) => ({
             origem: value as LeadOrigem | null,
-            total: await contar(escopo, (q) => q.eq("origem", value)),
+            // "Teve entrada pelo canal": a origem gravada ou qualquer entrada depois.
+            total: await contar(escopo, (q) =>
+              q.or(`origem.eq.${value},canais_entrada.cs.{${value}}`),
+            ),
           })),
         ),
         contar(escopo, (q) => q.or(SO_ENTRADA).gte("created_at", hoje.toISOString())),
@@ -121,12 +124,12 @@ export function useResumoLeads(escopo: Escopo, enabled: boolean) {
             .gte("created_at", ontem.toISOString())
             .lt("created_at", hoje.toISOString()),
         ),
+        contar(escopo, (q) => q.is("origem", null)),
       ]);
 
       const total = porStatus.reduce((s, p) => s + p.total, 0);
-      const comOrigem = porOrigem.reduce((s, p) => s + p.total, 0);
       const emAndamento = porStatus
-        .filter((p) => p.status !== "fechado" && p.status !== "perdido")
+        .filter((p) => p.status !== "fechado" && p.status !== "perdido" && p.status !== "nutricao")
         .reduce((s, p) => s + p.total, 0);
 
       return {
@@ -135,10 +138,7 @@ export function useResumoLeads(escopo: Escopo, enabled: boolean) {
         novosHoje,
         novosOntem,
         porStatus,
-        porOrigem:
-          total > comOrigem
-            ? [...porOrigem, { origem: null, total: total - comOrigem }]
-            : porOrigem,
+        porOrigem: semOrigem > 0 ? [...porOrigem, { origem: null, total: semOrigem }] : porOrigem,
       };
     },
   });
@@ -240,12 +240,20 @@ export function useAgendaProxima(escopo: Escopo, enabled: boolean) {
 
 // ── Fila de ação: o que precisa de alguém agora ─────────────────────────
 
-export type MotivoAcao = "qualificado" | "proposta_parada" | "visita_a_confirmar" | "humano";
+export type MotivoAcao =
+  | "qualificado"
+  | "proposta_parada"
+  | "visita_a_confirmar"
+  | "humano"
+  | "lead_quente"
+  | "agendado_sem_visita";
 
 export interface ItemAcao {
   chave: string;
   motivo: MotivoAcao;
   desde: string;
+  /** Quanto maior, mais no topo da fila (ver `urgenciaDoItem`). */
+  urgencia: number;
   lead: { id: string; nome: string; telefone: string | null } | null;
   /** Só para "humano": quantas conversas estão com atendimento humano aberto. */
   quantidade?: number;
@@ -254,6 +262,37 @@ export interface ItemAcao {
 /** Proposta sem movimento há mais que isto vira pendência. */
 const PROPOSTA_PARADA_DIAS = 3;
 
+/** Score a partir do qual um lead novo é "quente" (ex.: compra em 3 meses + quer visitar). */
+const SCORE_QUENTE = 3;
+
+const HORA_MS = 60 * 60 * 1000;
+
+/**
+ * Urgência real, numa escala só: o que perde venda se esperar vem antes.
+ * Conversa com humano > visita para confirmar (quanto mais perto, maior) >
+ * lead quente sem contato (score e espera somam) > agendado sem visita >
+ * proposta parada (cresce com os dias) > qualificado.
+ */
+function urgenciaDoItem(motivo: MotivoAcao, desde: string, score = 0): number {
+  const horas = Math.max(0, (Date.now() - Date.parse(desde)) / HORA_MS);
+  switch (motivo) {
+    case "humano":
+      return 1000;
+    case "visita_a_confirmar": {
+      const faltam = Math.max(0, (Date.parse(desde) - Date.now()) / HORA_MS);
+      return 900 - Math.min(faltam, 99);
+    }
+    case "lead_quente":
+      return 700 + score * 20 + Math.min(horas, 72);
+    case "agendado_sem_visita":
+      return 600 + Math.min(horas / 24, 60);
+    case "proposta_parada":
+      return 500 + Math.min(horas / 24, 60);
+    case "qualificado":
+      return 300 + score * 10 + Math.min(horas / 24, 60);
+  }
+}
+
 export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled: boolean) {
   return useQuery({
     queryKey: ["dash", "fila", escopo.vendedorId, papel],
@@ -261,7 +300,7 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
     ...TENTATIVAS,
     refetchInterval: ATUALIZAR_A_CADA_MS,
     queryFn: async (): Promise<ItemAcao[]> => {
-      const colunas = "id, nome, telefone, updated_at";
+      const colunas = "id, nome, telefone, updated_at, created_at, score";
 
       const leadsEm = (status: LeadStatus) => {
         let q = supabase
@@ -284,8 +323,11 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
         .limit(6);
       if (escopo.vendedorId) visitasQ = visitasQ.eq("vendedor_id", escopo.vendedorId);
 
-      const [qualificados, propostas, visitas, humanos] = await Promise.all([
-        leadsEm("qualificado").order("updated_at", { ascending: true }).limit(6),
+      const [qualificados, propostas, visitas, humanos, quentes, agendados] = await Promise.all([
+        leadsEm("qualificado")
+          .order("score", { ascending: false })
+          .order("updated_at", { ascending: true })
+          .limit(6),
         leadsEm("proposta")
           .lt("updated_at", somarDias(new Date(), -PROPOSTA_PARADA_DIAS).toISOString())
           .order("updated_at", { ascending: true })
@@ -300,8 +342,17 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
             error,
           }),
         ),
+        // Lead novo e quente (respostas do formulário): primeiro contato já.
+        leadsEm("novo")
+          .gte("score", SCORE_QUENTE)
+          .order("score", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(6),
+        leadsEm("agendado").order("updated_at", { ascending: true }).limit(30),
       ]);
 
+      if (quentes.error) throw quentes.error;
+      if (agendados.error) throw agendados.error;
       if (qualificados.error) throw qualificados.error;
       if (propostas.error) throw propostas.error;
       if (visitas.error) throw visitas.error;
@@ -315,7 +366,41 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           desde: new Date().toISOString(),
           lead: null,
           quantidade: humanos.count ?? 0,
+          urgencia: urgenciaDoItem("humano", new Date().toISOString()),
         });
+      }
+
+      for (const l of quentes.data ?? []) {
+        itens.push({
+          chave: `quente-${l.id}`,
+          motivo: "lead_quente",
+          desde: l.created_at,
+          lead: l,
+          urgencia: urgenciaDoItem("lead_quente", l.created_at, l.score),
+        });
+      }
+
+      // "Agendado" precisa de visita marcada; sem ela, o lead está solto.
+      const idsAgendados = (agendados.data ?? []).map((l) => l.id);
+      if (idsAgendados.length > 0) {
+        const { data: comVisita, error } = await supabase
+          .from("visitas")
+          .select("lead_id")
+          .in("lead_id", idsAgendados)
+          .in("status", ["agendada", "confirmada", "a_confirmar"])
+          .gte("data_hora", somarDias(new Date(), -1).toISOString());
+        if (error) throw error;
+        const marcados = new Set((comVisita ?? []).map((v) => v.lead_id));
+        for (const l of agendados.data ?? []) {
+          if (marcados.has(l.id)) continue;
+          itens.push({
+            chave: `sem-visita-${l.id}`,
+            motivo: "agendado_sem_visita",
+            desde: l.updated_at,
+            lead: l,
+            urgencia: urgenciaDoItem("agendado_sem_visita", l.updated_at),
+          });
+        }
       }
 
       type Visita = {
@@ -331,6 +416,7 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           motivo: "visita_a_confirmar",
           desde: v.data_hora,
           lead: v.lead ? { id: v.lead.id, nome: v.lead.nome, telefone: v.lead.telefone } : null,
+          urgencia: urgenciaDoItem("visita_a_confirmar", v.data_hora),
         });
       }
       for (const l of propostas.data ?? []) {
@@ -339,6 +425,7 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           motivo: "proposta_parada",
           desde: l.updated_at,
           lead: l,
+          urgencia: urgenciaDoItem("proposta_parada", l.updated_at),
         });
       }
       for (const l of qualificados.data ?? []) {
@@ -347,9 +434,10 @@ export function useFilaDeAcao(escopo: Escopo, papel: ProfileRole | null, enabled
           motivo: "qualificado",
           desde: l.updated_at,
           lead: l,
+          urgencia: urgenciaDoItem("qualificado", l.updated_at, l.score),
         });
       }
-      return itens;
+      return itens.sort((a, b) => b.urgencia - a.urgencia);
     },
   });
 }

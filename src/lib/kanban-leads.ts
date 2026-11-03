@@ -21,6 +21,31 @@ export interface FiltrosKanban {
   termo: string;
   /** Só os leads ainda sem vendedor responsável (para a entrega manual). */
   semVendedor?: boolean;
+  /** Respostas do Formulário Meta: quer visitar / compra em até 3 meses. */
+  interesse?: FiltroInteresse | null;
+}
+
+export type FiltroInteresse = "quer_visitar" | "compra_3_meses";
+
+/** Texto (início) da opção do formulário que cada filtro de interesse procura. */
+export const INTERESSE_PREFIXO: Record<
+  FiltroInteresse,
+  { coluna: "quer_visitar" | "prazo_compra"; prefixo: string }
+> = {
+  quer_visitar: { coluna: "quer_visitar", prefixo: "Sim" },
+  compra_3_meses: { coluna: "prazo_compra", prefixo: "Nos próximos 3 meses" },
+};
+
+/** Canais pelos quais o lead já entrou (a origem gravada conta como um deles). */
+export function canaisDoLead(lead: Lead): string[] {
+  const canais = new Set(lead.canais_entrada ?? []);
+  if (lead.origem) canais.add(lead.origem);
+  return [...canais];
+}
+
+/** Data de entrada usada na ordem do quadro: a mais recente, senão a criação. */
+export function dataDeEntrada(lead: Lead): string {
+  return lead.entrada_em ?? lead.created_at;
 }
 
 export interface PaginaKanban {
@@ -76,8 +101,12 @@ export function leadCasaComFiltros(lead: Lead, filtros: FiltrosKanban): boolean 
   if (lead.deletado_em) return false;
   if (filtros.vendedorId && lead.vendedor_id !== filtros.vendedorId) return false;
   if (!filtros.mostrarTestes && lead.is_teste) return false;
-  if (filtros.origem && lead.origem !== filtros.origem) return false;
+  if (filtros.origem && !canaisDoLead(lead).includes(filtros.origem)) return false;
   if (filtros.semVendedor && lead.vendedor_id) return false;
+  if (filtros.interesse) {
+    const { coluna, prefixo } = INTERESSE_PREFIXO[filtros.interesse];
+    if (!(lead[coluna] ?? "").toLowerCase().startsWith(prefixo.toLowerCase())) return false;
+  }
   if (filtros.termo) {
     const termo = semAcento(filtros.termo);
     const digitos = filtros.termo.replace(/\D/g, "");
@@ -89,10 +118,13 @@ export function leadCasaComFiltros(lead: Lead, filtros: FiltrosKanban): boolean 
   return true;
 }
 
-/** Ordem das colunas: mais recente primeiro, com o id desempatando (igual ao banco). */
+/**
+ * Ordem das colunas: entrada mais recente primeiro (lead que voltou pelo
+ * formulário sobe), com o id desempatando (igual ao banco).
+ */
 export function compararRecentes(a: Lead, b: Lead): number {
-  const ta = Date.parse(a.created_at);
-  const tb = Date.parse(b.created_at);
+  const ta = Date.parse(dataDeEntrada(a));
+  const tb = Date.parse(dataDeEntrada(b));
   if (ta !== tb) return tb - ta;
   return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
 }

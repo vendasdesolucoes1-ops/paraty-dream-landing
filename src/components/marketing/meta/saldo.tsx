@@ -6,7 +6,8 @@ import { RefreshCw } from "lucide-react";
 import { Bloco, LINK_BLOCO } from "@/components/ds/bloco";
 import { Pill } from "@/components/ds/pill";
 import { FaixaIndicadores, FaixaStatus, Indicador } from "@/components/marketing/meta/pecas";
-import { alertaSaldo, formatMoeda, haQuanto } from "@/lib/marketing-calculos";
+import { alertaSaldo, haQuanto } from "@/lib/marketing-calculos";
+import { formatarMoeda } from "@/lib/moeda";
 import { ErroSaldo, useSaldoMeta } from "@/lib/marketing-meta";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,14 @@ export function SaldoAoVivo() {
   const moeda = s?.moeda;
   const carregando = q.isPending;
   const alerta = s ? alertaSaldo(s) : null;
+  // O limite de gastos da conta segura os anúncios mesmo com saldo sobrando.
+  const limiteAbaixoDoSaldo =
+    s &&
+    s.restanteLimite != null &&
+    s.saldoDisponivel != null &&
+    s.restanteLimite < s.saldoDisponivel
+      ? { restante: s.restanteLimite, saldo: s.saldoDisponivel }
+      : null;
 
   const acao = (
     <span className="flex items-center gap-2">
@@ -77,6 +86,15 @@ export function SaldoAoVivo() {
               }}
             />
           ) : null}
+          {limiteAbaixoDoSaldo ? (
+            <FaixaStatus
+              saude={{
+                nivel: "atencao",
+                titulo: "Limite de gastos abaixo do saldo",
+                detalhe: `O limite de gastos restante (${formatarMoeda(limiteAbaixoDoSaldo.restante, moeda)}) é menor que o saldo (${formatarMoeda(limiteAbaixoDoSaldo.saldo, moeda)}): os anúncios param quando o limite acabar, mesmo com saldo. Aumente o limite no Gerenciador de Anúncios.`,
+              }}
+            />
+          ) : null}
           <FaixaIndicadores colunas={4}>
             {s && !s.prepaga ? (
               <Indicador
@@ -84,7 +102,7 @@ export function SaldoAoVivo() {
                 destaque
                 carregando={carregando}
                 valor={s.aCobrar}
-                formatar={(n) => formatMoeda(n, moeda)}
+                formatar={(n) => formatarMoeda(n, moeda)}
                 rodape={s.formaPagamento ?? "Gasto acumulado ainda não cobrado"}
               />
             ) : (
@@ -93,7 +111,7 @@ export function SaldoAoVivo() {
                 destaque
                 carregando={carregando}
                 valor={s?.saldoDisponivel}
-                formatar={(n) => formatMoeda(n, moeda)}
+                formatar={(n) => formatarMoeda(n, moeda)}
                 rodape={s ? "Créditos pré-pagos na Meta" : undefined}
               />
             )}
@@ -101,13 +119,13 @@ export function SaldoAoVivo() {
               rotulo="Gasto hoje"
               carregando={carregando}
               valor={s?.gastoHoje}
-              formatar={(n) => formatMoeda(n, moeda)}
+              formatar={(n) => formatarMoeda(n, moeda)}
             />
             <Indicador
               rotulo="Média por dia"
               carregando={carregando}
               valor={s?.mediaDiaria7d}
-              formatar={(n) => formatMoeda(n, moeda)}
+              formatar={(n) => formatarMoeda(n, moeda)}
               rodape={
                 s?.diasRestantes != null
                   ? `Dura cerca de ${Math.floor(s.diasRestantes)} dia(s), com impostos`
@@ -118,10 +136,10 @@ export function SaldoAoVivo() {
               rotulo={s?.limiteGasto != null ? "Restante do limite" : "Gasto total da conta"}
               carregando={carregando}
               valor={s?.limiteGasto != null ? s.restanteLimite : s?.gastoTotal}
-              formatar={(n) => formatMoeda(n, moeda)}
+              formatar={(n) => formatarMoeda(n, moeda)}
               rodape={
                 s?.limiteGasto != null
-                  ? `Limite de ${formatMoeda(s.limiteGasto, moeda)}`
+                  ? `Limite de ${formatarMoeda(s.limiteGasto, moeda)}`
                   : s
                     ? "Sem limite de gasto definido"
                     : undefined

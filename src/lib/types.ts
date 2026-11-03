@@ -30,7 +30,9 @@ export type LeadOrigem =
   // Chegou por anúncio de clique para o WhatsApp (externalAdReply na 1ª mensagem).
   | "anuncio_whatsapp"
   // Formulário de cadastro dos anúncios da Meta (lead ads).
-  | "formulario_meta";
+  | "formulario_meta"
+  // Cadastrado à mão no painel, sem canal conhecido.
+  | "manual";
 export type LeadStatus =
   | "novo"
   | "qualificado"
@@ -38,7 +40,9 @@ export type LeadStatus =
   | "visitou"
   | "proposta"
   | "fechado"
-  | "perdido";
+  | "perdido"
+  // Sem interação há mais de 30 dias: sai da fila ativa e vai para nutrição.
+  | "nutricao";
 
 export interface Lead {
   id: string;
@@ -66,6 +70,22 @@ export interface Lead {
   anuncio_nome?: string | null;
   campanha_id?: string | null;
   campanha_nome?: string | null;
+  conjunto_nome?: string | null;
+  formulario_nome?: string | null;
+  /** Respostas do Formulário Meta, com o texto da opção escolhida. */
+  finalidade?: string | null;
+  prazo_compra?: string | null;
+  quer_visitar?: string | null;
+  forma_pagamento?: string | null;
+  /** Canal da primeira e da última entrada (lead_entradas). */
+  origem_primeira?: LeadOrigem | null;
+  origem_ultima?: LeadOrigem | null;
+  /** Data da entrada mais recente (formulário usa o created_time da Meta). */
+  entrada_em?: string | null;
+  /** Todos os canais pelos quais o lead já entrou. */
+  canais_entrada?: string[];
+  /** Contato interno (equipe, a própria empresa): fora do funil e dos números. */
+  interno?: boolean;
 }
 
 export type ProfileRole = "admin" | "gestor" | "vendedor";
@@ -96,6 +116,8 @@ export interface Vendedor {
   email: string | null;
   telefone: string | null;
   ativo: boolean;
+  /** Participa do rodízio (separado de "ativo": sair da fila não tira a carteira). */
+  no_rodizio?: boolean;
   posicao_round_robin: number;
   profile_id: string | null;
   created_at: string;
@@ -252,12 +274,14 @@ export const LEAD_STATUS_COLUMNS: { value: LeadStatus; label: string }[] = [
   { value: "proposta", label: "Proposta" },
   { value: "fechado", label: "Fechado" },
   { value: "perdido", label: "Perdido" },
+  { value: "nutricao", label: "Nutrição" },
 ];
 
+/** Origens que dá para escolher à mão (cadastro manual e ficha do lead). */
 export const LEAD_ORIGEM_OPTIONS: { value: LeadOrigem; label: string }[] = [
-  { value: "lp", label: "Landing Page" },
-  { value: "whatsapp", label: "WhatsApp" },
+  { value: "manual", label: "Cadastro manual" },
   { value: "indicacao", label: "Indicação" },
+  { value: "whatsapp", label: "WhatsApp" },
   { value: "instagram", label: "Instagram" },
 ];
 

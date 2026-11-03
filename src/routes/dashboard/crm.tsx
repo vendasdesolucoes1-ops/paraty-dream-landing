@@ -22,6 +22,7 @@ import {
   leadsDaColuna,
   limparTermoBusca,
   type ContagensKanban,
+  type FiltroInteresse,
   type FiltrosKanban,
 } from "@/lib/kanban-leads";
 import { Button } from "@/components/ui/button";
@@ -244,6 +245,7 @@ function ColunaDoQuadro({
   total,
   podeArrastar,
   temAtendimentoHumano,
+  semVisita,
   onAbrir,
 }: {
   column: { value: LeadStatus; label: string };
@@ -253,6 +255,7 @@ function ColunaDoQuadro({
   total: number | undefined;
   podeArrastar: (lead: Lead) => boolean;
   temAtendimentoHumano: (lead: Lead) => boolean;
+  semVisita: (lead: Lead) => boolean;
   onAbrir: (id: string) => void;
 }) {
   const coluna = useColunaKanban(column.value, filtros, habilitada);
@@ -304,6 +307,7 @@ function ColunaDoQuadro({
           indice={k % TAMANHO_PAGINA_KANBAN}
           draggable={podeArrastar(lead)}
           hasHumanTakeover={temAtendimentoHumano(lead)}
+          semVisita={semVisita(lead)}
           onClick={() => onAbrir(lead.id)}
         />
       ))}
@@ -334,6 +338,22 @@ function CrmPage() {
     },
   });
 
+  // Leads com visita marcada (de ontem em diante): quem está em "Agendado" sem
+  // nenhuma ganha o aviso no cartão.
+  const { data: leadsComVisita } = useQuery({
+    queryKey: ["leads", "com-visita"],
+    queryFn: async () => {
+      const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("visitas")
+        .select("lead_id")
+        .in("status", ["agendada", "confirmada"])
+        .gte("data_hora", ontem);
+      if (error) throw error;
+      return new Set((data ?? []).map((v) => v.lead_id as string));
+    },
+  });
+
   // Leads de teste ficam visíveis por padrão — é justamente para acompanhar a
   // movimentação automática que eles existem. O filtro serve para limpar a
   // visão quando o funil real é o que importa.
@@ -343,6 +363,8 @@ function CrmPage() {
   const [origemFiltro, setOrigemFiltro] = useState<string>("todas");
   // Gestão: mostra só quem ainda não tem vendedor, para entregar à mão.
   const [soSemVendedor, setSoSemVendedor] = useState(false);
+  // Respostas do Formulário Meta: quem quer visitar / compra em até 3 meses.
+  const [interesse, setInteresse] = useState<FiltroInteresse | null>(null);
   // A busca vai para o banco (as colunas são paginadas lá), então espera a
   // digitação parar. Ignora acento e caixa: "jose" acha "José" (coluna leads.busca).
   const termo = limparTermoBusca(useAtrasado(busca, 300));
@@ -366,7 +388,8 @@ function CrmPage() {
     ? origemFiltro
     : "todas";
   const semVendedorAtivo = !isVendedor && soSemVendedor;
-  const filtrosAtivos = busca.trim() !== "" || origemAtiva !== "todas" || semVendedorAtivo;
+  const filtrosAtivos =
+    busca.trim() !== "" || origemAtiva !== "todas" || semVendedorAtivo || interesse !== null;
 
   const filtros = useMemo<FiltrosKanban>(
     () => ({
@@ -375,8 +398,9 @@ function CrmPage() {
       origem: origemAtiva === "todas" ? null : origemAtiva,
       termo,
       semVendedor: semVendedorAtivo,
+      interesse,
     }),
-    [vendedorId, mostrarTestes, origemAtiva, termo, semVendedorAtivo],
+    [vendedorId, mostrarTestes, origemAtiva, termo, semVendedorAtivo, interesse],
   );
 
   const contagens = useContagensKanban(filtros, habilitado);
@@ -584,6 +608,26 @@ function CrmPage() {
           ) : null}
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
+            {(resumo.data?.queroVisitar ?? 0) > 0 ? (
+              <Chip
+                ativo={interesse === "quer_visitar"}
+                onClick={() => setInteresse((v) => (v === "quer_visitar" ? null : "quer_visitar"))}
+                contagem={resumo.data?.queroVisitar}
+              >
+                Quer visitar
+              </Chip>
+            ) : null}
+            {(resumo.data?.compra3Meses ?? 0) > 0 ? (
+              <Chip
+                ativo={interesse === "compra_3_meses"}
+                onClick={() =>
+                  setInteresse((v) => (v === "compra_3_meses" ? null : "compra_3_meses"))
+                }
+                contagem={resumo.data?.compra3Meses}
+              >
+                Compra em até 3 meses
+              </Chip>
+            ) : null}
             {!isVendedor && (resumo.data?.semVendedor ?? 0) > 0 ? (
               <Chip
                 ativo={soSemVendedor}
@@ -637,6 +681,7 @@ function CrmPage() {
                     setBusca("");
                     setOrigemFiltro("todas");
                     setSoSemVendedor(false);
+                    setInteresse(null);
                   }}
                   className="inline-flex h-9 items-center rounded-lg border border-input bg-card px-4 text-sm font-medium shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
@@ -673,6 +718,11 @@ function CrmPage() {
                     podeArrastar={canDrag}
                     temAtendimentoHumano={(lead) =>
                       !!lead.telefone && !!activeTakeoverPhones?.has(lead.telefone)
+                    }
+                    semVisita={(lead) =>
+                      lead.status_crm === "agendado" &&
+                      !!leadsComVisita &&
+                      !leadsComVisita.has(lead.id)
                     }
                     onAbrir={setSelectedLeadId}
                   />

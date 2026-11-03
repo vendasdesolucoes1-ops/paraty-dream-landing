@@ -103,7 +103,7 @@ export function PropostaFormDialog({
     queryKey: ["lotes-para-proposta"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("lotes")
+        .from("lotes_painel")
         .select("id, numero_lote, quadra, metragem, status, valor")
         .order("numero_lote");
       if (error) throw error;

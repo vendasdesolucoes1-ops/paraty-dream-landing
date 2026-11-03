@@ -3,7 +3,7 @@ import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/csv";
-import { ORIGEM_LABEL, STATUS_LABEL } from "@/lib/lead-status";
+import { ORIGEM_LABEL, STATUS_LABEL, rotuloOrigem } from "@/lib/lead-status";
 import { supabase } from "@/lib/supabase";
 import type { LeadOrigem, LeadStatus } from "@/lib/types";
 
@@ -22,6 +22,10 @@ interface LeadExportado {
   cidade: string | null;
   status_crm: LeadStatus;
   origem: LeadOrigem | null;
+  origem_primeira: string | null;
+  origem_ultima: string | null;
+  prazo_compra: string | null;
+  quer_visitar: string | null;
   created_at: string;
   vendedor: { nome: string | null } | null;
 }
@@ -36,6 +40,10 @@ const CABECALHO = [
   "Cidade",
   "Etapa",
   "Origem",
+  "Primeira entrada",
+  "Última entrada",
+  "Quando pretende comprar",
+  "Quer visitar",
   "Vendedor",
   "Criado em",
 ];
@@ -71,14 +79,17 @@ async function buscarLeads(filtros: FiltrosExportacao): Promise<LeadExportado[]>
     let query = supabase
       .from("leads")
       .select(
-        "nome, telefone, email, cidade, status_crm, origem, created_at, vendedor:vendedores(nome)",
+        "nome, telefone, email, cidade, status_crm, origem, origem_primeira, origem_ultima, prazo_compra, quer_visitar, created_at, vendedor:vendedores(nome)",
       )
       .is("deletado_em", null)
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .range(inicio, inicio + PAGINA - 1);
     if (!filtros.mostrarTestes) query = query.eq("is_teste", false);
-    if (filtros.origem !== "todas") query = query.eq("origem", filtros.origem);
+    // Mesmo critério do quadro: "teve entrada pelo canal".
+    if (filtros.origem !== "todas") {
+      query = query.or(`origem.eq.${filtros.origem},canais_entrada.cs.{${filtros.origem}}`);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -120,6 +131,10 @@ export function ExportarLeads({ filtros }: { filtros: FiltrosExportacao }) {
         celulaSegura(lead.cidade),
         STATUS_LABEL[lead.status_crm] ?? lead.status_crm,
         lead.origem ? (ORIGEM_LABEL[lead.origem] ?? lead.origem) : "",
+        lead.origem_primeira ? rotuloOrigem(lead.origem_primeira) : "",
+        lead.origem_ultima ? rotuloOrigem(lead.origem_ultima) : "",
+        celulaSegura(lead.prazo_compra),
+        celulaSegura(lead.quer_visitar),
         celulaSegura(lead.vendedor?.nome ?? null),
         dataHora.format(new Date(lead.created_at)),
       ]);
