@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/sheet";
 import {
   derivadas,
-  formatMoeda,
   formatQtd,
   formatTaxa,
   rotuloBreakdown,
@@ -32,6 +31,7 @@ import {
   rotuloDestino,
   type AlcanceItem,
 } from "@/lib/marketing-calculos";
+import { formatarMoeda } from "@/lib/moeda";
 import { useBreakdown, useSerieAds } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
 import { cn } from "@/lib/utils";
@@ -96,15 +96,15 @@ function Conteudo({
   const breakdown = useBreakdown(periodo, recorte, filtro);
   const orcamento =
     item.orcamento_diario != null
-      ? `${formatMoeda(item.orcamento_diario / 100, moeda)} por dia`
+      ? `${formatarMoeda(item.orcamento_diario / 100, moeda)} por dia`
       : item.orcamento_total != null
-        ? `${formatMoeda(item.orcamento_total / 100, moeda)} no total`
+        ? `${formatarMoeda(item.orcamento_total / 100, moeda)} no total`
         : null;
 
   const numeros: [string, string][] = [
-    ["Investimento", formatMoeda(item.investimento, moeda)],
+    ["Investimento", formatarMoeda(item.investimento, moeda)],
     ["Resultado", `${formatQtd(res.quantidade)} ${res.rotulo}`],
-    ["Custo por resultado", formatMoeda(res.custo, moeda)],
+    ["Custo por resultado", formatarMoeda(res.custo, moeda)],
     ["Leads", formatQtd(item.leads)],
     [
       res.tipo === "lead" ? "Conversas (dos mesmos leads)" : "Conversas iniciadas",
@@ -112,14 +112,14 @@ function Conteudo({
     ],
     ["Cliques no link", formatQtd(item.cliques_link)],
     ["CTR", formatTaxa(d.ctr)],
-    ["CPC no link", formatMoeda(d.cpc, moeda)],
+    ["CPC no link", formatarMoeda(d.cpc, moeda)],
     ["Alcance", formatQtd(alcance?.alcance ?? null)],
     [
       publicoCansado(alcance?.frequencia) ? "Frequência · público cansado" : "Frequência",
       formatNumero(alcance?.frequencia ?? null, 2),
     ],
     ["Impressões", formatQtd(item.impressoes)],
-    ["CPM", formatMoeda(d.cpm, moeda)],
+    ["CPM", formatarMoeda(d.cpm, moeda)],
   ];
   const avisos = avisosDaLinha(item.avisos);
   const destino = rotuloDestino(item.destino);
@@ -206,6 +206,7 @@ function Conteudo({
                 titulo="Investimento por dia"
                 altura={110}
                 pontos={pontos.map((p) => ({ data: p.data, valor: p.investimento }))}
+                formatar={(v) => formatarMoeda(v, moeda)}
               />
               <GraficoSerie
                 titulo={res.tipo === "conversa" ? "Conversas por dia" : "Leads por dia"}
@@ -242,7 +243,7 @@ function Conteudo({
                   chave: `${l.dim1}|${l.dim2}`,
                   rotulo: rotuloBreakdown(recorte, l.dim1, l.dim2),
                   valor: l.investimento,
-                  detalhe: `${formatMoeda(l.investimento, moeda)} · ${formatQtd(l.leads)} ${l.leads === 1 ? "lead" : "leads"}`,
+                  detalhe: `${formatarMoeda(l.investimento, moeda)} · ${formatQtd(l.leads)} ${l.leads === 1 ? "lead" : "leads"}`,
                 }))}
               />
             </div>

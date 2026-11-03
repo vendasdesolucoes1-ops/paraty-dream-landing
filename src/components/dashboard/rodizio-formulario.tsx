@@ -34,6 +34,15 @@ function situacaoDoAcesso(v: Vendedor, perfis: Map<string, Profile>): Situacao {
  * vendedor e só a gestão é avisada; ao ligar, os leads em aberto dos últimos
  * 30 dias que ficaram sem vendedor são repartidos.
  */
+/** Mesmo critério da fila no banco: ativo, no rodízio e com telefone. */
+function temTelefone(v: Vendedor): boolean {
+  return (v.telefone ?? "").replace(/\D/g, "").length >= 10;
+}
+
+function podeReceber(v: Vendedor): boolean {
+  return v.ativo && v.no_rodizio !== false && temTelefone(v);
+}
+
 export function RodizioFormulario() {
   const qc = useQueryClient();
 
@@ -109,7 +118,12 @@ export function RodizioFormulario() {
 
   const participa = useMutation({
     mutationFn: async ({ id, ativo: novo }: { id: string; ativo: boolean }) => {
-      const { error } = await supabase.from("vendedores").update({ ativo: novo }).eq("id", id);
+      // `no_rodizio` ainda não está nos tipos gerados.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("vendedores")
+        .update({ no_rodizio: novo })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -121,7 +135,8 @@ export function RodizioFormulario() {
 
   const lista = vendedores ?? [];
   const mapa = perfis ?? new Map<string, Profile>();
-  const naFila = lista.filter((v) => v.ativo).length;
+  const naFila = lista.filter(podeReceber).length;
+  const semTelefone = lista.filter((v) => v.ativo && v.no_rodizio !== false && !temTelefone(v));
 
   return (
     <Bloco
@@ -150,6 +165,18 @@ export function RodizioFormulario() {
           }
         />
 
+        {semTelefone.length > 0 ? (
+          <p
+            role="alert"
+            className="my-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-[0.8125rem] text-foreground"
+          >
+            {semTelefone.map((v) => v.nome).join(", ")}{" "}
+            {semTelefone.length === 1 ? "está" : "estão"} sem telefone e não{" "}
+            {semTelefone.length === 1 ? "recebe" : "recebem"} leads do rodízio: sem telefone não
+            chega o aviso do lead novo. Cadastre o telefone em "Usuários e acessos".
+          </p>
+        ) : null}
+
         {lista.length === 0 ? (
           <p className="py-4 text-[0.8125rem] text-muted-foreground">
             Nenhum vendedor cadastrado. Crie um usuário com o papel Vendedor em "Usuários e
@@ -170,12 +197,19 @@ export function RodizioFormulario() {
                 descricao={
                   [v.telefone ? formatTelefone(v.telefone) : "Sem telefone", v.email]
                     .filter(Boolean)
-                    .join(" · ") + (v.ativo ? " — participa do rodízio." : " — fora do rodízio.")
+                    .join(" · ") +
+                  (!v.ativo
+                    ? " — vendedor inativo."
+                    : !temTelefone(v)
+                      ? " — sem telefone, fica fora do rodízio."
+                      : v.no_rodizio !== false
+                        ? " — participa do rodízio."
+                        : " — fora do rodízio.")
                 }
                 controle={
                   <Switch
-                    checked={v.ativo}
-                    disabled={participa.isPending}
+                    checked={podeReceber(v)}
+                    disabled={participa.isPending || !v.ativo || !temTelefone(v)}
                     onCheckedChange={(novo) => participa.mutate({ id: v.id, ativo: novo })}
                     aria-label={`${v.nome} participa do rodízio`}
                   />

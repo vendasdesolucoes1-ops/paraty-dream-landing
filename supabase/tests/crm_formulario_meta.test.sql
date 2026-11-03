@@ -19,8 +19,9 @@ begin
   insert into public.profiles (id, email, nome, role, ativo) values (v_user, 'v@form.local', 'V', 'vendedor', true)
   on conflict (id) do update set ativo = true;
   update public.vendedores set ativo = false;
-  insert into public.vendedores (nome, ativo, posicao_round_robin, profile_id)
-  values ('Vendedora Form', true, 0, v_user) returning id into v_vend;
+  update public.vendedores set nome = 'Vendedora Form', ativo = true, posicao_round_robin = 0,
+         telefone = '5524999990003'
+   where profile_id = v_user returning id into v_vend;
 
   -- Começa desligado: lead entra sem vendedor e a gestão é avisada.
   assert not public.rodizio_formulario_ativo(), 'rodízio começa desligado';

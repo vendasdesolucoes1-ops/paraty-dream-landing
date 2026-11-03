@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { LEAD_STATUS_COLUMNS, type Lead, type LeadStatus } from "@/lib/types";
 import { ORIGENS } from "@/lib/lead-status";
 import {
+  INTERESSE_PREFIXO,
   TAMANHO_PAGINA_KANBAN,
   aplicarLeadNaColuna,
   ajustarContagens,
@@ -54,6 +55,7 @@ interface ConsultaFiltravel<Q> {
   eq(coluna: string, valor: string | boolean): Q;
   is(coluna: string, valor: null): Q;
   or(filtros: string): Q;
+  ilike(coluna: string, padrao: string): Q;
 }
 
 /** Os mesmos filtros para a lista de uma coluna e para as contagens. */
@@ -61,8 +63,16 @@ function aplicarFiltros<Q extends ConsultaFiltravel<Q>>(consulta: Q, filtros: Fi
   let q = consulta.is("deletado_em", null);
   if (filtros.vendedorId) q = q.eq("vendedor_id", filtros.vendedorId);
   if (!filtros.mostrarTestes) q = q.eq("is_teste", false);
-  if (filtros.origem) q = q.eq("origem", filtros.origem);
+  // "Teve entrada pelo canal": o lead do WhatsApp que depois preencheu o
+  // formulário conta no Formulário Meta também.
+  if (filtros.origem) {
+    q = q.or(`origem.eq.${filtros.origem},canais_entrada.cs.{${filtros.origem}}`);
+  }
   if (filtros.semVendedor) q = q.is("vendedor_id", null);
+  if (filtros.interesse) {
+    const { coluna, prefixo } = INTERESSE_PREFIXO[filtros.interesse];
+    q = q.ilike(coluna, `${prefixo}%`);
+  }
   const busca = filtrosDeBusca(filtros.termo);
   if (busca) q = q.or(busca);
   return q;
@@ -93,6 +103,7 @@ export function useColunaKanban(status: LeadStatus, filtros: FiltrosKanban, enab
         supabase.from("leads").select("*").eq("status_crm", status),
         filtros,
       )
+        .order("entrada_em", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .range(pageParam, pageParam + TAMANHO_PAGINA_KANBAN - 1);
@@ -135,6 +146,9 @@ export interface ResumoKanban {
   testes: number;
   /** Leads (fora os de teste) ainda sem vendedor, para o chip da entrega manual. */
   semVendedor: number;
+  /** Respostas do formulário: quer visitar / compra em até 3 meses. */
+  queroVisitar: number;
+  compra3Meses: number;
 }
 
 /** Os números dos chips (origens e testes), também contados no banco. */
@@ -147,22 +161,27 @@ export function useResumoKanban(
     queryKey: chavesKanban.resumo(vendedorId, mostrarTestes),
     queryFn: async (): Promise<ResumoKanban> => {
       const base: FiltrosKanban = { vendedorId, mostrarTestes, origem: null, termo: "" };
-      const [todas, testes, semVendedor, ...origens] = await Promise.all([
-        contar((q) => aplicarFiltros(q, base)),
-        contar((q) => aplicarFiltros(q.eq("is_teste", true), { ...base, mostrarTestes: true })),
-        contar((q) =>
-          aplicarFiltros(q.eq("is_teste", false), {
-            ...base,
-            mostrarTestes: true,
-            semVendedor: true,
-          }),
-        ),
-        ...ORIGENS.map((o) => contar((q) => aplicarFiltros(q, { ...base, origem: o.value }))),
-      ]);
+      const [todas, testes, semVendedor, queroVisitar, compra3Meses, ...origens] =
+        await Promise.all([
+          contar((q) => aplicarFiltros(q, base)),
+          contar((q) => aplicarFiltros(q.eq("is_teste", true), { ...base, mostrarTestes: true })),
+          contar((q) =>
+            aplicarFiltros(q.eq("is_teste", false), {
+              ...base,
+              mostrarTestes: true,
+              semVendedor: true,
+            }),
+          ),
+          contar((q) => aplicarFiltros(q, { ...base, interesse: "quer_visitar" })),
+          contar((q) => aplicarFiltros(q, { ...base, interesse: "compra_3_meses" })),
+          ...ORIGENS.map((o) => contar((q) => aplicarFiltros(q, { ...base, origem: o.value }))),
+        ]);
       return {
         todas,
         testes,
         semVendedor,
+        queroVisitar,
+        compra3Meses,
         porOrigem: Object.fromEntries(ORIGENS.map((o, i) => [o.value, origens[i]])),
       };
     },

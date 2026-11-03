@@ -12,6 +12,7 @@ export const ETAPA_COR: Record<LeadStatus, string> = {
   proposta: "bg-chart-2",
   fechado: "bg-success",
   perdido: "bg-danger",
+  nutricao: "bg-muted-foreground",
 };
 
 export const ETAPA_ROTULO = Object.fromEntries(

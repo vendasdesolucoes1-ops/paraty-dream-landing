@@ -17,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  formatMoeda,
   formatQtd,
   formatTaxa,
   razao,
@@ -25,6 +24,7 @@ import {
   totaisFunil,
   type LinhaFunil,
 } from "@/lib/marketing-calculos";
+import { formatarMoeda } from "@/lib/moeda";
 import { useFunilCampanhas } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
 
@@ -35,7 +35,7 @@ const AVISO_RASTREIO =
 export function FunilResumo({ periodo, moeda }: { periodo: Periodo; moeda?: string | null }) {
   const q = useFunilCampanhas(periodo);
   const t = q.data ? totaisFunil(q.data) : null;
-  const dinheiro = (n: number) => formatMoeda(n, moeda);
+  const dinheiro = (n: number) => formatarMoeda(n, moeda);
   return (
     <Bloco
       titulo="Do anúncio à venda"
@@ -110,7 +110,7 @@ export function FunilTabela({ periodo, moeda }: { periodo: Periodo; moeda?: stri
 function Tabela({ linhas, moeda }: { linhas: LinhaFunil[]; moeda?: string | null }) {
   const t = totaisFunil(linhas);
   const sub = "block text-[0.72rem] font-normal text-muted-foreground";
-  const custo = (inv: number, n: number) => formatMoeda(razao(inv, n), moeda);
+  const custo = (inv: number, n: number) => formatarMoeda(razao(inv, n), moeda);
   return (
     <Table className="animate-swap">
       <TableHeader>
@@ -140,7 +140,7 @@ function Tabela({ linhas, moeda }: { linhas: LinhaFunil[]; moeda?: string | null
                 </Pill>
               </TableCell>
               <TableCell className="text-right tabular-nums text-foreground">
-                {formatMoeda(l.investimento, moeda)}
+                {formatarMoeda(l.investimento, moeda)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <span className="block">{formatQtd(l.contatos_meta)}</span>
@@ -175,23 +175,23 @@ function Tabela({ linhas, moeda }: { linhas: LinhaFunil[]; moeda?: string | null
         <TableRow className="font-medium">
           <TableCell>Total</TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatMoeda(t.investimento, moeda)}
+            {formatarMoeda(t.investimento, moeda)}
           </TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(t.contatos_meta)}</TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(t.leads_crm)}</TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(t.qualificados)}</TableCell>
           <TableCell className="text-right tabular-nums">
             <span className="block">{formatQtd(t.agendados)}</span>
-            <span className={sub}>{formatMoeda(t.custoPorAgendada, moeda)} cada</span>
+            <span className={sub}>{formatarMoeda(t.custoPorAgendada, moeda)} cada</span>
           </TableCell>
           <TableCell className="text-right tabular-nums">
             <span className="block">{formatQtd(t.visitas)}</span>
-            <span className={sub}>{formatMoeda(t.custoPorVisita, moeda)} cada</span>
+            <span className={sub}>{formatarMoeda(t.custoPorVisita, moeda)} cada</span>
           </TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(t.propostas)}</TableCell>
           <TableCell className="text-right tabular-nums">
             <span className="block">{formatQtd(t.vendas)}</span>
-            <span className={sub}>{formatMoeda(t.custoPorVenda, moeda)} cada</span>
+            <span className={sub}>{formatarMoeda(t.custoPorVenda, moeda)} cada</span>
           </TableCell>
         </TableRow>
       </TableFooter>

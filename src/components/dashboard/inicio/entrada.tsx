@@ -18,6 +18,7 @@ const COR: Record<LeadOrigem, string> = {
   google_maps: "bg-chart-6",
   anuncio_whatsapp: "bg-chart-2",
   formulario_meta: "bg-chart-1",
+  manual: "bg-chart-muted",
 };
 
 type Dia = { dia: Date; total: number };
@@ -85,8 +86,12 @@ export function Entrada({
 
         <div className="min-w-0 lg:col-span-5">
           <h3 className="mb-4 font-sans text-[0.8125rem] font-medium text-muted-foreground">
-            Por origem
+            Por canal de entrada
           </h3>
+          <p className="-mt-3 mb-4 text-[0.75rem] text-muted-foreground">
+            Conta quem já entrou pelo canal (um lead do WhatsApp que preencheu o formulário conta
+            nos dois).
+          </p>
           <QueryState
             query={resumo}
             skeleton={<SkeletonRows rows={5} className="h-8" />}

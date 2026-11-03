@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/table";
 import {
   derivadas,
-  formatMoeda,
   formatQtd,
   formatTaxa,
   grupoStatus,
@@ -39,6 +38,7 @@ import {
   rotuloDestino,
   totaisSemDuplicar,
 } from "@/lib/marketing-calculos";
+import { formatarMoeda } from "@/lib/moeda";
 import { useAlcance, useAnuncios, useResumoAds, useStatusIntegracao } from "@/lib/marketing-meta";
 import type { Periodo } from "@/lib/relatorios";
 import { cn } from "@/lib/utils";
@@ -298,10 +298,10 @@ function TabelaAnuncios({
                 </div>
               </TableCell>
               <TableCell className="text-right tabular-nums text-foreground">
-                {formatMoeda(l.investimento, moeda)}
+                {formatarMoeda(l.investimento, moeda)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {l.orcamento_diario != null ? formatMoeda(l.orcamento_diario / 100, moeda) : "—"}
+                {l.orcamento_diario != null ? formatarMoeda(l.orcamento_diario / 100, moeda) : "—"}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {carregandoAlcance ? (
@@ -327,12 +327,12 @@ function TabelaAnuncios({
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <span className="block text-foreground">{formatQtd(l.impressoes)}</span>
-                <span className={sub}>CPM {formatMoeda(d.cpm, moeda)}</span>
+                <span className={sub}>CPM {formatarMoeda(d.cpm, moeda)}</span>
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <span className="block text-foreground">{formatQtd(l.cliques_link)}</span>
                 <span className={sub}>
-                  CTR {formatTaxa(d.ctr)} · CPC {formatMoeda(d.cpc, moeda)}
+                  CTR {formatTaxa(d.ctr)} · CPC {formatarMoeda(d.cpc, moeda)}
                 </span>
               </TableCell>
               <TableCell
@@ -345,7 +345,7 @@ function TabelaAnuncios({
                 <span className="font-normal text-muted-foreground">{res.rotulo}</span>
               </TableCell>
               <TableCell className="text-right tabular-nums text-foreground">
-                {formatMoeda(res.custo, moeda)}
+                {formatarMoeda(res.custo, moeda)}
               </TableCell>
               <TableCell className="text-right tabular-nums">{formatQtd(l.leads)}</TableCell>
               <TableCell className="text-right tabular-nums">
@@ -364,17 +364,17 @@ function TabelaAnuncios({
             Total · {formatQtd(ordenadas.length)} {ordenadas.length === 1 ? "item" : "itens"}
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            {formatMoeda(tc.investimento, moeda)}
+            {formatarMoeda(tc.investimento, moeda)}
           </TableCell>
           <TableCell className="text-right tabular-nums">—</TableCell>
           <TableCell className="text-right tabular-nums text-muted-foreground">—</TableCell>
           <TableCell className="text-right tabular-nums">
             <span className="block">{formatQtd(total.impressoes)}</span>
-            <span className={sub}>CPM {formatMoeda(dt.cpm, moeda)}</span>
+            <span className={sub}>CPM {formatarMoeda(dt.cpm, moeda)}</span>
           </TableCell>
           <TableCell className="text-right tabular-nums">
             <span className="block">{formatQtd(total.cliques_link)}</span>
-            <span className={sub}>CPC {formatMoeda(dt.cpc, moeda)}</span>
+            <span className={sub}>CPC {formatarMoeda(dt.cpc, moeda)}</span>
           </TableCell>
           <TableCell className="whitespace-nowrap text-right tabular-nums">
             {formatQtd(tc.contatos)}{" "}
@@ -383,7 +383,7 @@ function TabelaAnuncios({
             </span>
           </TableCell>
           <TableCell className="text-right tabular-nums">
-            <span className="block">{formatMoeda(tc.custoPorContato, moeda)}</span>
+            <span className="block">{formatarMoeda(tc.custoPorContato, moeda)}</span>
             <span className={sub}>por contato</span>
           </TableCell>
           <TableCell className="text-right tabular-nums">{formatQtd(tc.leads)}</TableCell>

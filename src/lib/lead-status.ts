@@ -10,6 +10,7 @@ export const STATUS_TONE: Record<LeadStatus, Tone> = {
   proposta: "warning",
   fechado: "success",
   perdido: "danger",
+  nutricao: "neutral",
 };
 
 export const STATUS_LABEL = Object.fromEntries(
@@ -17,20 +18,37 @@ export const STATUS_LABEL = Object.fromEntries(
 ) as Record<LeadStatus, string>;
 
 /**
- * Todas as origens que existem no banco. LEAD_ORIGEM_OPTIONS (types.ts) lista
- * só as quatro do formulário manual e deixa de fora as duas dos extratores,
- * que então apareceriam como "sem origem".
+ * A lista única de origens, na ordem em que aparecem em filtros, chips,
+ * relatórios e ficha. `automatica`: o sistema registra sozinho (a tela só
+ * mostra, não troca). `importada`: veio em lote de um extrator.
  */
-export const ORIGENS: { value: LeadOrigem; label: string; importada: boolean }[] = [
-  { value: "lp", label: "Landing Page", importada: false },
-  { value: "whatsapp", label: "WhatsApp", importada: false },
-  { value: "anuncio_whatsapp", label: "Anúncio WhatsApp", importada: false },
-  { value: "formulario_meta", label: "Formulário Meta", importada: false },
-  { value: "indicacao", label: "Indicação", importada: false },
-  { value: "instagram", label: "Instagram", importada: false },
-  { value: "whatsapp_contato", label: "Contatos do WhatsApp", importada: true },
-  { value: "google_maps", label: "Google Maps", importada: true },
+export const ORIGENS: {
+  value: LeadOrigem;
+  label: string;
+  importada: boolean;
+  automatica: boolean;
+}[] = [
+  { value: "formulario_meta", label: "Formulário Meta", importada: false, automatica: true },
+  { value: "anuncio_whatsapp", label: "Anúncio WhatsApp", importada: false, automatica: true },
+  { value: "whatsapp", label: "WhatsApp", importada: false, automatica: false },
+  { value: "instagram", label: "Instagram", importada: false, automatica: false },
+  { value: "lp", label: "Landing Page", importada: false, automatica: true },
+  { value: "indicacao", label: "Indicação", importada: false, automatica: false },
+  { value: "manual", label: "Cadastro manual", importada: false, automatica: false },
+  { value: "whatsapp_contato", label: "Contatos do WhatsApp", importada: true, automatica: true },
+  { value: "google_maps", label: "Google Maps", importada: true, automatica: true },
 ];
+
+/** Nome amigável de qualquer origem (inclusive valores antigos/desconhecidos). */
+export function rotuloOrigem(origem: string | null | undefined): string {
+  if (!origem) return "Sem origem";
+  return ORIGENS.find((o) => o.value === origem)?.label ?? origem;
+}
+
+/** Origem registrada pelo sistema: a ficha mostra, mas não deixa trocar. */
+export function origemAutomatica(origem: string | null | undefined): boolean {
+  return !!origem && !!ORIGENS.find((o) => o.value === origem)?.automatica;
+}
 
 export const ORIGEM_LABEL = Object.fromEntries(ORIGENS.map((o) => [o.value, o.label])) as Record<
   LeadOrigem,

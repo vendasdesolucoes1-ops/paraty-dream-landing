@@ -18,10 +18,12 @@ begin
     (v_gone, 'b@eq.local', 'Beto', 'vendedor', true)
   on conflict (id) do update set ativo = true, deletado_em = null;
   update public.vendedores set ativo = false;
-  insert into public.vendedores (nome, ativo, posicao_round_robin, profile_id) values ('Ana', true, 0, v_user)
-  returning id into v_vend;
-  insert into public.vendedores (nome, ativo, posicao_round_robin, profile_id) values ('Beto', true, 1, v_gone)
-  returning id into v_vend2;
+  -- O perfil Vendedor já ganhou cadastro de vendedor (trigger); com telefone entra na fila.
+  update public.vendedores set nome = 'Ana', ativo = true, posicao_round_robin = 0, telefone = '5524999990001'
+   where profile_id = v_user returning id into v_vend;
+  update public.vendedores set nome = 'Beto', ativo = true, posicao_round_robin = 1, telefone = '5524999990002'
+   where profile_id = v_gone returning id into v_vend2;
+  assert v_vend is not null and v_vend2 is not null, 'vendedor criado junto com o perfil';
 
   -- Chave desligada: ninguém recebe pelo rodízio.
   assert not public.rodizio_ativo(), 'começa desligado';

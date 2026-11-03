@@ -9,6 +9,7 @@ import {
   Plus,
   Search,
   SearchX,
+  Tag,
   Upload,
   X,
 } from "lucide-react";
@@ -59,8 +60,13 @@ export const Route = createFileRoute("/dashboard/documentos")({
 });
 
 const SEM_PROCESSO = "__sem_processo__";
+const SEM_CATEGORIA = "__sem_categoria__";
+
+type Agrupamento = "processo" | "categoria";
 
 interface ProcessoGroup {
+  /** Grupo por processo (com ações de renomear/adicionar) ou por categoria do documento. */
+  modo: Agrupamento;
   key: string;
   titulo: string;
   categoria: string | null;
@@ -135,7 +141,9 @@ function ProcessoSection({
   onEditProcesso: (target: ProcessoEditTarget) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const isRealProcesso = group.key !== SEM_PROCESSO;
+  const porProcesso = group.modo === "processo";
+  const isRealProcesso = porProcesso && group.key !== SEM_PROCESSO;
+  const IconeGrupo = porProcesso ? Folder : Tag;
 
   return (
     <div className="animate-swap" style={atraso(ordem, 70, 420)}>
@@ -159,7 +167,7 @@ function ProcessoSection({
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                <Folder className="h-5 w-5" />
+                <IconeGrupo className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
@@ -171,7 +179,9 @@ function ProcessoSection({
                 <span className="mt-1 block text-[0.8125rem] tabular-nums text-muted-foreground">
                   {group.documentos.length} doc{group.documentos.length === 1 ? "" : "s"}
                 </span>
-                <BarraCategorias documentos={group.documentos} ordem={ordem} />
+                {porProcesso ? (
+                  <BarraCategorias documentos={group.documentos} ordem={ordem} />
+                ) : null}
               </span>
               <ChevronDown
                 aria-hidden
@@ -183,34 +193,36 @@ function ProcessoSection({
             </button>
           </CollapsibleTrigger>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                onEditProcesso({
-                  id: isRealProcesso ? group.key : null,
-                  titulo: group.titulo,
-                  categoria: group.categoria,
-                  documentoIds: group.documentos.map((d) => d.id),
-                })
-              }
-            >
-              <Pencil className="h-4 w-4" aria-hidden />
-              {isRealProcesso ? "Renomear" : "Nomear"}
-            </Button>
-            {isRealProcesso ? (
-              <DocumentoUploadDialog
-                defaultProcesso={{ id: group.key, titulo: group.titulo }}
-                trigger={
-                  <Button variant="outline" size="sm">
-                    <Plus className="h-4 w-4" aria-hidden />
-                    Adicionar
-                  </Button>
+          {porProcesso ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  onEditProcesso({
+                    id: isRealProcesso ? group.key : null,
+                    titulo: group.titulo,
+                    categoria: group.categoria,
+                    documentoIds: group.documentos.map((d) => d.id),
+                  })
                 }
-              />
-            ) : null}
-          </div>
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+                {isRealProcesso ? "Renomear" : "Nomear"}
+              </Button>
+              {isRealProcesso ? (
+                <DocumentoUploadDialog
+                  defaultProcesso={{ id: group.key, titulo: group.titulo }}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Plus className="h-4 w-4" aria-hidden />
+                      Adicionar
+                    </Button>
+                  }
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <CollapsibleContent className="border-t border-border data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 data-[state=open]:duration-200">
@@ -260,6 +272,7 @@ function EsqueletoGrupos() {
 
 function DocumentosPage() {
   const [categoriaFilter, setCategoriaFilter] = useState<DocumentoCategoria | "">("");
+  const [agrupamento, setAgrupamento] = useState<Agrupamento>("processo");
   const [search, setSearch] = useState("");
   const [selectedDocumento, setSelectedDocumento] = useState<DocumentoWithLead | null>(null);
   const [editingDocumento, setEditingDocumento] = useState<DocumentoWithLead | null>(null);
@@ -312,6 +325,7 @@ function DocumentosPage() {
           existing.documentos.push(documento);
         } else {
           byProcesso.set(documento.processo_id, {
+            modo: "processo",
             key: documento.processo_id,
             titulo: documento.processo.titulo,
             categoria: documento.processo.categoria,
@@ -329,7 +343,8 @@ function DocumentosPage() {
 
     if (orphans.length > 0) {
       result.push({
-        key: "__sem_processo__",
+        modo: "processo",
+        key: SEM_PROCESSO,
         titulo: "Sem processo",
         categoria: null,
         documentos: orphans,
@@ -338,6 +353,34 @@ function DocumentosPage() {
 
     return result;
   }, [dados]);
+
+  // Mesma lista, separada pela categoria de cada documento, na ordem das
+  // categorias. A coluna é texto livre no banco: vazio ou valor fora da lista
+  // cai em "Sem categoria".
+  const gruposCategoria = useMemo<ProcessoGroup[]>(() => {
+    const lista = dados ?? [];
+    const conhecidas = new Set<string>(DOCUMENTO_CATEGORIA_OPTIONS.map((o) => o.value));
+    const result: ProcessoGroup[] = DOCUMENTO_CATEGORIA_OPTIONS.map((opt) => ({
+      modo: "categoria" as const,
+      key: opt.value,
+      titulo: DOCUMENTO_CATEGORIA_LABELS[opt.value],
+      categoria: null,
+      documentos: lista.filter((d) => d.categoria === opt.value),
+    })).filter((g) => g.documentos.length > 0);
+    const semCategoria = lista.filter((d) => !d.categoria || !conhecidas.has(d.categoria));
+    if (semCategoria.length > 0) {
+      result.push({
+        modo: "categoria",
+        key: SEM_CATEGORIA,
+        titulo: "Sem categoria",
+        categoria: null,
+        documentos: semCategoria,
+      });
+    }
+    return result;
+  }, [dados]);
+
+  const gruposVisiveis = agrupamento === "processo" ? groups : gruposCategoria;
 
   const resumo = useMemo(() => {
     const lista = dados ?? [];
@@ -356,7 +399,7 @@ function DocumentosPage() {
         <PageHeader
           eyebrow="Arquivos"
           title="Documentos"
-          description="Documentos agrupados por processo — contratos, propostas e arquivos institucionais."
+          description="Documentos agrupados por processo ou por categoria — contratos, propostas e arquivos institucionais."
           action={
             <DocumentoUploadDialog
               trigger={
@@ -414,6 +457,20 @@ function DocumentosPage() {
           </div>
 
           <div
+            className="flex flex-wrap items-center gap-2"
+            role="group"
+            aria-label="Agrupar documentos"
+          >
+            <span className="text-[0.8125rem] text-muted-foreground">Agrupar por</span>
+            <Chip ativo={agrupamento === "processo"} onClick={() => setAgrupamento("processo")}>
+              Processo
+            </Chip>
+            <Chip ativo={agrupamento === "categoria"} onClick={() => setAgrupamento("categoria")}>
+              Categoria
+            </Chip>
+          </div>
+
+          <div
             className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
             role="group"
             aria-label="Filtrar por categoria"
@@ -443,7 +500,7 @@ function DocumentosPage() {
           <QueryState
             query={estado}
             skeleton={<EsqueletoGrupos />}
-            isEmpty={() => groups.length === 0}
+            isEmpty={() => gruposVisiveis.length === 0}
             empty={
               <EmptyState
                 icon={filtrando ? SearchX : FileText}
@@ -467,8 +524,8 @@ function DocumentosPage() {
             }
           >
             {() => (
-              <div key={categoriaFilter} className="space-y-4">
-                {groups.map((group, i) => (
+              <div key={`${agrupamento}:${categoriaFilter}`} className="space-y-4">
+                {gruposVisiveis.map((group, i) => (
                   <ProcessoSection
                     key={group.key}
                     group={group}

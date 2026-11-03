@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
 import type { ItemAcao } from "@/lib/dashboard-queries";
 import { formatHora, linkWhatsapp, rotuloDia, tempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { nomeExibicao } from "@/lib/lead-exibicao";
 
 const FRASE: Record<ItemAcao["motivo"], (i: ItemAcao) => string> = {
   humano: () => "A IA está pausada nessas conversas até alguém responder.",
@@ -12,6 +13,9 @@ const FRASE: Record<ItemAcao["motivo"], (i: ItemAcao) => string> = {
   proposta_parada: (i) => `Proposta sem movimento ${tempoRelativo(i.desde)}. Vale um retorno.`,
   qualificado: (i) =>
     `Qualificado pela Sophia ${tempoRelativo(i.desde)} e ainda sem visita marcada.`,
+  lead_quente: (i) =>
+    `Lead quente: quer comprar logo ou visitar. Entrou ${tempoRelativo(i.desde)} — fale agora.`,
+  agendado_sem_visita: () => "Está em Agendado, mas não há visita marcada. Marque a data.",
 };
 
 const BOTAO_CLARO =
@@ -103,7 +107,9 @@ export function Foco({
               <h2 className="mt-3 text-balance font-display text-[2rem] font-medium leading-[1.08] tracking-[-0.015em] sm:text-[2.45rem]">
                 {primeiro.motivo === "humano"
                   ? `${primeiro.quantidade ?? 0} ${(primeiro.quantidade ?? 0) === 1 ? "conversa espera" : "conversas esperam"} um humano`
-                  : (primeiro.lead?.nome ?? "Lead sem nome")}
+                  : primeiro.lead
+                    ? nomeExibicao(primeiro.lead)
+                    : "Lead sem nome"}
               </h2>
               <p className="mt-2 text-[0.9375rem] leading-relaxed text-ivory/70">
                 {FRASE[primeiro.motivo](primeiro)}

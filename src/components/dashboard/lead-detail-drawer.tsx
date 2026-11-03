@@ -71,7 +71,8 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { Campo, ComIcone, Secao } from "@/components/crm/ficha";
 import { EtapaDot, EtapaPill } from "@/components/crm/etapa-pill";
 import { ResponsavelLead } from "@/components/crm/responsavel-lead";
-import { ORIGEM_LABEL } from "@/lib/lead-status";
+import { origemAutomatica, rotuloOrigem } from "@/lib/lead-status";
+import { nomeExibicao } from "@/lib/lead-exibicao";
 import { tempoRelativo } from "@/lib/format";
 import {
   Select,
@@ -150,21 +151,53 @@ const INTERACAO_ICONES: Record<string, LucideIcon> = {
   sistema: Cog,
 };
 
-const ORIGEM_ROTULO = Object.fromEntries(LEAD_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
-
 function formDoLead(lead: Lead) {
   return {
     nome: lead.nome,
     telefone: lead.telefone ?? "",
     cidade: lead.cidade ?? "",
     email: lead.email ?? "",
-    origem: (lead.origem ?? "lp") as LeadOrigem,
+    origem: (lead.origem ?? "") as LeadOrigem | "",
     metragem_interesse: lead.metragem_interesse != null ? String(lead.metragem_interesse) : "",
     tipo_lote_interesse: lead.tipo_lote_interesse ?? "",
-    score: String(lead.score),
     status_crm: lead.status_crm,
     vendedor_id: lead.vendedor_id ?? NO_VENDEDOR,
   };
+}
+
+/** O que o lead respondeu no Formulário Meta, com a campanha que o trouxe. */
+function RespostasFormulario({ lead }: { lead: Lead }) {
+  const linhas: [string, string | null | undefined][] = [
+    ["Quando pretende comprar", lead.prazo_compra],
+    ["Quer visitar", lead.quer_visitar],
+    ["Usar o lote para", lead.finalidade],
+    ["Como prefere pagar", lead.forma_pagamento],
+    ["Formulário", lead.formulario_nome],
+    ["Campanha", lead.campanha_nome],
+    ["Conjunto", lead.conjunto_nome],
+    ["Anúncio", lead.anuncio_nome],
+  ];
+  const preenchidas = linhas.filter(([, v]) => !!v);
+  const temRespostas = !!(
+    lead.prazo_compra ||
+    lead.quer_visitar ||
+    lead.finalidade ||
+    lead.formulario_nome
+  );
+  if (!temRespostas) return null;
+  return (
+    <div className="rounded-xl border border-info/30 bg-info/5 p-3.5">
+      <p className="mb-2 text-[0.8125rem] font-semibold text-foreground">Respostas do formulário</p>
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-[0.8125rem] sm:grid-cols-2">
+        {preenchidas.map(([rotulo, valor]) => (
+          <div key={rotulo} className="min-w-0">
+            <dt className="text-muted-foreground">{rotulo}</dt>
+            <dd className="break-words text-foreground">{valor}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 }
 
 function DadosLeadTab({ lead }: { lead: Lead }) {
@@ -200,10 +233,11 @@ function DadosLeadTab({ lead }: { lead: Lead }) {
           telefone: form.telefone || null,
           cidade: form.cidade || null,
           email: form.email || null,
-          origem: form.origem,
+          // Origem automática (formulário, anúncio, LP…) não sai daqui; e nunca
+          // manda vazio — o banco também preserva origem, campanha e anúncio.
+          ...(form.origem && !origemAutomatica(lead.origem) ? { origem: form.origem } : {}),
           metragem_interesse: form.metragem_interesse ? Number(form.metragem_interesse) : null,
           tipo_lote_interesse: form.tipo_lote_interesse || null,
-          score: Number(form.score) || 0,
           status_crm: form.status_crm,
           vendedor_id: form.vendedor_id !== NO_VENDEDOR ? form.vendedor_id : null,
         })
@@ -269,32 +303,58 @@ function DadosLeadTab({ lead }: { lead: Lead }) {
       <Secao titulo="Interesse">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="origem" label="Origem">
-            <Select
-              value={form.origem}
-              onValueChange={(v: LeadOrigem) => setForm((f) => ({ ...f, origem: v }))}
-            >
-              <SelectTrigger id="origem">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_ORIGEM_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {origemAutomatica(lead.origem) ? (
+              <div
+                id="origem"
+                className="flex h-9 items-center rounded-md border border-input bg-muted/50 px-3 text-sm text-foreground"
+                title="Registrada automaticamente; não pode ser trocada."
+              >
+                {rotuloOrigem(lead.origem)}
+              </div>
+            ) : (
+              <Select
+                value={form.origem || undefined}
+                onValueChange={(v: LeadOrigem) => setForm((f) => ({ ...f, origem: v }))}
+              >
+                <SelectTrigger id="origem">
+                  <SelectValue placeholder="Escolha a origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_ORIGEM_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </Campo>
           <Campo id="score" label="Score">
-            <Input
+            <div
               id="score"
-              type="number"
-              className="tabular-nums"
-              value={form.score}
-              onChange={(e) => setForm((f) => ({ ...f, score: e.target.value }))}
-            />
+              className="flex h-9 items-center rounded-md border border-input bg-muted/50 px-3 text-sm tabular-nums text-foreground"
+              title="Calculado: +2 compra em 3 meses, +1 em até 1 ano, +2 quer visitar, +1 respondeu no WhatsApp, +2 visita agendada, −2 só pesquisando."
+            >
+              {lead.score} pts
+            </div>
           </Campo>
         </div>
+
+        {lead.origem_primeira || lead.origem_ultima ? (
+          <p className="text-[0.8125rem] text-muted-foreground">
+            Primeira entrada:{" "}
+            <span className="text-foreground">{rotuloOrigem(lead.origem_primeira)}</span>
+            {lead.origem_ultima && lead.origem_ultima !== lead.origem_primeira ? (
+              <>
+                {" "}
+                · Última:{" "}
+                <span className="text-foreground">{rotuloOrigem(lead.origem_ultima)}</span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+
+        <RespostasFormulario lead={lead} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="metragem_interesse" label="Metragem de interesse">
@@ -399,7 +459,7 @@ function LoteInteresseTab({ lead }: { lead: Lead }) {
     queryKey: ["lote-interesse", lead.lote_interesse_id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("lotes")
+        .from("lotes_painel")
         .select("*")
         .eq("id", lead.lote_interesse_id!)
         .maybeSingle();
@@ -413,7 +473,7 @@ function LoteInteresseTab({ lead }: { lead: Lead }) {
     queryKey: ["lotes-disponiveis-search", search],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("lotes")
+        .from("lotes_painel")
         .select("*")
         .eq("status", "disponivel")
         .ilike("numero_lote", `%${search}%`)
@@ -1118,11 +1178,7 @@ export function LeadDetailDrawer({
   const canSeeClientes = profile?.role === "admin" || profile?.role === "gestor";
 
   const whatsapp = lead ? whatsappLink(lead.telefone) : null;
-  const origem = lead?.origem
-    ? (ORIGEM_LABEL[lead.origem as keyof typeof ORIGEM_LABEL] ??
-      ORIGEM_ROTULO[lead.origem] ??
-      lead.origem)
-    : null;
+  const origem = lead?.origem ? rotuloOrigem(lead.origem) : null;
   const podeEntregar = profile?.role === "admin" || profile?.role === "gestor";
 
   return (
@@ -1156,10 +1212,10 @@ export function LeadDetailDrawer({
           <>
             <header className="shrink-0 border-b border-border px-7 pb-5 pr-14 pt-7">
               <div className="flex items-start gap-4">
-                <Avatar nome={lead.nome} className="h-12 w-12 text-sm" />
+                <Avatar nome={nomeExibicao(lead)} className="h-12 w-12 text-sm" />
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="text-balance break-words font-display text-[1.85rem] font-medium leading-[1.05] tracking-[-0.01em] text-foreground">
-                    {lead.nome}
+                    {nomeExibicao(lead)}
                   </SheetTitle>
                   <SheetDescription className="mt-1.5 text-[0.8125rem]">
                     {lead.telefone ? (

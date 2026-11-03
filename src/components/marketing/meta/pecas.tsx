@@ -148,11 +148,14 @@ export function GraficoSerie({
   total,
   pontos,
   altura = 140,
+  formatar,
 }: {
   titulo: string;
   total?: ReactNode;
   pontos: { data: string; valor: number }[];
   altura?: number;
+  /** Formato do valor na dica (ex.: moeda com centavos). */
+  formatar?: (valor: number) => string;
 }) {
   return (
     <div className="min-w-0">
@@ -166,6 +169,7 @@ export function GraficoSerie({
         <AreaChart
           altura={altura}
           rotuloGrafico={titulo}
+          formatar={formatar}
           dados={pontos.map((p) => ({
             rotulo: diaCurto(p.data),
             valor: Math.round(p.valor * 100) / 100,

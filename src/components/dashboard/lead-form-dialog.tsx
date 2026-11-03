@@ -39,8 +39,8 @@ const emptyForm = {
   tipo_lote_interesse: "",
   observacoes: "",
   // Cadastro manual não vem da landing page: marcar "lp" corromperia a
-  // métrica de origem dos leads.
-  origem: "indicacao" as LeadOrigem,
+  // métrica de origem dos leads. Se a pessoa souber o canal, troca no chip.
+  origem: "manual" as LeadOrigem,
   vendedor_id: NENHUM_VENDEDOR,
 };
 

@@ -36,12 +36,15 @@ export function AreaChart({
   altura = 120,
   interativo = true,
   rotuloGrafico,
+  formatar = String,
   className,
 }: {
   dados: PontoArea[];
   altura?: number;
   interativo?: boolean;
   rotuloGrafico: string;
+  /** Como o valor aparece na dica e no rótulo acessível (ex.: moeda). */
+  formatar?: (valor: number) => string;
   className?: string;
 }) {
   const id = useId().replace(/:/g, "");
@@ -74,7 +77,7 @@ export function AreaChart({
       onPointerMove={mover}
       onPointerLeave={() => setAtivo(null)}
       role="img"
-      aria-label={`${rotuloGrafico}: ${dados.map((d) => `${d.rotulo} ${d.valor}`).join("; ")}`}
+      aria-label={`${rotuloGrafico}: ${dados.map((d) => `${d.rotulo} ${formatar(d.valor)}`).join("; ")}`}
     >
       <svg
         viewBox={`0 0 ${W} ${altura}`}
@@ -143,7 +146,7 @@ export function AreaChart({
             top: Math.max(0, fy * altura - 44),
           }}
         >
-          {dados[ativo].rotulo} · <b className="tabular-nums">{dados[ativo].valor}</b>
+          {dados[ativo].rotulo} · <b className="tabular-nums">{formatar(dados[ativo].valor)}</b>
         </span>
       ) : null}
     </div>

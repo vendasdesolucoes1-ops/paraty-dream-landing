@@ -3,8 +3,10 @@ import { Link } from "@tanstack/react-router";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
   CalendarClock,
+  CalendarX,
   CheckCircle2,
   FileClock,
+  Flame,
   Headset,
   MessageCircle,
   Sparkles,
@@ -19,6 +21,7 @@ import type { ItemAcao, MotivoAcao } from "@/lib/dashboard-queries";
 import { diasDesde, formatHora, linkWhatsapp, rotuloDia, tempoRelativo } from "@/lib/format";
 import { atraso } from "@/components/ds/reveal";
 import { cn } from "@/lib/utils";
+import { nomeExibicao } from "@/lib/lead-exibicao";
 
 const MOTIVOS: Record<
   MotivoAcao,
@@ -48,9 +51,29 @@ const MOTIVOS: Record<
     filtro: "Qualificados",
     texto: () => "Qualificado pela Sophia, sem visita",
   },
+  lead_quente: {
+    icon: Flame,
+    cor: "text-danger",
+    filtro: "Quentes",
+    texto: () => "Lead quente: quer comprar logo ou visitar",
+  },
+  agendado_sem_visita: {
+    icon: CalendarX,
+    cor: "text-warning",
+    filtro: "Sem visita",
+    texto: () => "Está em Agendado, mas sem visita marcada",
+  },
 };
 
-const ORDEM: MotivoAcao[] = ["humano", "visita_a_confirmar", "proposta_parada", "qualificado"];
+/** Ordem dos filtros (a lista em si vem ordenada por urgência). */
+const ORDEM: MotivoAcao[] = [
+  "humano",
+  "visita_a_confirmar",
+  "lead_quente",
+  "agendado_sem_visita",
+  "proposta_parada",
+  "qualificado",
+];
 const VISIVEIS = 8;
 
 /** Quanto mais antigo, mais forte a cor: o olho acha o que está esquecido. */
@@ -96,7 +119,7 @@ export const Fila = forwardRef<HTMLDivElement, { query: UseQueryResult<ItemAcao[
               itens.filter((i) => i.motivo === m).reduce((s, i) => s + (i.quantidade ?? 1), 0);
             const filtrados = [
               ...(filtro === "todos" ? itens : itens.filter((i) => i.motivo === filtro)),
-            ].sort((a, b) => ORDEM.indexOf(a.motivo) - ORDEM.indexOf(b.motivo));
+            ].sort((a, b) => b.urgencia - a.urgencia);
             const visiveis = expandida ? filtrados : filtrados.slice(0, VISIVEIS);
             return (
               <>
@@ -155,7 +178,9 @@ function Linha({ item, indice }: { item: ItemAcao; indice: number }) {
   const humano = item.motivo === "humano";
   const titulo = humano
     ? `${item.quantidade ?? 0} ${(item.quantidade ?? 0) === 1 ? "conversa" : "conversas"} com a IA pausada`
-    : (lead?.nome ?? "Lead sem nome");
+    : lead
+      ? nomeExibicao(lead)
+      : "Lead sem nome";
 
   return (
     <li

@@ -360,18 +360,29 @@ function InviteMemberDialog({ vendedores }: { vendedores: Vendedor[] }) {
             </Secao>
 
             <Secao titulo="Vendas">
-              <Campo label="Vendedor vinculado">
+              <Campo
+                label="Cadastro de vendedor"
+                dica={
+                  role === "vendedor"
+                    ? 'Quem tem o papel Vendedor precisa de um cadastro de vendedor (é ele que recebe leads). Deixe em "Criar automaticamente" para usar o nome deste usuário, ou ligue a um vendedor que já existe.'
+                    : "Opcional para gestão: só ligue se esta pessoa também atende leads."
+                }
+              >
                 <Select value={vendedorId} onValueChange={setVendedorId}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_VENDEDOR}>Nenhum</SelectItem>
+                    <SelectItem value={NO_VENDEDOR}>
+                      {role === "vendedor"
+                        ? "Criar automaticamente com o nome do usuário"
+                        : "Nenhum"}
+                    </SelectItem>
                     <SelectItem value={NEW_VENDEDOR}>Criar novo vendedor</SelectItem>
                     {vendedores.map((v) => (
                       <SelectItem key={v.id} value={v.id}>
                         {v.nome}
-                        {v.ativo ? "" : " (fora do rodízio)"}
+                        {v.ativo ? "" : " (inativo)"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -700,7 +711,7 @@ function EditMemberDialog({
                   <Campo
                     id={`telefone-${profile.id}`}
                     label="Telefone (WhatsApp)"
-                    dica="Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o vendedor continua no rodízio mas não recebe a notificação por WhatsApp."
+                    dica="Para onde vai o resumo do lead qualificado pelo agente de IA. Sem telefone, o vendedor fica fora do rodízio (não receberia o aviso do lead novo)."
                   >
                     <ComIcone icone={Phone}>
                       <Input
