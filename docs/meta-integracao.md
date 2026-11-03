@@ -164,3 +164,17 @@ scripts/db/testar-migrations.sh                           # migrations do zero +
 
 Os testes usam respostas simuladas: nenhuma chamada real à Meta. O primeiro sync
 real merece acompanhamento nos logs e em `meta_sync_execucoes`.
+
+## Saldo ao vivo (função `meta-saldo`)
+
+A tela de Marketing (Visão geral e Anúncios) mostra o saldo da conta de anúncios
+lido direto da Meta, sem passar pelo banco. O navegador chama `meta-saldo` a cada
+minuto (e ao voltar para a aba); a função guarda o resultado por 30 s em memória.
+
+- Quem pode chamar: admin e gestor logados, ou o segredo `cron_meta_secret`.
+- Leituras na Graph API: a conta (`balance`, `amount_spent`, `spend_cap`,
+  `is_prepay_account`, `funding_source_details`) e o gasto de hoje e dos últimos 7 dias.
+- Conta pré-paga: o saldo vem do texto da forma de pagamento ("Saldo disponível (R$ …)").
+  Conta pós-paga: mostra o valor acumulado a cobrar (`balance`).
+- Os dias restantes usam o que acabar primeiro (saldo ou limite de gasto) dividido
+  pela média diária dos últimos 7 dias. Abaixo de 3 dias aparece o aviso "Saldo acabando".

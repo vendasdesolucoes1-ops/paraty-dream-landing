@@ -284,3 +284,49 @@ test("saúde da integração: sem dados, ok, atenção e token inválido", () =>
     "falha de stories sozinha não acende alerta",
   );
 });
+
+test("alerta de saldo: conta parada, saldo acabando e ok", async () => {
+  const { alertaSaldo, haQuanto } = await import("./marketing-calculos.ts");
+  const base = {
+    contaId: "act_1",
+    nome: null,
+    moeda: "BRL",
+    status: 1,
+    statusRotulo: "Ativa",
+    prepaga: true,
+    saldoDisponivel: 300,
+    aCobrar: null,
+    gastoTotal: 1000,
+    limiteGasto: null,
+    restanteLimite: null,
+    gastoHoje: 20,
+    mediaDiaria7d: 50,
+    diasRestantes: 6,
+    formaPagamento: null,
+    consultadoEm: "2026-11-03T15:00:00Z",
+  };
+  assert.equal(alertaSaldo(base).nivel, "ok");
+  assert.deepEqual(alertaSaldo({ ...base, saldoDisponivel: 100, diasRestantes: 2 }), {
+    nivel: "atencao",
+    texto: "O saldo dura cerca de 2 dia(s) no ritmo atual.",
+  });
+  assert.equal(alertaSaldo({ ...base, saldoDisponivel: 0, diasRestantes: 0 }).nivel, "erro");
+  assert.equal(
+    alertaSaldo({ ...base, status: 3, statusRotulo: "Pagamento pendente" }).texto,
+    "Situação da conta na Meta: Pagamento pendente. Os anúncios não estão rodando.",
+  );
+  // Pós-paga sem limite: não há o que acabar.
+  assert.equal(
+    alertaSaldo({ ...base, prepaga: false, saldoDisponivel: null, diasRestantes: null }).nivel,
+    "ok",
+  );
+  // Limite menor que o saldo: o aviso fala do limite.
+  assert.equal(
+    alertaSaldo({ ...base, saldoDisponivel: 278.69, restanteLimite: 100, diasRestantes: 1.8 })
+      .texto,
+    "O limite de gasto dura cerca de 1 dia(s) no ritmo atual.",
+  );
+  const agora = Date.parse("2026-11-03T15:05:00Z");
+  assert.equal(haQuanto("2026-11-03T15:04:48Z", agora), "há 12 s");
+  assert.equal(haQuanto("2026-11-03T15:00:00Z", agora), "há 5 min");
+});
