@@ -225,3 +225,68 @@ export function perguntaIdentidade(texto: string): boolean {
   const t = semAcento(texto).trim();
   return t.length <= 80 && PERGUNTA_IDENTIDADE.test(t);
 }
+
+// ---------------------------------------------------------------------------
+// Saída do modelo
+
+const OBJETO_RESPOSTA = /\{\s*"resposta"\s*:\s*("(?:[^"\\]|\\.)*")\s*\}/g;
+
+/**
+ * Lê {"resposta": "..."} da saída do modelo. Alguns modelos devolvem dois
+ * objetos colados ({"resposta":"..."}\n{"resposta":"..."}): vale o último.
+ * Nunca deixa JSON cru chegar ao lead.
+ */
+export function lerRespostaDoModelo(conteudo: string | null | undefined): string {
+  const bruto = String(conteudo ?? "").trim();
+  if (!bruto) return "";
+  try {
+    const lido = JSON.parse(bruto);
+    if (lido && typeof lido.resposta === "string") return lido.resposta;
+  } catch {
+    // segue
+  }
+  const achados = [...bruto.matchAll(OBJETO_RESPOSTA)];
+  for (let i = achados.length - 1; i >= 0; i--) {
+    try {
+      const texto = JSON.parse(achados[i][1]);
+      if (typeof texto === "string" && texto.trim()) return texto;
+    } catch {
+      // tenta o anterior
+    }
+  }
+  // Fora do formato: tira sobras de JSON, se houver.
+  if (/^\s*\{\s*"resposta"/.test(bruto)) {
+    return bruto
+      .replace(/^\s*\{\s*"resposta"\s*:\s*"/, "")
+      .replace(/"\s*\}\s*$/, "")
+      .replace(/\\n/g, "\n")
+      .replace(/\\"/g, '"');
+  }
+  return bruto;
+}
+
+// ---------------------------------------------------------------------------
+// Agendamento só com escolha do lead
+
+const MARCA_DE_HORARIO =
+  /\b\d{1,2}\s*(h|hs|hrs|horas?)\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\/\d{1,2}\b|\b(segunda|terca|quarta|quinta|sexta|sabado|domingo|amanha|hoje|depois de amanha|manha|tarde|fim de semana|final de semana)\b|\bdia \d{1,2}\b/;
+const CONCORDANCIA =
+  /^(sim|s|pode|pode ser|ok|okay|blz|beleza|fechado|combinado|perfeito|otimo|isso|esse|essa|esse mesmo|essa mesmo|bora|vamos|confirmo|confirmado|claro|com certeza|serve|da sim|fica bom|ta bom|ta otimo|o primeiro|a primeira|o segundo|a segunda|o ultimo|a ultima)\b/;
+
+/**
+ * O lead escolheu dia/hora? Ou cita dia/hora na mensagem dele, ou concorda
+ * com um horário que a Sophia acabou de propor. Sem isso, agendar_visita
+ * não agenda (o modelo às vezes "escolhe" pelo lead).
+ */
+export function leadEscolheuHorario(
+  mensagemLead: string,
+  ultimaMensagemSophia: string | null | undefined,
+): boolean {
+  const lead = semAcento(mensagemLead)
+    .replace(/[^a-z0-9:/\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (MARCA_DE_HORARIO.test(lead)) return true;
+  const sophia = semAcento(ultimaMensagemSophia ?? "");
+  return CONCORDANCIA.test(lead) && MARCA_DE_HORARIO.test(sophia);
+}

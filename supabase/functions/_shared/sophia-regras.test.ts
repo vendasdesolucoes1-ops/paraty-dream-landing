@@ -4,6 +4,8 @@ import {
   agruparHistorico,
   descreverVisita,
   instanteDaVisita,
+  leadEscolheuHorario,
+  lerRespostaDoModelo,
   lerConsultor,
   mensagemDoHistorico,
   nomeDoConsultor,
@@ -120,4 +122,29 @@ test("identidade: pergunta curta sobre robô/pessoa", () => {
   ]) {
     assert.equal(perguntaIdentidade(q), false, q);
   }
+});
+
+test("saída do modelo: objeto único, dois colados e texto cru", () => {
+  assert.equal(lerRespostaDoModelo('{"resposta":"Oi || tudo bem?"}'), "Oi || tudo bem?");
+  assert.equal(
+    lerRespostaDoModelo(
+      '{"resposta":"Posso ajudar em mais alguma coisa?"}\n{"resposta":"Oi, Rafael! || Quer visitar?"}',
+    ),
+    "Oi, Rafael! || Quer visitar?",
+  );
+  assert.equal(lerRespostaDoModelo("texto solto"), "texto solto");
+  assert.equal(lerRespostaDoModelo('{"resposta":"cortado no meio'), "cortado no meio");
+  assert.equal(lerRespostaDoModelo(""), "");
+});
+
+test("agendamento: só quando o lead escolheu", () => {
+  const proposta = "Tenho quarta 04/11 às 9h ou quinta 05/11 às 14h. Qual fica melhor?";
+  assert.equal(leadEscolheuHorario("Oi, vim pelo anúncio", null), false);
+  assert.equal(leadEscolheuHorario("quero visitar", "Quer conhecer o terreno?"), false);
+  assert.equal(leadEscolheuHorario("sim", "Quer conhecer o terreno?"), false);
+  assert.equal(leadEscolheuHorario("pode ser", proposta), true);
+  assert.equal(leadEscolheuHorario("A primeira", proposta), true);
+  assert.equal(leadEscolheuHorario("sábado às 10h", null), true);
+  assert.equal(leadEscolheuHorario("Pode ser quinta de manhã?", null), true);
+  assert.equal(leadEscolheuHorario("dia 7 tá ótimo", null), true);
 });

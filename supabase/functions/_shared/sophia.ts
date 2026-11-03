@@ -56,7 +56,9 @@ import {
   agruparHistorico,
   descreverVisita,
   instanteDaVisita,
+  leadEscolheuHorario,
   lerConsultor,
+  lerRespostaDoModelo,
   linkMaps,
   mensagemDoHistorico,
   nomeDoConsultor,
@@ -130,6 +132,8 @@ export interface EntradaSophia {
   consultorTeste?: Consultor | null;
   /** Comparação de modelos nos testes. */
   modeloForcado?: string | null;
+  /** Última fala da Sophia no histórico (preenchido no turno). */
+  ultimaMensagemSophia?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +152,8 @@ export interface ContextoSophia {
   ragModo: string | null;
   proximaVisita: { data_hora: string; status: string } | null;
   nivel: NivelAutonomia;
+  /** Horários livres já lidos, para quem quer visitar (atalho do anúncio). */
+  horariosSugeridos: string[];
 }
 
 export async function carregarContexto(
@@ -202,7 +208,7 @@ export async function carregarContexto(
     proximaVisita = (visita as ContextoSophia["proximaVisita"]) ?? null;
   }
 
-  return {
+  const ctx: ContextoSophia = {
     agent: agent as Record<string, unknown>,
     lead,
     janelas: lerJanelasVisita(janelasBrutas),
@@ -215,7 +221,34 @@ export async function carregarContexto(
     ragModo: porChave.get("rag_modo") ?? null,
     proximaVisita,
     nivel: nivelAutonomia(agent.autonomia),
+    horariosSugeridos: [],
   };
+
+  // Quem já disse que quer visitar recebe horários concretos na primeira
+  // resposta: os horários entram prontos no prompt, sem depender do modelo
+  // lembrar de chamar ver_horarios_visita.
+  const visitaFutura = proximaVisita && new Date(proximaVisita.data_hora).getTime() > Date.now();
+  if (
+    lead &&
+    querIrDireto(lead) &&
+    !visitaFutura &&
+    ctx.janelasConfiguradas &&
+    permite(ctx.nivel, "agendar")
+  ) {
+    const livres = horariosLivres(new Date(), ctx.janelas, await agendaOcupada(supabase, ctx), {
+      maxPorDia: 2,
+      maxDias: 3,
+    });
+    ctx.horariosSugeridos = livres.map(
+      (d) =>
+        `${d.dia_semana} ${d.data.slice(8)}/${d.data.slice(5, 7)} (${d.data}): ${d.horarios.join(", ")}`,
+    );
+  }
+  return ctx;
+}
+
+function querIrDireto(lead: Record<string, unknown>): boolean {
+  return /^sim/i.test(texto(lead.quer_visitar)) || /3 meses/i.test(texto(lead.prazo_compra));
 }
 
 // ---------------------------------------------------------------------------
@@ -349,7 +382,9 @@ function blocoLeadConhecido(ctx: ContextoSophia): string {
 
   const deFormulario = Boolean(texto(lead.formulario_id) || texto(lead.leadgen_id));
   const querVisitar = /^sim/i.test(texto(lead.quer_visitar));
-  const compraLogo = /3 meses/i.test(texto(lead.prazo_compra));
+  const sugeridos = ctx.horariosSugeridos.length
+    ? `\n  Horários livres agora (ofereça dois ou três destes, escritos por extenso, e pergunte qual fica melhor):\n${ctx.horariosSugeridos.map((h) => `  • ${h}`).join("\n")}\n  Não agende antes de a pessoa escolher.`
+    : "";
 
   if (campos.length === 0) return "";
   return `---
@@ -363,8 +398,8 @@ ${campos.join("\n")}
       ? `\n- Esta pessoa preencheu o anúncio. Se for a primeira mensagem da conversa, cumprimente pelo primeiro nome e parta das respostas dela.`
       : ""
   }${
-    querVisitar || compraLogo
-      ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Antes de responder, chame ver_horarios_visita e já ofereça dois ou três horários concretos nesta resposta. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.`
+    querIrDireto(lead) && !ctx.proximaVisita
+      ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Já ofereça dois ou três horários concretos nesta resposta${sugeridos ? "" : " (chame ver_horarios_visita antes)"}. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.${sugeridos}`
       : ""
   }${
     texto(lead.sem_interesse_em)
@@ -620,10 +655,26 @@ export async function gerarRespostaSophia(
   // Transferir/bloquear trocam a resposta por um texto fixo.
   const estado: { substituir: string[] | null } = { substituir: null };
 
+  const ultimaMensagemSophia =
+    [...historico].reverse().find((m) => m.role === "assistant")?.content ?? null;
+  const entradaTurno: EntradaSophia = {
+    ...entrada,
+    ultimaMensagemSophia: typeof ultimaMensagemSophia === "string" ? ultimaMensagemSophia : null,
+  };
   const executar = (nome: string, argsTexto: string) =>
-    executarFerramenta(supabase, apiKey, ctx, entrada, nome, argsTexto, acoes, leituras, (m) => {
-      estado.substituir = m;
-    });
+    executarFerramenta(
+      supabase,
+      apiKey,
+      ctx,
+      entradaTurno,
+      nome,
+      argsTexto,
+      acoes,
+      leituras,
+      (m) => {
+        estado.substituir = m;
+      },
+    );
 
   let conteudo = "";
   for (let rodada = 1; rodada <= MAX_RODADAS; rodada++) {
@@ -700,13 +751,7 @@ export async function gerarRespostaSophia(
     if (estado.substituir) break;
   }
 
-  let textoResposta = conteudo;
-  try {
-    const lido = JSON.parse(conteudo);
-    if (lido && typeof lido.resposta === "string") textoResposta = lido.resposta;
-  } catch {
-    // fora do formato: usa o texto cru
-  }
+  let textoResposta = lerRespostaDoModelo(conteudo);
   // Marcas antigas entre colchetes nunca vão para o lead.
   textoResposta = textoResposta.replace(/\[[A-Z_]{4,}\]/g, "").trim();
 
@@ -829,6 +874,12 @@ async function executarFerramenta(
     if (nome === "agendar_visita") {
       if (!permite(ctx.nivel, "agendar"))
         return JSON.stringify({ ok: false, erro: "não permitido" });
+      if (!leadEscolheuHorario(entrada.mensagem, entrada.ultimaMensagemSophia)) {
+        return JSON.stringify({
+          ok: false,
+          erro: "O lead ainda não escolheu dia e hora. Não agende: ofereça dois ou três horários livres e pergunte qual fica melhor.",
+        });
+      }
       return JSON.stringify(await validarVisita(supabase, ctx, args, acoes));
     }
 
