@@ -11,7 +11,7 @@
 --   - rodízio de vendedores e aviso no sino, mas só depois que a gestão ligar a
 --     chave configuracoes.rodizio_formulario_ativo (tela Equipe). Enquanto ela
 --     estiver desligada, o lead entra sem vendedor e o aviso vai para a gestão;
---     ao ligar, distribuir_leads_formulario() reparte os que ficaram esperando.
+--     ao ligar, definir_rodizio_formulario(true) reparte os que ficaram esperando.
 
 alter table public.leads
   add column if not exists conjunto_nome text,
