@@ -324,6 +324,17 @@ async function importar(url: URL) {
     const { error } = await db.rpc("avisar_vendedor_formulario", { p_vendedor_id: vendedorId, p_quantidade: n });
     if (error) log("aviso_falhou", { erro: error.message }, "error");
   }
+  // Rodízio desligado: um aviso só, para a gestão.
+  const gravados = resumo.novos + resumo.duplicados;
+  if (!porVendedor.size && gravados > 0) {
+    const { error } = await db.rpc("notificar_gestao", {
+      p_tipo: "lead_formulario",
+      p_titulo: "Leads antigos do formulário importados",
+      p_corpo: `${gravados} leads do Formulário Meta entraram no CRM (${resumo.qualificados} qualificados), sem vendedor atribuído.`,
+      p_link: "/dashboard/crm",
+    });
+    if (error) log("aviso_falhou", { erro: error.message }, "error");
+  }
   return resumo;
 }
 

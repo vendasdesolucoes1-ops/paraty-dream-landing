@@ -8,7 +8,10 @@
 --   - deduplicação pelo telefone (DDD + 8 últimos dígitos): lead existente é
 --     atualizado e ganha uma interação no histórico;
 --   - "qualificado" se compra nos próximos 3 meses ou quer visitar, senão "novo";
---   - rodízio de vendedores, como no lead do WhatsApp, e aviso no sino.
+--   - rodízio de vendedores e aviso no sino, mas só depois que a gestão ligar a
+--     chave configuracoes.rodizio_formulario_ativo (tela Equipe). Enquanto ela
+--     estiver desligada, o lead entra sem vendedor e o aviso vai para a gestão;
+--     ao ligar, distribuir_leads_formulario() reparte os que ficaram esperando.
 
 alter table public.leads
   add column if not exists conjunto_nome text,
@@ -67,6 +70,22 @@ as $$
   select case when length(n) in (10, 11) then left(n, 2) || right(n, 8) end from s
 $$;
 
+-- Chave do rodízio do formulário. Começa desligada: a equipe ainda é de teste.
+insert into public.configuracoes (chave, valor)
+select 'rodizio_formulario_ativo', 'false'
+ where not exists (select 1 from public.configuracoes where chave = 'rodizio_formulario_ativo');
+
+create or replace function public.rodizio_formulario_ativo()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select lower(valor) = 'true' from public.configuracoes
+                    where chave = 'rodizio_formulario_ativo' limit 1), false)
+$$;
+
 create or replace function public.registrar_lead_formulario(p jsonb)
 returns jsonb
 language plpgsql
@@ -89,6 +108,7 @@ declare
   v_ja        uuid;
   v_profile   uuid;
   v_resumo    text;
+  v_rodizio   boolean := public.rodizio_formulario_ativo();
 begin
   if v_leadgen is null then
     raise exception 'leadgen_id obrigatório';
@@ -127,7 +147,7 @@ begin
 
   if v_lead.id is null then
     v_novo := true;
-    v_vend := public.get_next_round_robin_salesperson();
+    v_vend := case when v_rodizio and not v_teste then public.get_next_round_robin_salesperson() end;
     v_status := case when v_qual then 'qualificado' else 'novo' end;
     insert into public.leads (
       nome, telefone, email, cidade, origem, status_crm, vendedor_id, objetivo, forma_pagamento,
@@ -145,7 +165,8 @@ begin
     )
     returning * into v_lead;
   else
-    v_vend := coalesce(v_lead.vendedor_id, public.get_next_round_robin_salesperson());
+    v_vend := coalesce(v_lead.vendedor_id,
+                       case when v_rodizio and not v_teste then public.get_next_round_robin_salesperson() end);
     v_status := case
       when v_lead.status_crm in ('novo', 'perdido') or v_lead.deletado_em is not null
         then case when v_qual then 'qualificado' else 'novo' end
@@ -182,7 +203,16 @@ begin
           case when v_novo then v_resumo else 'Novo contato pelo formulário. ' || v_resumo end,
           v_criado);
 
-  if v_notificar and v_vend is not null then
+  if v_notificar and v_vend is null then
+    -- Sem rodízio (ou sem vendedor): a gestão fica sabendo.
+    perform public.notificar_gestao(
+      'lead_formulario',
+      case when v_teste then '🧪 TESTE — ' else '' end ||
+      case when v_novo then 'Novo lead do formulário' else 'Lead voltou pelo formulário' end,
+      v_lead.nome || case when v_qual then ' — qualificado' else '' end ||
+      coalesce(' (' || nullif(p->>'campanha_nome', '') || ')', '') || ' — sem vendedor atribuído.',
+      '/dashboard/crm?lead=' || v_lead.id);
+  elsif v_notificar then
     select profile_id into v_profile from public.vendedores where id = v_vend;
     if v_profile is not null then
       insert into public.notifications (user_id, type, title, body, link)
@@ -221,6 +251,54 @@ $$;
 revoke all on function public.registrar_lead_formulario(jsonb) from public, anon, authenticated;
 grant execute on function public.registrar_lead_formulario(jsonb) to service_role;
 
+-- Liga/desliga o rodízio do formulário. Ao ligar, reparte os leads do
+-- formulário que entraram sem vendedor e avisa cada vendedor uma vez.
+create or replace function public.definir_rodizio_formulario(p_ativo boolean)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  l record;
+  v_vend uuid;
+  n integer := 0;
+begin
+  if not public.sou_gestao() and coalesce(auth.role(), '') <> 'service_role'
+     and session_user not in ('postgres', 'supabase_admin') then
+    raise exception 'Apenas a gestão pode mudar o rodízio.' using errcode = '42501';
+  end if;
+  update public.configuracoes set valor = case when p_ativo then 'true' else 'false' end
+   where chave = 'rodizio_formulario_ativo';
+  if not found then
+    insert into public.configuracoes (chave, valor)
+    values ('rodizio_formulario_ativo', case when p_ativo then 'true' else 'false' end);
+  end if;
+  if not p_ativo then
+    return 0;
+  end if;
+
+  create temporary table if not exists _distribuidos (vendedor_id uuid) on commit drop;
+  truncate _distribuidos;
+  for l in
+    select id from public.leads
+     where origem = 'formulario_meta' and vendedor_id is null and deletado_em is null
+       and not coalesce(is_teste, false) and status_crm not in ('fechado', 'perdido')
+     order by created_at
+     for update
+  loop
+    v_vend := public.get_next_round_robin_salesperson();
+    exit when v_vend is null;
+    update public.leads set vendedor_id = v_vend where id = l.id;
+    insert into _distribuidos values (v_vend);
+    n := n + 1;
+  end loop;
+  perform public.avisar_vendedor_formulario(vendedor_id, count(*)::int)
+     from _distribuidos group by vendedor_id;
+  return n;
+end;
+$$;
+
 -- Importação dos leads antigos: um aviso por vendedor em vez de um por lead.
 create or replace function public.avisar_vendedor_formulario(p_vendedor_id uuid, p_quantidade integer)
 returns void
@@ -240,6 +318,11 @@ $$;
 
 revoke all on function public.avisar_vendedor_formulario(uuid, integer) from public, anon, authenticated;
 grant execute on function public.avisar_vendedor_formulario(uuid, integer) to service_role;
+
+revoke all on function public.definir_rodizio_formulario(boolean) from public, anon;
+grant execute on function public.definir_rodizio_formulario(boolean) to authenticated, service_role;
+revoke all on function public.rodizio_formulario_ativo() from public, anon;
+grant execute on function public.rodizio_formulario_ativo() to authenticated, service_role;
 
 -- Rede de segurança: reprocessa eventos que ficaram pendentes ou com erro.
 do $$

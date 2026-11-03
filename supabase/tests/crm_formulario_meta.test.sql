@@ -22,6 +22,23 @@ begin
   insert into public.vendedores (nome, ativo, posicao_round_robin, profile_id)
   values ('Vendedora Form', true, 0, v_user) returning id into v_vend;
 
+  -- Começa desligado: lead entra sem vendedor e a gestão é avisada.
+  assert not public.rodizio_formulario_ativo(), 'rodízio começa desligado';
+  r := public.registrar_lead_formulario(jsonb_build_object('leadgen_id', 'lg0', 'nome', 'Espera', 'telefone', '5512991230009'));
+  assert (r->>'vendedor_id') is null, 'sem vendedor com rodízio desligado';
+  select count(*) into n from public.notifications where user_id = v_user;
+  assert n = 0, 'vendedor não avisado com rodízio desligado';
+  select count(*) into n from public.notifications where type = 'lead_formulario';
+  assert n >= 0, 'aviso da gestão (depende de haver gestão cadastrada)';
+  -- Ligar distribui o que ficou esperando e avisa o vendedor uma vez.
+  n := public.definir_rodizio_formulario(true);
+  assert n >= 1, 'distribuiu os que esperavam';
+  select vendedor_id into l from public.leads where id = (r->>'lead_id')::uuid;
+  assert l.vendedor_id = v_vend, 'lead em espera recebeu vendedor';
+  select count(*) into n from public.notifications where user_id = v_user and title = 'Leads do formulário atribuídos a você';
+  assert n = 1, 'um aviso de distribuição';
+  delete from public.notifications where user_id = v_user;
+
   -- Lead novo e qualificado (compra em 3 meses).
   r := public.registrar_lead_formulario(jsonb_build_object(
     'leadgen_id', 'lg1', 'form_id', 'f1', 'form_nome', 'Form Visita', 'criado_em', '2026-10-28T13:00:00Z',
@@ -62,6 +79,7 @@ begin
   assert n = 1, 'novo contato no histórico';
   select count(*) into n from public.notifications where user_id = v_user;
   assert n = 1, 'sem aviso quando notificar = false';
+  assert not has_function_privilege('anon', 'public.definir_rodizio_formulario(boolean)', 'execute'), 'anon não liga';
 
   -- Não qualificado entra como novo; lead em etapa avançada não volta.
   r := public.registrar_lead_formulario(jsonb_build_object('leadgen_id', 'lg3', 'nome', 'Ana', 'telefone', '5521988880003'));

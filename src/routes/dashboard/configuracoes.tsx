@@ -10,6 +10,7 @@ import { WhatsappInstanceCard } from "@/components/dashboard/whatsapp-status-car
 import { AiAgentPanel } from "@/components/dashboard/ai-agent-panel";
 import { WhatsappCreateInstanceCard } from "@/components/dashboard/whatsapp-instance-settings";
 import { TeamPanel } from "@/components/dashboard/team-panel";
+import { RodizioFormulario } from "@/components/dashboard/rodizio-formulario";
 import { JanelasVisitaCard } from "@/components/dashboard/janelas-visita-card";
 import { CondicoesComerciaisCard } from "@/components/dashboard/condicoes-comerciais-card";
 import { Button } from "@/components/ui/button";
@@ -151,8 +152,9 @@ function ConfiguracoesPage() {
             <TabsContent value="whatsapp" className="mt-8">
               {whatsappSection}
             </TabsContent>
-            <TabsContent value="equipe" className="mt-8">
+            <TabsContent value="equipe" className="mt-8 space-y-8">
               <TeamPanel />
+              <RodizioFormulario />
             </TabsContent>
           </Tabs>
         ) : (
