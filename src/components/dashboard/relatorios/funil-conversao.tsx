@@ -8,7 +8,7 @@ import { ETAPAS_CONVERSAO, type LinhaConversao } from "@/lib/relatorios";
 import type { LeadStatus } from "@/lib/types";
 
 /** As mesmas cores do funil do Início, da entrada (frio) ao fechamento (verde). */
-const COR: Record<Exclude<LeadStatus, "perdido">, string> = {
+const COR: Record<Exclude<LeadStatus, "perdido" | "nutricao">, string> = {
   novo: "bg-chart-3",
   qualificado: "bg-info",
   agendado: "bg-chart-2",

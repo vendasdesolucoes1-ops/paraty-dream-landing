@@ -102,7 +102,7 @@ export interface LinhaConversao {
 
 /** Etapas do funil de conversão, na ordem, com a coluna de contagem de cada uma. */
 export const ETAPAS_CONVERSAO: {
-  status: Exclude<LeadStatus, "perdido">;
+  status: Exclude<LeadStatus, "perdido" | "nutricao">;
   campo: "entraram" | "qualificados" | "agendados" | "visitaram" | "propostas" | "fechados";
   /** Taxa de quem chegou aqui vindo da etapa anterior (nula na primeira). */
   taxa: keyof LinhaConversao | null;
