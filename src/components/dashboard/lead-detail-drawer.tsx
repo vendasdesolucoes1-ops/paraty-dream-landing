@@ -41,6 +41,7 @@ import {
   type Lote,
   type Vendedor,
   type VisitaWithRelations,
+  type MensagemAutor,
   type WhatsappMessage,
 } from "@/lib/types";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -117,6 +118,15 @@ function formatDateTime(iso: string) {
 }
 
 /** Só o horário, para o carimbo dentro da bolha da conversa. */
+/** Quem escreveu as mensagens que saíram daqui (whatsapp_messages.autor). */
+const ROTULO_AUTOR: Partial<Record<MensagemAutor, string>> = {
+  sophia: "Sophia",
+  equipe_painel: "Equipe (CRM)",
+  equipe_celular: "Equipe (celular)",
+  disparo: "Automático",
+  sistema: "Aviso do sistema",
+};
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -773,12 +783,13 @@ function WhatsappTab({
       const { data, error } = await supabase
         .from("whatsapp_messages")
         .select(
-          "id, instance_id, contact_id, lead_id, remote_jid, message_id, from_me, message_type, content, status, created_at",
+          "id, instance_id, contact_id, lead_id, remote_jid, message_id, from_me, message_type, content, status, created_at, autor",
         )
         .eq("lead_id", leadId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as WhatsappMessage[];
+      // "autor" ainda não está nos tipos gerados do Supabase.
+      return data as unknown as WhatsappMessage[];
     },
   });
 
@@ -913,6 +924,11 @@ function WhatsappTab({
                     <ChatDateSeparator label={formatDateSeparator(message.created_at)} />
                   ) : null}
 
+                  {message.from_me && message.autor && ROTULO_AUTOR[message.autor] ? (
+                    <p className="mt-1.5 px-1 text-right text-[0.65rem] text-muted-foreground">
+                      {ROTULO_AUTOR[message.autor]}
+                    </p>
+                  ) : null}
                   <ChatBubble
                     texto={message.content}
                     nossa={message.from_me}

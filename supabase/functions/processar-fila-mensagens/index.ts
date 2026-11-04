@@ -303,6 +303,7 @@ async function enviar(m: MensagemAgendada, instancia: Instancia) {
       remote_jid: `${m.telefone}@s.whatsapp.net`,
       content: texto,
       mensagem_agendada_id: m.id,
+      autor: "disparo",
     });
 
     try {
@@ -464,7 +465,7 @@ Deno.serve(async (req) => {
               filaId: m.id,
             },
           );
-          if (resultado === "enviado") enviadas++;
+          if (resultado.resultado === "enviado") enviadas++;
           continue;
         }
 

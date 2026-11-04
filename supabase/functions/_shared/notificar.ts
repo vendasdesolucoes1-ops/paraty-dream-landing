@@ -71,6 +71,7 @@ export async function notificarResponsaveis(
         instancia,
         vendedor.telefone as string,
         texto,
+        { autor: "sistema" },
       ).catch((e) =>
         console.error("[notificar] WhatsApp ao vendedor falhou:", (e as Error).message),
       );

@@ -57,12 +57,37 @@ export async function isHumanTakeoverActive(
 
   const { data: takeovers } = await supabase
     .from("ai_agent_human_takeover")
-    .select("id")
+    .select("id, expira_em")
     .eq("conversation_id", conversationId)
-    .is("resolved_at", null)
-    .limit(1);
+    .is("resolved_at", null);
 
-  return Boolean(takeovers && takeovers.length > 0);
+  const agora = Date.now();
+  const vencidas = (takeovers ?? []).filter(
+    (t) => t.expira_em && new Date(String(t.expira_em)).getTime() <= agora,
+  );
+  // Pausa vencida fecha sozinha: a Sophia volta, mas só porque o lead escreveu
+  // (quem chama aqui está respondendo uma mensagem dele).
+  if (vencidas.length) {
+    await supabase
+      .from("ai_agent_human_takeover")
+      .update({ resolved_at: new Date().toISOString() })
+      .in(
+        "id",
+        vencidas.map((t) => t.id),
+      );
+  }
+  return (takeovers ?? []).length > vencidas.length;
+}
+
+/** Horas da pausa por atendimento humano (configuracoes.pausa_humana_horas, padrão 24). */
+export async function horasDePausa(supabase: SupabaseClient): Promise<number> {
+  const { data } = await supabase
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", "pausa_humana_horas")
+    .maybeSingle();
+  const n = Number(data?.valor);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 24 * 30) : 24;
 }
 
 /**
@@ -73,9 +98,14 @@ export async function pauseAI(
   supabase: SupabaseClient,
   sessionId: string,
   agentId: string | null,
+  origem: string | null = null,
 ): Promise<void> {
   const conversationId = await getOrCreateConversation(supabase, sessionId, agentId);
   if (!conversationId) return;
+
+  // A pausa vale `pausa_humana_horas` a partir da ÚLTIMA intervenção humana:
+  // uma nova mensagem da equipe empurra o prazo em vez de abrir outra linha.
+  const expiraEm = new Date(Date.now() + (await horasDePausa(supabase)) * 3600_000).toISOString();
 
   const { data: abertos } = await supabase
     .from("ai_agent_human_takeover")
@@ -84,11 +114,19 @@ export async function pauseAI(
     .is("resolved_at", null)
     .limit(1);
 
-  if (abertos && abertos.length > 0) return;
+  if (abertos && abertos.length > 0) {
+    await supabase
+      .from("ai_agent_human_takeover")
+      .update({ expira_em: expiraEm })
+      .eq("id", abertos[0].id);
+    return;
+  }
 
   await supabase.from("ai_agent_human_takeover").insert({
     conversation_id: conversationId,
     human_takeover_at: new Date().toISOString(),
+    expira_em: expiraEm,
+    origem,
   });
 }
 

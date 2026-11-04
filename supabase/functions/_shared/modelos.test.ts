@@ -31,7 +31,7 @@ test("modelo do agente fora da lista cai no padrão", () => {
 });
 
 test("parâmetros da Sophia e do follow-up", () => {
-  assert.equal(MODELOS.sophiaChat.temperatura, 0.4);
+  assert.equal(MODELOS.sophiaChat.temperatura, 0.3);
   assert.equal(MODELOS.sophiaChat.maxTokens, 1000);
   assert.equal(MODELOS.followUpClassificador.temperatura, 0.2);
   assert.equal(MODELOS.followUpRedator.temperatura, 0.5);

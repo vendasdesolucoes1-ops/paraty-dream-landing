@@ -23,18 +23,29 @@ test("nível: inválido vira o padrão (agendar) e a ordem dos níveis vale", ()
 });
 
 test("ferramentas por nível", () => {
-  assert.deepEqual(nomes("responder"), ["consultar_lotes", "buscar_informacao"]);
+  const sempre = ["registrar_recusa", "transferir_para_humano", "bloquear_contato"];
+  assert.deepEqual(nomes("responder"), ["consultar_lotes", "buscar_informacao", ...sempre]);
   assert.deepEqual(nomes("qualificar"), [
     "consultar_lotes",
     "buscar_informacao",
     "registrar_dados_lead",
+    "qualificar_lead",
+    ...sempre,
   ]);
   assert.deepEqual(nomes("agendar"), [
     "consultar_lotes",
     "buscar_informacao",
     "registrar_dados_lead",
+    "qualificar_lead",
     "ver_horarios_visita",
+    "agendar_visita",
+    ...sempre,
   ]);
+  assert.ok(
+    ferramentasDoNivel("agendar", { comMidia: true })
+      .map((f) => f.function.name)
+      .includes("enviar_midia"),
+  );
   assert.match(blocoFerramentas("responder"), /só conversa/);
   assert.doesNotMatch(blocoFerramentas("responder"), /registrar_dados_lead/);
   assert.match(blocoFerramentas("agendar"), /ver_horarios_visita/);

@@ -102,6 +102,7 @@ async function sendText(leadId: string, texto: string) {
     lead_id: lead.id,
     remote_jid: `${phone}@s.whatsapp.net`,
     content: conteudo,
+    autor: "equipe_painel",
   });
 
   const response = await fetch(
@@ -133,7 +134,7 @@ async function sendText(leadId: string, texto: string) {
     .select("id")
     .eq("instance_id", instance.id)
     .maybeSingle();
-  await pauseAI(supabase, phone, agent?.id ?? null);
+  await pauseAI(supabase, phone, agent?.id ?? null, "equipe_painel");
 
   return { message: gravada, ia_pausada: true };
 }
