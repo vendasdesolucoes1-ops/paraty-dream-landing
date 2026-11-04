@@ -182,21 +182,34 @@ Deno.serve(async (req) => {
       const inicio = new Date().toISOString();
 
       // Mesmo que o webhook: a mensagem do lead é gravada primeiro.
-      await supabase.from("whatsapp_messages").insert({
-        lead_id: lead.id,
-        remote_jid: jidDoTelefone(lead.telefone),
-        message_id: `teste:${crypto.randomUUID()}`,
-        from_me: false,
-        autor: "lead",
-        message_type: "text",
-        content: texto,
-        status: "received",
-      });
+      const { data: recebida } = await supabase
+        .from("whatsapp_messages")
+        .insert({
+          lead_id: lead.id,
+          remote_jid: jidDoTelefone(lead.telefone),
+          message_id: `teste:${crypto.randomUUID()}`,
+          from_me: false,
+          autor: "lead",
+          message_type: "text",
+          content: texto,
+          status: "received",
+        })
+        .select("created_at")
+        .single();
       if (ehPedidoDeParada(texto)) await bloquearPorPedidoDeParada(supabase, lead.id);
 
       const consultor: Consultor | null = lerConsultor(body.consultor_teste ?? null);
+      // debounce_ms (opcional, até 30 s): reproduz o debounce do webhook.
+      const debounceMs = Math.min(Math.max(Number(body.debounce_ms ?? 0) || 0, 0), 30_000);
       const detalhe = await responderLead(supabase, null, lead.id, {
         teste: { agentId, consultor, modelo: (body.modelo as string | null) ?? null },
+        ...(debounceMs
+          ? {
+              aguardarDebounce: true,
+              debounceMs,
+              recebidaEm: (recebida?.created_at as string | undefined) ?? inicio,
+            }
+          : {}),
       });
       return json({
         ok: true,

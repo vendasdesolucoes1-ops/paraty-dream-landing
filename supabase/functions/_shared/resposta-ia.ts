@@ -153,6 +153,8 @@ interface Opcoes {
   aguardarDebounce?: boolean;
   /** Quando a mensagem que disparou o debounce foi recebida. */
   recebidaEm?: string;
+  /** Espera do debounce (padrão DEBOUNCE_MS). O teste usa uma espera curta. */
+  debounceMs?: number;
   /** Linha já reivindicada pelo cron (caminho durável). */
   filaId?: string;
   /** "Testar agente": sem WhatsApp, sem debounce, sem exigir a IA ligada. */
@@ -181,9 +183,11 @@ export async function responderLead(
   const telefone = String(lead.telefone).replace(/\D/g, "");
   const sessionId = telefone;
 
-  if (!teste && instancia && opcoes.aguardarDebounce) {
-    await digitando(instancia, telefone);
-    await dormir(DEBOUNCE_MS);
+  // O teste pode pedir o mesmo debounce (mais curto) para provar o caso de
+  // duas mensagens seguidas: só a mais nova responde.
+  if (opcoes.aguardarDebounce && (teste || instancia)) {
+    if (!teste && instancia) await digitando(instancia, telefone);
+    await dormir(opcoes.debounceMs ?? DEBOUNCE_MS);
     // A mensagem mais nova tem o próprio debounce: ela responde.
     if (opcoes.recebidaEm && (await chegouMensagemNova(supabase, leadId, opcoes.recebidaEm))) {
       return fim("abortado", "mensagem mais nova vai responder");
