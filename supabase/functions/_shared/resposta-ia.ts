@@ -37,6 +37,8 @@ import { ehPedidoDeParada } from "./contato-bloqueado.ts";
 import { gerarRespostaSophia, type TurnoSophia } from "./sophia.ts";
 import { executarAcoes } from "./sophia-acoes.ts";
 import { lerConsultor, type Consultor } from "./sophia-regras.ts";
+import { MODELOS, modeloReservaSophia, resolverModeloSophia } from "./modelos.ts";
+import { responsavelDoLead } from "./responsavel-visita.ts";
 
 const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
   .trim()
@@ -44,6 +46,10 @@ const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "")
   .replace(/[^\x20-\x7E]/g, "");
 
 export const DEBOUNCE_MS = 30_000;
+/** Falhas do modelo (principal e reserva) antes de pausar a conversa e chamar a equipe. */
+const MAX_TENTATIVAS_IA = 3;
+/** Espera entre tentativas depois de uma falha do modelo (cresce a cada tentativa). */
+const ESPERA_NOVA_TENTATIVA_MS = 2 * 60_000;
 const INTER_MESSAGE_DELAY_MIN_MS = 1000;
 const INTER_MESSAGE_DELAY_MAX_MS = 3000;
 const INTER_MESSAGE_DELAY_MS_PER_CHAR = 35;
@@ -198,7 +204,11 @@ export async function responderLead(
   if (!teste && !filaId) return fim("abortado", "outra execução respondeu");
   const inicio = new Date().toISOString();
 
-  const fecharFila = async (status: "enviado" | "cancelado" | "pendente", erro: string | null) => {
+  const fecharFila = async (
+    status: "enviado" | "cancelado" | "pendente",
+    erro: string | null,
+    extra: { agendarPara?: string; tentativas?: number } = {},
+  ) => {
     if (!filaId) return;
     const agora = new Date().toISOString();
     await supabase
@@ -208,7 +218,8 @@ export async function responderLead(
         erro,
         atualizado_em: agora,
         ...(status === "enviado" ? { enviado_em: agora } : {}),
-        ...(status === "pendente" ? { agendado_para: agora } : {}),
+        ...(status === "pendente" ? { agendado_para: extra.agendarPara ?? agora } : {}),
+        ...(extra.tentativas !== undefined ? { tentativas: extra.tentativas } : {}),
       })
       .eq("id", filaId);
   };
@@ -219,12 +230,13 @@ export async function responderLead(
   }
 
   let agentId: string;
+  let modeloAgente: string | null = null;
   if (teste) {
     agentId = teste.agentId;
   } else {
     const { data: agente } = await supabase
       .from("ai_agents")
-      .select("id")
+      .select("id, modelo")
       .eq("instance_id", instancia!.id)
       .eq("is_active", true)
       .maybeSingle();
@@ -233,6 +245,7 @@ export async function responderLead(
       return fim("abortado", "IA desativada");
     }
     agentId = agente.id as string;
+    modeloAgente = (agente.modelo as string | null) ?? null;
   }
 
   const { data: ultima } = await supabase
@@ -272,30 +285,100 @@ export async function responderLead(
     return fim("abortado", "contato bloqueado");
   }
 
-  const consultor = teste?.consultor ?? (await consultorDoPainel(supabase));
+  // Quem recebe a visita: o vendedor do lead (rodízio) ou o consultor do
+  // painel. É o mesmo que a Sophia cita no texto (sophia.ts/carregarContexto).
+  const consultor = await responsavelDoLead(
+    supabase,
+    (lead.vendedor_id as string | null | undefined) ?? null,
+    teste?.consultor ?? (await consultorDoPainel(supabase)),
+  );
 
-  let turno: TurnoSophia;
-  try {
-    turno = await gerarRespostaSophia(supabase, OPENAI_API_KEY, {
+  const gerar = (modeloForcado: string | null) =>
+    gerarRespostaSophia(supabase, OPENAI_API_KEY, {
       agentId,
       leadId,
       sessionId,
       mensagem,
       canal: teste ? "teste" : "producao",
       consultorTeste: teste?.consultor ?? null,
-      modeloForcado: teste?.modelo ?? null,
+      modeloForcado,
     });
+
+  let turno: TurnoSophia;
+  try {
+    turno = await gerar(teste?.modelo ?? null);
   } catch (e) {
     const motivo = (e as Error)?.message ?? String(e);
     console.error("[resposta-ia] IA falhou", { leadId, motivo });
-    if (!teste && instancia) {
-      await responderFalhaDaIA(supabase, instancia, leadId, telefone, sessionId, agentId);
+    // Segunda tentativa com o modelo reserva: a queda de um modelo não pode
+    // parar o atendimento. No teste, o erro aparece como veio.
+    let recuperado: TurnoSophia | null = null;
+    if (!teste) {
+      const reserva = modeloReservaSophia(
+        resolverModeloSophia(modeloAgente),
+        MODELOS.sophiaFallback.id || null,
+      );
+      try {
+        recuperado = await gerar(reserva);
+        console.warn("[resposta-ia] respondido pelo modelo reserva", { leadId, reserva });
+      } catch (e2) {
+        console.error("[resposta-ia] modelo reserva também falhou", {
+          leadId,
+          motivo: (e2 as Error)?.message ?? String(e2),
+        });
+      }
     }
-    await fecharFila("enviado", `IA falhou: ${motivo}`.slice(0, 500));
-    return fim("falhou", motivo);
+    if (!recuperado) {
+      // Antes de pausar a conversa por um dia, tenta de novo em alguns minutos:
+      // uma instabilidade curta da OpenAI não deve deixar o lead sem resposta.
+      if (!teste && filaId) {
+        const { data: linhaFila } = await supabase
+          .from("mensagens_agendadas")
+          .select("tentativas")
+          .eq("id", filaId)
+          .maybeSingle();
+        const tentativas = Number(linhaFila?.tentativas ?? 0) + 1;
+        if (tentativas < MAX_TENTATIVAS_IA) {
+          await fecharFila(
+            "pendente",
+            `IA falhou (tentativa ${tentativas}): ${motivo}`.slice(0, 500),
+            {
+              agendarPara: new Date(
+                Date.now() + ESPERA_NOVA_TENTATIVA_MS * tentativas,
+              ).toISOString(),
+              tentativas,
+            },
+          );
+          return fim("falhou", `${motivo} (nova tentativa agendada)`);
+        }
+      }
+      if (!teste && instancia) {
+        await responderFalhaDaIA(supabase, instancia, leadId, telefone, sessionId, agentId);
+      }
+      await fecharFila("enviado", `IA falhou: ${motivo}`.slice(0, 500));
+      return fim("falhou", motivo);
+    }
+    turno = recuperado;
   }
 
   const leituras = turno.leituras.map((l) => `${l.ferramenta}: ${l.resumo}`);
+
+  const ctxAcoes = {
+    leadId,
+    sessionId,
+    agentId,
+    instancia: teste ? null : instancia,
+    consultor,
+    openaiKey: OPENAI_API_KEY,
+    telefone,
+  };
+
+  // Pedido de saída vale na hora, antes de qualquer envio: se a mensagem não
+  // sair (Evolution fora, humano assumiu no meio), as cadências e campanhas
+  // já não podem mais procurar esse lead.
+  const bloqueios = turno.acoes.filter((a) => a.tipo === "bloquear");
+  const demaisAcoes = turno.acoes.filter((a) => a.tipo !== "bloquear");
+  const acoesAntes = bloqueios.length ? await executarAcoes(supabase, ctxAcoes, bloqueios) : [];
 
   // Chegou mensagem nova enquanto a resposta era gerada: nada sai, nada é
   // feito, e a fila volta a pendente para gerar de novo com a conversa toda.
@@ -366,22 +449,27 @@ export async function responderLead(
   }
 
   // Resposta interrompida (humano assumiu no meio): as ações não rodam.
-  const acoes =
+  const acoesDepois =
     enviadas.length === turno.mensagens.length
-      ? await executarAcoes(
-          supabase,
-          {
-            leadId,
-            sessionId,
-            agentId,
-            instancia: teste ? null : instancia,
-            consultor,
-            openaiKey: OPENAI_API_KEY,
-            telefone,
-          },
-          turno.acoes,
-        )
+      ? await executarAcoes(supabase, ctxAcoes, demaisAcoes)
       : [];
+  const acoes = [...acoesAntes, ...acoesDepois];
+
+  // O lead escreveu enquanto as bolhas ou as ações saíam: a mensagem nova
+  // atualizou esta mesma linha (que estava "enviando") e o caminho rápido dela
+  // desistiu ao não conseguir reivindicar. Fechar como "enviado" deixaria a
+  // pergunta sem resposta; a linha volta para a fila e o cron responde.
+  if (!teste && (await chegouMensagemNova(supabase, leadId, inicio))) {
+    await fecharFila("pendente", null);
+    return {
+      resultado: "enviado",
+      motivo: "lead escreveu durante o envio; nova resposta na fila",
+      mensagens: enviadas,
+      acoes,
+      leituras,
+      turno,
+    };
+  }
 
   await fecharFila("enviado", null);
   return { resultado: "enviado", mensagens: enviadas, acoes, leituras, turno };

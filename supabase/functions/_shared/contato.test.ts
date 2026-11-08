@@ -39,6 +39,30 @@ test("pedido de parada: conversa normal não vira opt-out", () => {
   }
 });
 
+test("pedido de parada dentro de uma mensagem maior", () => {
+  for (const texto of [
+    "Boa tarde, me tira dessa lista por favor",
+    "não quero mais receber mensagens de vocês",
+    "Por favor não me mandem mais mensagem",
+    "parem de me mandar mensagem",
+    "remove meu número daí",
+    "quero me descadastrar",
+  ]) {
+    assert.equal(ehPedidoDeParada(texto), true, texto);
+  }
+});
+
+test("pedido de parada: frases parecidas que não são opt-out", () => {
+  for (const texto of [
+    "não quero mais esse lote, quero ver outro",
+    "me tira uma dúvida sobre a entrada",
+    "não quero receber a visita no sábado, pode ser domingo?",
+    "o corretor pode me mandar mais fotos?",
+  ]) {
+    assert.equal(ehPedidoDeParada(texto), false, texto);
+  }
+});
+
 test("chave de telefone: mesmo celular com e sem 9, DDI e máscara", () => {
   const chave = "552499991234";
   assert.equal(chaveTelefone("(24) 99999-1234"), chave);

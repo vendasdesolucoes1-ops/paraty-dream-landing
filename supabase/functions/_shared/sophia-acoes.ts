@@ -45,6 +45,15 @@ export interface ContextoAcoes {
 const ETAPAS_ANTES_DA_VISITA = ["novo", "qualificado", "nutricao", "perdido", "agendado"];
 const ETAPAS_QUE_A_IA_PODE_REBAIXAR = new Set(["novo", "qualificado", "agendado", "nutricao"]);
 
+/** Escrita que não pode falhar em silêncio: erro do banco vira exceção da ação. */
+async function gravar(
+  operacao: PromiseLike<{ error: { message: string } | null }>,
+  oque: string,
+): Promise<void> {
+  const { error } = await operacao;
+  if (error) throw new Error(`${oque}: ${error.message}`);
+}
+
 async function linha(supabase: SupabaseClient, leadId: string, texto: string) {
   await supabase.from("interacoes").insert({
     lead_id: leadId,
@@ -99,7 +108,7 @@ async function registrarRecusa(supabase: SupabaseClient, leadId: string, semInte
     patch.sem_interesse_em = agora;
     if (ETAPAS_QUE_A_IA_PODE_REBAIXAR.has(atual.status_crm ?? "novo")) patch.status_crm = "perdido";
   }
-  await supabase.from("leads").update(patch).eq("id", leadId);
+  await gravar(supabase.from("leads").update(patch).eq("id", leadId), "gravar recusa");
 }
 
 async function agendar(
@@ -139,15 +148,18 @@ async function agendar(
     if (
       new Date(String(futura.data_hora)).getTime() !== new Date(String(dados.data_hora)).getTime()
     ) {
-      await supabase
-        .from("visitas")
-        .update({
-          data_hora: dados.data_hora,
-          status: dados.status,
-          observacoes,
-          vendedor_id: vendedorId,
-        })
-        .eq("id", futura.id);
+      await gravar(
+        supabase
+          .from("visitas")
+          .update({
+            data_hora: dados.data_hora,
+            status: dados.status,
+            observacoes,
+            vendedor_id: vendedorId,
+          })
+          .eq("id", futura.id),
+        "reagendar visita",
+      );
     }
   } else {
     const { error } = await supabase.from("visitas").insert({
@@ -163,7 +175,10 @@ async function agendar(
   }
 
   if (lead && ETAPAS_ANTES_DA_VISITA.includes(lead.status_crm ?? "novo")) {
-    await supabase.from("leads").update({ status_crm: "agendado" }).eq("id", ctx.leadId);
+    await gravar(
+      supabase.from("leads").update({ status_crm: "agendado" }).eq("id", ctx.leadId),
+      "mudar etapa para agendado",
+    );
   }
 
   await avisarConsultor(supabase, ctx, {
@@ -250,6 +265,7 @@ export async function executarAcoes(
   acoes: AcaoPendente[],
 ): Promise<string[]> {
   const feitas: string[] = [];
+  const falhas: string[] = [];
   for (const acao of acoes) {
     try {
       const d = acao.dados;
@@ -257,7 +273,10 @@ export async function executarAcoes(
         case "registrar_dados": {
           const patch = d.patch as Record<string, string>;
           if (patch && Object.keys(patch).length) {
-            await supabase.from("leads").update(patch).eq("id", ctx.leadId);
+            await gravar(
+              supabase.from("leads").update(patch).eq("id", ctx.leadId),
+              "gravar dados do lead",
+            );
           }
           break;
         }
@@ -273,7 +292,10 @@ export async function executarAcoes(
           if (ctx.instancia) {
             await handleLeadQualification(supabase, lead as never, ctx.instancia, ctx.openaiKey);
           } else if (["novo", "nutricao", "perdido"].includes(lead.status_crm ?? "novo")) {
-            await supabase.from("leads").update({ status_crm: "qualificado" }).eq("id", ctx.leadId);
+            await gravar(
+              supabase.from("leads").update({ status_crm: "qualificado" }).eq("id", ctx.leadId),
+              "marcar como qualificado",
+            );
           }
           break;
         }
@@ -303,7 +325,10 @@ export async function executarAcoes(
           };
           if (ETAPAS_QUE_A_IA_PODE_REBAIXAR.has(lead?.status_crm ?? "novo"))
             patch.status_crm = "perdido";
-          await supabase.from("leads").update(patch).eq("id", ctx.leadId);
+          await gravar(
+            supabase.from("leads").update(patch).eq("id", ctx.leadId),
+            "bloquear contato",
+          );
           break;
         }
         case "enviar_midia": {
@@ -320,7 +345,24 @@ export async function executarAcoes(
       console.error("[sophia-acoes]", texto);
       await linha(supabase, ctx.leadId, texto);
       feitas.push(texto);
+      falhas.push(acao.resumo);
     }
+  }
+  // O lead já recebeu a resposta (ex.: "sua visita está marcada"): se a ação
+  // não ficou gravada, alguém da equipe precisa saber agora, não ao abrir o CRM.
+  if (falhas.length && ctx.instancia) {
+    await notificarResponsaveis(
+      supabase,
+      ctx.leadId,
+      {
+        tipo: "acao_ia_falhou",
+        titulo: "Ação da Sophia não foi gravada",
+        corpo: `A Sophia respondeu ao lead, mas não conseguiu: ${falhas.join("; ").slice(0, 300)}. Confira e faça à mão pelo CRM.`,
+      },
+      ctx.instancia,
+    ).catch((e) =>
+      console.error("[sophia-acoes] aviso de falha não enviado:", (e as Error).message),
+    );
   }
   return feitas;
 }

@@ -12,6 +12,7 @@ import {
   MODELOS,
   MODELOS_SOPHIA_PERMITIDOS,
   MODELO_SOPHIA_PADRAO,
+  modeloReservaSophia,
   PRECO_POR_MILHAO,
   resolverModeloSophia,
 } from "./modelos.ts";
@@ -83,4 +84,14 @@ test("nenhum ID de modelo fora de _shared/modelos.ts", () => {
       });
   }
   assert.deepEqual(achados, [], "mova o ID para supabase/functions/_shared/modelos.ts");
+});
+
+test("modelo reserva da Sophia: env permitido, senão o outro modelo barato", () => {
+  assert.equal(modeloReservaSophia("gpt-4o-mini"), "gpt-4.1-mini");
+  assert.equal(modeloReservaSophia("gpt-4.1-mini"), "gpt-4o-mini");
+  assert.equal(modeloReservaSophia("gpt-4.1"), "gpt-4o-mini");
+  assert.equal(modeloReservaSophia("gpt-4o-mini", "gpt-4o"), "gpt-4o");
+  // Reserva igual ao principal ou fora da lista não serve.
+  assert.equal(modeloReservaSophia("gpt-4o", "gpt-4o"), "gpt-4o-mini");
+  assert.equal(modeloReservaSophia("gpt-4o-mini", "modelo-inventado"), "gpt-4.1-mini");
 });
