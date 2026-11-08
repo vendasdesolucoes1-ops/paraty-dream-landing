@@ -60,6 +60,66 @@ async function findInstance(instanceName: string) {
   return data;
 }
 
+async function acharLeadExcluido(phone: string, chave: string | null) {
+  const { data } = chave
+    ? await supabase
+        .from("leads")
+        .select("*")
+        .eq("telefone_chave", chave)
+        .not("deletado_em", "is", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : await supabase
+        .from("leads")
+        .select("*")
+        .eq("telefone", phone)
+        .not("deletado_em", "is", null)
+        .maybeSingle();
+  return data;
+}
+
+async function restaurarLead(lead: Record<string, unknown>, name: string | null) {
+  const nomeAnterior = String(lead.nome ?? "");
+  // Vendedor que saiu da equipe não recebe o lead de volta: vai para o rodízio.
+  let vendedorId: string | null = (lead.vendedor_id as string | null) ?? null;
+  if (vendedorId) {
+    const { data: vendedor } = await supabase
+      .from("vendedores")
+      .select("ativo")
+      .eq("id", vendedorId)
+      .maybeSingle();
+    if (!vendedor?.ativo) vendedorId = null;
+  }
+  if (!vendedorId) {
+    const { data: proximo } = await supabase.rpc("get_next_round_robin_salesperson");
+    vendedorId = (proximo as string | null) ?? null;
+  }
+
+  const { data: restaurado, error } = await supabase
+    .from("leads")
+    .update({
+      deletado_em: null,
+      status_crm: "novo",
+      nome: name?.trim() || nomeAnterior,
+      vendedor_id: vendedorId,
+    })
+    .eq("id", lead.id as string)
+    .select()
+    .single();
+  if (error) throw error;
+
+  await supabase.from("interacoes").insert({
+    lead_id: lead.id as string,
+    tipo: "sistema",
+    canal: "whatsapp",
+    conteudo: `Lead excluído do CRM voltou a escrever pelo WhatsApp: o cadastro foi restaurado como novo${
+      name?.trim() && name.trim() !== nomeAnterior ? ` (nome anterior: ${nomeAnterior})` : ""
+    }.`,
+  });
+  return restaurado;
+}
+
 async function findOrCreateLead(phone: string, name: string | null) {
   // Pela chave canônica: o WhatsApp pode mandar o número sem o 9 que o
   // formulário gravou, e sem isso nascia um lead duplicado com outro vendedor.
@@ -75,11 +135,27 @@ async function findOrCreateLead(phone: string, name: string | null) {
         .maybeSingle()
     : { data: null, error: null };
   // Coluna ainda inexistente (migration pendente): cai na busca exata antiga.
-  const existingLead =
-    porChave.data ??
-    (await supabase.from("leads").select("*").eq("telefone", phone).maybeSingle()).data;
+  // Só nesse caso: sem o filtro de excluídos, a busca antiga devolvia um lead
+  // apagado do CRM, a conversa sumia da tela e a Sophia lia o nome e os dados
+  // daquele cadastro velho.
+  const existingLead = porChave.error
+    ? (
+        await supabase
+          .from("leads")
+          .select("*")
+          .eq("telefone", phone)
+          .is("deletado_em", null)
+          .maybeSingle()
+      ).data
+    : porChave.data;
 
   if (existingLead) return existingLead;
+
+  // Telefone de um lead excluído do CRM: o cadastro volta (o telefone é único,
+  // então não dá para criar outro). O nome passa a ser o do WhatsApp, porque o
+  // excluído pode ser de outra pessoa ou de um teste antigo com esse número.
+  const excluido = await acharLeadExcluido(phone, chave);
+  if (excluido) return await restaurarLead(excluido, name);
 
   const { data: vendedorId } = await supabase.rpc("get_next_round_robin_salesperson");
 
@@ -448,7 +524,9 @@ async function handleOutgoingMessage(instance: Record<string, any>, data: Record
     return;
   }
 
-  const lead = await findOrCreateLead(phone, data.pushName ?? null);
+  // Em mensagem enviada pela empresa, o pushName é de quem enviou (a equipe),
+  // não do lead: não serve de nome para criar nem para restaurar o cadastro.
+  const lead = await findOrCreateLead(phone, null);
   const contact = await findOrCreateContact(phone, data.pushName ?? null, remoteJid);
 
   await supabase.from("whatsapp_messages").insert({
