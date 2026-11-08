@@ -132,19 +132,156 @@ const VER_HORARIOS_VISITA = {
   },
 } as const;
 
+const QUALIFICAR_LEAD = {
+  type: "function",
+  function: {
+    name: "qualificar_lead",
+    description:
+      "Marca o lead como qualificado no CRM (etapa Qualificado) e avisa o consultor. Chame quando souber nome, cidade, objetivo e tamanho de interesse, ou quando ele já disse que quer visitar ou comprar em breve.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["resumo"],
+      properties: {
+        resumo: {
+          type: "string",
+          description: "Uma linha para o consultor: o que o lead procura e por que está pronto",
+        },
+      },
+    },
+  },
+} as const;
+
+const REGISTRAR_RECUSA = {
+  type: "function",
+  function: {
+    name: "registrar_recusa",
+    description:
+      'Registra que o lead recusou a visita ("visita") ou disse que não tem interesse em seguir ("sem_interesse"). Não é opt-out: para "não quero mais mensagens" use bloquear_contato.',
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["tipo"],
+      properties: { tipo: { type: "string", enum: ["visita", "sem_interesse"] } },
+    },
+  },
+} as const;
+
+const AGENDAR_VISITA = {
+  type: "function",
+  function: {
+    name: "agendar_visita",
+    description:
+      "Marca a visita na Agenda com o consultor. Use quando o lead aceitar um dia e horário. Devolve se ficou confirmada ou 'a confirmar', com endereço, link do mapa e nome do consultor. Só diga que está agendado depois do retorno ok=true.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["data", "hora", "acompanhantes", "observacao"],
+      properties: {
+        data: { type: "string", description: "Dia da visita, YYYY-MM-DD (leia no calendário)" },
+        hora: { type: "string", description: "Horário HH:MM, no fuso de Paraty" },
+        acompanhantes: nulo({
+          type: "integer",
+          description: "Quantas pessoas vêm junto além do lead, ou null",
+        }),
+        observacao: nulo({
+          type: "string",
+          description: 'Ex.: "vem com a esposa", "quer ver lotes de 360m²"',
+        }),
+      },
+    },
+  },
+} as const;
+
+const TRANSFERIR_PARA_HUMANO = {
+  type: "function",
+  function: {
+    name: "transferir_para_humano",
+    description:
+      "Passa a conversa para o consultor: a IA pausa nesta conversa e o consultor é avisado. Use quando o lead pedir uma pessoa, aceitar falar com o consultor ou quando o assunto fugir do que você pode resolver.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["motivo"],
+      properties: {
+        motivo: { type: "string", description: "Por que a conversa vai para uma pessoa" },
+      },
+    },
+  },
+} as const;
+
+const BLOQUEAR_CONTATO = {
+  type: "function",
+  function: {
+    name: "bloquear_contato",
+    description:
+      'O lead pediu para não receber mais mensagens ("não quero mais", "me tira da lista", "para de mandar"). Bloqueia o contato e encerra. A despedida é enviada automaticamente.',
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["motivo"],
+      properties: { motivo: { type: "string" } },
+    },
+  },
+} as const;
+
+export const TIPOS_MIDIA = ["localizacao", "foto", "video_drone", "video_lote", "pdf"] as const;
+export type TipoMidia = (typeof TIPOS_MIDIA)[number];
+
+const ENVIAR_MIDIA = {
+  type: "function",
+  function: {
+    name: "enviar_midia",
+    description:
+      "Envia ao lead um material cadastrado pela equipe: localização (pin no mapa), fotos, vídeo de drone, vídeo do lote demarcado ou PDF. Use quando ele pedir, ou quando morar longe e estiver em dúvida se vale a viagem.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["tipo"],
+      properties: { tipo: { type: "string", enum: [...TIPOS_MIDIA] } },
+    },
+  },
+} as const;
+
 export type NomeFerramenta =
   | "consultar_lotes"
   | "buscar_informacao"
   | "registrar_dados_lead"
-  | "ver_horarios_visita";
+  | "ver_horarios_visita"
+  | "qualificar_lead"
+  | "registrar_recusa"
+  | "agendar_visita"
+  | "transferir_para_humano"
+  | "bloquear_contato"
+  | "enviar_midia";
 
-/** Ferramentas oferecidas ao modelo em cada nível. */
-export function ferramentasDoNivel(nivel: NivelAutonomia) {
+/** Ferramentas que só leem (rodam na hora) — as outras viram ação pendente. */
+export const FERRAMENTAS_DE_LEITURA = new Set<string>([
+  "consultar_lotes",
+  "buscar_informacao",
+  "ver_horarios_visita",
+]);
+
+/**
+ * Ferramentas oferecidas ao modelo em cada nível. Transferir, bloquear,
+ * registrar recusa e enviar material valem em todos os níveis.
+ */
+export function ferramentasDoNivel(nivel: NivelAutonomia, opcoes: { comMidia?: boolean } = {}) {
   return [
     CONSULTAR_LOTES,
     BUSCAR_INFORMACAO,
-    ...(permite(nivel, "qualificar") ? [REGISTRAR_DADOS_LEAD] : []),
-    ...(permite(nivel, "agendar") ? [VER_HORARIOS_VISITA] : []),
+    ...(permite(nivel, "qualificar") ? [REGISTRAR_DADOS_LEAD, QUALIFICAR_LEAD] : []),
+    ...(permite(nivel, "agendar") ? [VER_HORARIOS_VISITA, AGENDAR_VISITA] : []),
+    REGISTRAR_RECUSA,
+    TRANSFERIR_PARA_HUMANO,
+    BLOQUEAR_CONTATO,
+    ...(opcoes.comMidia ? [ENVIAR_MIDIA] : []),
   ];
 }
 
@@ -161,27 +298,34 @@ export function blocoFerramentas(nivel: NivelAutonomia): string {
   if (permite(nivel, "qualificar")) {
     linhas.push(
       "- registrar_dados_lead: assim que o lead contar algo novo (nome, cidade, objetivo, tamanho, canal, prazo), registre. O vendedor vê no CRM na hora.",
+      "- qualificar_lead: quando souber nome, cidade, objetivo e tamanho — ou quando ele já disse que quer visitar ou comprar em breve.",
     );
   }
   if (permite(nivel, "agendar")) {
     linhas.push(
       "- ver_horarios_visita: horários livres de verdade. Consulte antes de propor dia e hora e ofereça duas ou três opções concretas.",
+      "- agendar_visita: quando o lead aceitar dia e hora. Só diga que está agendado depois que ela devolver ok=true, e use na resposta o dia, a hora, o endereço, o link do mapa e o nome do consultor que ela devolveu.",
     );
   }
+  linhas.push(
+    "- registrar_recusa: o lead recusou a visita ou disse que não quer seguir.",
+    "- transferir_para_humano: o lead quer falar com uma pessoa ou aceitou falar com o consultor. A mensagem de transferência é enviada automaticamente.",
+    "- bloquear_contato: o lead pediu para não receber mais mensagens. A despedida é enviada automaticamente; não escreva outra.",
+  );
   linhas.push("");
   if (!permite(nivel, "qualificar")) {
     linhas.push(
-      "NÍVEL DESTA CONTA: só conversa. Entenda o que o lead procura e tire dúvidas, mas não emita lead_qualificado nem visita_agendada.",
-      "Se ele quiser visitar, diga que um consultor vai falar com ele para combinar o melhor dia.",
+      "NÍVEL DESTA CONTA: só conversa. Entenda o que o lead procura e tire dúvidas; não registra, não qualifica e não marca visita.",
+      "Se ele quiser visitar, use transferir_para_humano para o consultor combinar o melhor dia.",
     );
   } else if (!permite(nivel, "agendar")) {
     linhas.push(
-      "NÍVEL DESTA CONTA: qualificar e registrar. Não marque visita nem emita visita_agendada.",
-      "Se ele quiser visitar, diga que um consultor vai falar com ele para combinar o melhor dia.",
+      "NÍVEL DESTA CONTA: qualificar e registrar. Não marque visita.",
+      "Se ele quiser visitar, use transferir_para_humano para o consultor combinar o melhor dia.",
     );
   } else {
     linhas.push(
-      "NÍVEL DESTA CONTA: qualificar, registrar e agendar. Quando o lead aceitar um horário que você ofereceu, confirme e emita visita_agendada.",
+      "NÍVEL DESTA CONTA: qualificar, registrar e agendar. Quando o lead aceitar um horário, chame agendar_visita.",
     );
   }
   linhas.push(

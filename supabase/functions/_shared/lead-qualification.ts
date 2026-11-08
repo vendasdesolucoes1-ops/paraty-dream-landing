@@ -400,6 +400,7 @@ export async function handleLeadQualification(
       instance,
       destino,
       resumo,
+      { autor: "sistema" },
     );
     await supabase.from("interacoes").insert({
       lead_id: lead.id,

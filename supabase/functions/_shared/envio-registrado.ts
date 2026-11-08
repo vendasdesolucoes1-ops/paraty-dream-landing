@@ -36,6 +36,8 @@ export interface EnvioRegistrado {
   content: string;
   /** Item da fila que gerou o envio (métricas de entrega por etapa). */
   mensagem_agendada_id?: string | null;
+  /** Quem escreveu: sophia, equipe_painel, disparo, sistema (ver whatsapp_messages.autor). */
+  autor?: string | null;
 }
 
 /**
@@ -58,6 +60,7 @@ export async function registrarEnvio(
       message_type: dados.message_type ?? "text",
       content: dados.content,
       status: "pending",
+      ...(dados.autor ? { autor: dados.autor } : {}),
       ...(dados.mensagem_agendada_id ? { mensagem_agendada_id: dados.mensagem_agendada_id } : {}),
     })
     .select("id")
@@ -171,7 +174,12 @@ export async function enviarTextoRegistrado(
   instancia: InstanciaEnvio,
   telefone: string,
   texto: string,
-  extra: { lead_id?: string | null; contact_id?: string | null } = {},
+  extra: {
+    lead_id?: string | null;
+    contact_id?: string | null;
+    autor?: string | null;
+    mensagem_agendada_id?: string | null;
+  } = {},
 ): Promise<unknown> {
   let instanceId = instancia.id ?? null;
   if (!instanceId) {
@@ -190,6 +198,8 @@ export async function enviarTextoRegistrado(
         contact_id: extra.contact_id ?? null,
         remote_jid: jidDoTelefone(telefone),
         content: texto,
+        autor: extra.autor ?? null,
+        mensagem_agendada_id: extra.mensagem_agendada_id ?? null,
       })
     : null;
 

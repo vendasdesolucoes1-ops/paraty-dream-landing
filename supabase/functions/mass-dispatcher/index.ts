@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
         instance,
         phone,
         text,
+        { autor: "disparo" },
       );
     }
 

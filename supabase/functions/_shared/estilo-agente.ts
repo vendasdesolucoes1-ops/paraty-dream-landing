@@ -76,7 +76,7 @@ export function blocoEstiloAgente(preferencias: PreferenciasEstilo | null | unde
 // Opções do painel além do estilo (migração 20261018000800_ai_agent_opcoes).
 
 /** Temperatura padrão da Sophia (MODELOS.sophiaChat.temperatura). */
-export const TEMPERATURA_PADRAO = 0.4;
+export const TEMPERATURA_PADRAO = 0.3;
 export const LIMITE_INSTRUCOES_EXTRAS = 2000;
 
 export const MENSAGEM_TRANSFERENCIA_PADRAO =
@@ -100,7 +100,7 @@ export function blocoInstrucoesEquipe(texto: string | null | undefined): string 
   return [
     "═══ INSTRUÇÕES DA EQUIPE ═══",
     "Orientações adicionais escritas pela equipe no painel. Siga-as, EXCETO se conflitarem com as regras fixas:",
-    "nunca informar preço, valores, entrada ou parcelas; respeitar quem pede para sair ou falar com uma pessoa;",
+    "nunca informar preço de lote nem faixa de valor (condição de pagamento, só a cadastrada no painel); respeitar quem pede para sair ou falar com uma pessoa;",
     "marcar visita só nos horários disponíveis; não inventar informação fora da base. Nesses casos, as regras fixas valem.",
     limpo,
   ].join("\n");

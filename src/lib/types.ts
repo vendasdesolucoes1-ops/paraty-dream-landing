@@ -348,7 +348,7 @@ export interface WhatsappInstance {
 export const COLUNAS_INSTANCIA_PAINEL =
   "id, instance_name, api_url, status, qr_code, qr_code_expires_at, created_at";
 
-export type AiAgentModelo = "gpt-4o-mini" | "gpt-4o";
+export type AiAgentModelo = "gpt-4o-mini" | "gpt-4.1-mini" | "gpt-4o" | "gpt-4.1";
 export type AiAgentAutonomia = "responder" | "qualificar" | "agendar";
 export type AiAgentTomVoz = "profissional" | "amigavel" | "formal" | "informal";
 
@@ -365,7 +365,7 @@ export interface AiAgent {
   tom_voz: AiAgentTomVoz;
   usar_emojis: boolean;
   ser_breve: boolean;
-  /** Criatividade (0–1); nulo = padrão do código (0,4). */
+  /** Criatividade (0–1); nulo = padrão do código (0,3). */
   temperatura: number | null;
   /** Orientações da equipe anexadas ao prompt; não revogam as regras fixas. */
   instrucoes_extras: string | null;
@@ -374,6 +374,85 @@ export interface AiAgent {
   /** O quanto a Sophia age sozinha (ferramentas e sinais). */
   autonomia: AiAgentAutonomia;
   created_at: string;
+}
+
+/** whatsapp_messages.autor: quem escreveu a mensagem. */
+export type MensagemAutor =
+  | "lead"
+  | "sophia"
+  | "equipe_painel"
+  | "equipe_celular"
+  | "disparo"
+  | "sistema";
+
+/** configuracoes.consultor_responsavel (JSON): quem a Sophia apresenta ao lead. */
+export interface ConsultorResponsavel {
+  vendedor_id: string | null;
+  nome: string;
+  telefone: string;
+}
+
+export type MaterialAgenteTipo = "localizacao" | "foto" | "video_drone" | "video_lote" | "pdf";
+
+/** materiais_agente: o que a Sophia pode enviar ao lead. */
+export interface MaterialAgente {
+  id: string;
+  tipo: MaterialAgenteTipo;
+  titulo: string;
+  descricao: string | null;
+  url: string | null;
+  mime_type: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  endereco: string | null;
+  ativo: boolean;
+  ordem: number;
+}
+
+/** Resposta de ai-agent-chat { action: "testar" }. */
+export interface RespostaTesteAgente {
+  ok: boolean;
+  lead_id: string;
+  resultado: "enviado" | "abortado" | "falhou" | "sem_resposta";
+  motivo: string | null;
+  messages: string[];
+  acoes: string[];
+  leituras: string[];
+  modelo: string | null;
+  atalho: string | null;
+}
+
+/** Uma linha de ai_chamadas, como ai-agent-chat { action: "ultimo_prompt" } devolve. */
+export interface ChamadaPromptAgente {
+  criado_em: string;
+  canal: string | null;
+  modelo: string | null;
+  temperatura: number | null;
+  lead_id: string | null;
+  prompt: string | null;
+  mensagens: { role: string; content: unknown; tool_calls?: unknown }[] | null;
+  resposta: string | null;
+  ferramentas: { nome: string; argumentos: unknown }[] | null;
+  tokens_entrada: number | null;
+  tokens_saida: number | null;
+  custo_usd: number | null;
+  latencia_ms: number | null;
+  erro: string | null;
+}
+
+/** Resposta de whatsapp-historico { acao: "contar" }. */
+export interface ContagemHistoricoWhatsapp {
+  dias: number;
+  mensagens_no_periodo: number;
+  ja_no_crm: number;
+  novas: number;
+  novas_enviadas_pelo_numero: number;
+  novas_recebidas: number;
+  contatos: number;
+  contatos_com_lead: number;
+  contatos_sem_lead: number;
+  lid_sem_telefone_ignoradas: number;
+  grupos_ignorados: number;
 }
 
 export type DisparoFonteContatos = "crm" | "csv" | "manual";
@@ -426,4 +505,6 @@ export interface WhatsappMessage {
   content: string | null;
   status: string | null;
   created_at: string;
+  /** Quem escreveu (whatsapp_messages.autor). Nulo em mensagens antigas. */
+  autor?: MensagemAutor | null;
 }
