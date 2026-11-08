@@ -49,6 +49,18 @@ export function resolverModeloSophia(valor: unknown): ModeloSophia {
   return MODELOS_SOPHIA_PERMITIDOS.find((m) => m === valor) ?? MODELO_SOPHIA_PADRAO;
 }
 
+/**
+ * Modelo para a segunda tentativa quando o principal falha (fora do ar,
+ * limite de uso, resposta inválida). Usa OPENAI_FALLBACK_MODEL quando
+ * configurado e permitido; senão, o outro modelo barato da lista, para que uma
+ * instabilidade de um modelo não pare o atendimento.
+ */
+export function modeloReservaSophia(principal: string, envReserva?: string | null): ModeloSophia {
+  const doEnv = MODELOS_SOPHIA_PERMITIDOS.find((m) => m === envReserva);
+  if (doEnv && doEnv !== principal) return doEnv;
+  return principal === "gpt-4o-mini" ? "gpt-4.1-mini" : "gpt-4o-mini";
+}
+
 export const MODELOS = {
   /**
    * Sophia (ai-agent-chat). O ID efetivo vem de ai_agents.modelo via

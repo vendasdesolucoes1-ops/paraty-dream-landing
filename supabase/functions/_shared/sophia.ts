@@ -43,6 +43,7 @@ import {
   type NivelAutonomia,
 } from "./ferramentas-sophia.ts";
 import { MODELOS, resolverModeloSophia } from "./modelos.ts";
+import { responsavelDoLead } from "./responsavel-visita.ts";
 import {
   blocoEstiloAgente,
   blocoInstrucoesEquipe,
@@ -213,7 +214,13 @@ export async function carregarContexto(
     lead,
     janelas: lerJanelasVisita(janelasBrutas),
     janelasConfiguradas: Boolean(janelasBrutas),
-    consultor: lerConsultor(porChave.get("consultor_responsavel")) ?? consultorTeste ?? null,
+    // Quem recebe a visita: o vendedor do lead (rodízio) ou, sem ele, o
+    // consultor do painel. O mesmo nome vai no texto, na agenda e na visita.
+    consultor: await responsavelDoLead(
+      supabase,
+      (lead?.vendedor_id as string | null | undefined) ?? null,
+      lerConsultor(porChave.get("consultor_responsavel")) ?? consultorTeste ?? null,
+    ),
     condicao: textoCondicao(linhaCondicao ?? null),
     materiais: (materiais ?? []) as Material[],
     lotes: (lotes ?? []) as ContextoSophia["lotes"],

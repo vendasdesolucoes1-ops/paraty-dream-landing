@@ -143,6 +143,20 @@ const PEDIDOS_DE_PARADA = [
   "stop",
 ];
 
+// Frases que pedem para sair mesmo dentro de uma mensagem maior ("Boa tarde,
+// me tira dessa lista por favor"). Só entram aqui expressões que não têm outro
+// sentido numa conversa de venda de lote. "Parar" e "não quero mais" sozinhos
+// continuam valendo apenas como a mensagem inteira (lista acima), porque "não
+// quero mais esse lote, quero outro" não é pedido de saída.
+const TRECHOS_DE_PARADA: RegExp[] = [
+  /\bme (tira|tire|retira|retire|remove|remova|exclui|exclua) (dessa|desta|da|do|deste|desse) (lista|contato|contatos|grupo|cadastro)\b/,
+  /\bnao quero (mais )?receber (mais )?(nenhuma )?(mensagem|mensagens|msg|nada|propaganda|contato)\b/,
+  /\bnao (me )?(mande|manda|envie|envia|mandem|enviem) mais (mensagem|mensagens|msg|nada)\b/,
+  /\b(parem|pare|para) de me (mandar|enviar) (mensagem|mensagens|msg)\b/,
+  /\b(remove|remova|remover|exclui|exclua|excluir|apaga|apague|apagar) (o )?meu (numero|contato|telefone|cadastro)\b/,
+  /\bdescadastr(a|e|ar|em)\b/,
+];
+
 /** A mensagem é um pedido explícito de parar de receber contato? */
 export function ehPedidoDeParada(texto: string | null | undefined): boolean {
   const normalizado = String(texto ?? "")
@@ -152,8 +166,10 @@ export function ehPedidoDeParada(texto: string | null | undefined): boolean {
     .replace(/[^a-z\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!normalizado || normalizado.length > 60) return false;
-  return PEDIDOS_DE_PARADA.includes(normalizado);
+  if (!normalizado) return false;
+  if (normalizado.length <= 60 && PEDIDOS_DE_PARADA.includes(normalizado)) return true;
+  // Mensagem longa demais deixa de ser "um pedido": é conversa, e o modelo decide.
+  return normalizado.length <= 200 && TRECHOS_DE_PARADA.some((r) => r.test(normalizado));
 }
 
 /**
