@@ -8,6 +8,7 @@ import {
   Megaphone,
   Repeat,
   Settings,
+  Shuffle,
   UserCheck,
   Wrench,
   type LucideIcon,
@@ -27,6 +28,7 @@ export interface NavItem {
     | "/dashboard/marketing"
     | "/dashboard/relatorios"
     | "/dashboard/cadencias"
+    | "/dashboard/rodizio"
     | "/dashboard/configuracoes";
   label: string;
   icon: LucideIcon;
@@ -101,6 +103,14 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Repeat,
         hideFor: ["vendedor"],
         palavras: "cadências follow-up aprovação regras de envio fila lembretes",
+      },
+      // Fila de distribuição dos leads novos: gestão.
+      {
+        to: "/dashboard/rodizio",
+        label: "Rodízio",
+        icon: Shuffle,
+        hideFor: ["vendedor"],
+        palavras: "round robin fila distribuição vendedores leads em espera consultor",
       },
     ],
   },
