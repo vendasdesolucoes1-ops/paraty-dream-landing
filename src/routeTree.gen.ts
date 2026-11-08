@@ -24,6 +24,7 @@ import { Route as DashboardFerramentasRouteImport } from './routes/dashboard/fer
 import { Route as DashboardLotesRouteImport } from './routes/dashboard/lotes'
 import { Route as DashboardMarketingRouteImport } from './routes/dashboard/marketing'
 import { Route as DashboardRelatoriosRouteImport } from './routes/dashboard/relatorios'
+import { Route as DashboardRodizioRouteImport } from './routes/dashboard/rodizio'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -100,6 +101,11 @@ const DashboardRelatoriosRoute = DashboardRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardRodizioRoute = DashboardRodizioRouteImport.update({
+  id: '/rodizio',
+  path: '/rodizio',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard/relatorios': typeof DashboardRelatoriosRoute
+  '/dashboard/rodizio': typeof DashboardRodizioRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard/relatorios': typeof DashboardRelatoriosRoute
+  '/dashboard/rodizio': typeof DashboardRodizioRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/dashboard/lotes': typeof DashboardLotesRoute
   '/dashboard/marketing': typeof DashboardMarketingRoute
   '/dashboard/relatorios': typeof DashboardRelatoriosRoute
+  '/dashboard/rodizio': typeof DashboardRodizioRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard/relatorios'
+    | '/dashboard/rodizio'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard/relatorios'
+    | '/dashboard/rodizio'
     | '/dashboard'
   id:
     | '__root__'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/dashboard/lotes'
     | '/dashboard/marketing'
     | '/dashboard/relatorios'
+    | '/dashboard/rodizio'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -319,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRelatoriosRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/rodizio': {
+      id: '/dashboard/rodizio'
+      path: '/rodizio'
+      fullPath: '/dashboard/rodizio'
+      preLoaderRoute: typeof DashboardRodizioRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
   }
 }
 
@@ -333,6 +352,7 @@ interface DashboardRouteRouteChildren {
   DashboardLotesRoute: typeof DashboardLotesRoute
   DashboardMarketingRoute: typeof DashboardMarketingRoute
   DashboardRelatoriosRoute: typeof DashboardRelatoriosRoute
+  DashboardRodizioRoute: typeof DashboardRodizioRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -347,6 +367,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardLotesRoute: DashboardLotesRoute,
   DashboardMarketingRoute: DashboardMarketingRoute,
   DashboardRelatoriosRoute: DashboardRelatoriosRoute,
+  DashboardRodizioRoute: DashboardRodizioRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
