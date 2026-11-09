@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  descreverWhatsapp,
   lerLimite,
   motivoFilaParada,
   normalizarTelefone,
@@ -41,4 +42,56 @@ test("motivoFilaParada explica por que nenhum lead será entregue", () => {
   assert.equal(motivoFilaParada({ ativo: true, vendedores: [v("na_fila"), v("limite")] }), null);
   assert.match(motivoFilaParada({ ativo: true, vendedores: [v("limite")] }) ?? "", /limite/);
   assert.match(motivoFilaParada({ ativo: true, vendedores: [v("pausado")] }) ?? "", /Ninguém/);
+});
+
+test("descreverWhatsapp mostra a hora do envio e o atraso quando demorou", () => {
+  const base = { criado_em: "2026-11-09T11:05:00Z", whatsapp_motivo: null };
+  // Saiu 3 min depois: só a hora (Brasília).
+  assert.deepEqual(
+    descreverWhatsapp({
+      ...base,
+      whatsapp_situacao: "enviado",
+      whatsapp_em: "2026-11-09T11:08:00Z",
+    })?.rotulo,
+    "WhatsApp enviado às 08:08",
+  );
+  // Saiu quase 6 h depois: avisa a demora.
+  assert.equal(
+    descreverWhatsapp({
+      ...base,
+      whatsapp_situacao: "enviado",
+      whatsapp_em: "2026-11-09T16:57:00Z",
+    })?.rotulo,
+    "WhatsApp enviado às 13:57 · 6 h depois",
+  );
+  // Outro dia: com a data.
+  assert.equal(
+    descreverWhatsapp({ ...base, whatsapp_situacao: "resumo", whatsapp_em: "2026-11-10T13:00:00Z" })
+      ?.rotulo,
+    "Resumo da Sophia às 10/11 10:00 · 26 h depois",
+  );
+});
+
+test("descreverWhatsapp explica quando não saiu e ignora remoção", () => {
+  const base = { criado_em: "2026-11-09T11:05:00Z", whatsapp_em: null };
+  assert.equal(
+    descreverWhatsapp({ ...base, whatsapp_situacao: null, whatsapp_motivo: null }),
+    null,
+  );
+  const cancelado = descreverWhatsapp({
+    ...base,
+    whatsapp_situacao: "cancelado",
+    whatsapp_motivo: "lead passou para outro vendedor",
+  });
+  assert.equal(cancelado?.tom, "neutral");
+  assert.match(cancelado?.dica ?? "", /mudou de vendedor/);
+  assert.equal(
+    descreverWhatsapp({ ...base, whatsapp_situacao: "nao_enviado", whatsapp_motivo: null })?.tom,
+    "warning",
+  );
+  assert.equal(
+    descreverWhatsapp({ ...base, whatsapp_situacao: "sem_telefone", whatsapp_motivo: null })
+      ?.rotulo,
+    "Vendedor sem WhatsApp",
+  );
 });
