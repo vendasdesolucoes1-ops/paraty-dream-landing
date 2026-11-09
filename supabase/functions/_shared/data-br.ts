@@ -71,7 +71,7 @@ export function normalizarDiaSemana(bruto: string | null | undefined): string {
   return String(bruto ?? "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/-?\s*feira/g, "")
     .trim();
 }

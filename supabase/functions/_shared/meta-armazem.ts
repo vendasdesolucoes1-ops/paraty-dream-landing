@@ -44,7 +44,8 @@ export const TAMANHO_LOTE = 500;
 export function deduplicar(linhas: Linha[], conflito: string): Linha[] {
   const colunas = conflito.split(",").map((c) => c.trim());
   const mapa = new Map<string, Linha>();
-  for (const l of linhas) mapa.set(colunas.map((c) => String(l[c])).join("\u0000"), l);
+  for (const l of linhas)
+    mapa.set(colunas.map((c) => String(l[c])).join(String.fromCharCode(0)), l);
   return [...mapa.values()];
 }
 
@@ -91,12 +92,15 @@ export function armazemSupabase(supabase: SupabaseClient): Armazem {
         .eq("job", job)
         .eq("status", "sucesso")
         .gte("iniciado_em", desde);
-      if (error) throw new Error(`não foi possível consultar execuções de ${job}: ${error.message}`);
+      if (error)
+        throw new Error(`não foi possível consultar execuções de ${job}: ${error.message}`);
       return (count ?? 0) > 0;
     },
 
     async alertarTokenInvalido(detalhe) {
-      const { error } = await supabase.rpc("alertar_token_meta", { p_detalhe: detalhe.slice(0, 300) });
+      const { error } = await supabase.rpc("alertar_token_meta", {
+        p_detalhe: detalhe.slice(0, 300),
+      });
       if (error) throw new Error(`alertar_token_meta falhou: ${error.message}`);
     },
 
@@ -106,7 +110,8 @@ export function armazemSupabase(supabase: SupabaseClient): Armazem {
         .insert({ job })
         .select("id")
         .single();
-      if (error || !data) throw new Error(`não foi possível registrar a execução: ${error?.message}`);
+      if (error || !data)
+        throw new Error(`não foi possível registrar a execução: ${error?.message}`);
       return data.id as string;
     },
 

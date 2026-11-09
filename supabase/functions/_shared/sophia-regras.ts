@@ -55,7 +55,7 @@ export function nomeDoConsultor(c: Consultor | null | undefined): string {
 function normalizar(texto: string): string {
   return String(texto ?? "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -216,7 +216,7 @@ const PERGUNTA_IDENTIDADE =
 function semAcento(texto: string): string {
   return String(texto ?? "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase();
 }
 

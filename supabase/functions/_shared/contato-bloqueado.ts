@@ -161,7 +161,7 @@ const TRECHOS_DE_PARADA: RegExp[] = [
 export function ehPedidoDeParada(texto: string | null | undefined): boolean {
   const normalizado = String(texto ?? "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z\s]/g, " ")
     .replace(/\s+/g, " ")

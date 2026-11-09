@@ -243,10 +243,7 @@ async function registrarErro(
 
 /** Minúsculas e sem acento: "Pavimentação" casa com "pavimentacao". */
 function normalizar(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 interface ConfigBusca {
