@@ -109,7 +109,7 @@ async function processar(
   const { data: lead } = await supabase
     .from("leads")
     .select(
-      "id, nome, telefone, cidade, objetivo, metragem_interesse, origem, formulario_nome, campanha_nome, vendedor_id, deletado_em, is_teste",
+      "id, nome, telefone, cidade, objetivo, metragem_interesse, origem, formulario_nome, campanha_nome, anuncio_nome, vendedor_id, deletado_em, is_teste",
     )
     .eq("id", a.lead_id)
     .maybeSingle();

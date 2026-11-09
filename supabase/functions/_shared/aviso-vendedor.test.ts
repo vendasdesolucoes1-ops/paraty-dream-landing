@@ -33,6 +33,21 @@ test("aviso manual muda o título e omite o que não foi informado", () => {
   assert.doesNotMatch(texto, /Origem|Cidade|Interesse|wa\.me/);
 });
 
+test("lead de anúncio mostra a campanha, não o formulário", () => {
+  const texto = montarAviso(
+    {
+      nome: "C",
+      telefone: "5524999998888",
+      origem: "anuncio_whatsapp",
+      formulario_nome: "Form Visita Out26",
+      campanha_nome: "Campanha Out",
+    },
+    false,
+  );
+  assert.match(texto, /\*Origem:\* Anúncio \(WhatsApp\) — Campanha Out/);
+  assert.doesNotMatch(texto, /Form Visita/);
+});
+
 test("número sem DDI ganha 55 no link", () => {
   assert.match(montarAviso({ nome: "B", telefone: "24999998888" }, false), /wa\.me\/5524999998888/);
 });

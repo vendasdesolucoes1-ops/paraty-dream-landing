@@ -30,7 +30,11 @@ export function montarAviso(lead: Record<string, unknown>, manual: boolean): str
   const texto = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
   const telefone = texto(lead.telefone);
   const origem = texto(lead.origem);
-  const detalheOrigem = texto(lead.formulario_nome) || texto(lead.campanha_nome);
+  // Formulário só faz sentido para lead do Formulário Meta; nos demais, a campanha.
+  const detalheOrigem =
+    origem === "formulario_meta"
+      ? texto(lead.formulario_nome) || texto(lead.campanha_nome)
+      : texto(lead.campanha_nome) || texto(lead.anuncio_nome);
   const interesse = [
     texto(lead.objetivo),
     lead.metragem_interesse ? `${texto(lead.metragem_interesse)} m²` : "",
