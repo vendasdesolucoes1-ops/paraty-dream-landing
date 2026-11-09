@@ -9,6 +9,17 @@ export type LoginVendedor = "ativo" | "desativado" | "excluido" | "sem_login";
 
 export type OrigemAtribuicao = "rodizio" | "distribuicao" | "manual" | "remocao" | "sistema";
 
+/** Se o WhatsApp do aviso saiu para o vendedor (ver rodizio_historico no banco). */
+export type SituacaoWhatsapp =
+  | "enviado"
+  | "resumo"
+  | "pendente"
+  | "erro"
+  | "cancelado"
+  | "proprio"
+  | "sem_telefone"
+  | "nao_enviado";
+
 export interface VendedorRodizio {
   id: string;
   nome: string;
@@ -46,6 +57,10 @@ export interface Atribuicao {
   vendedor_id: string;
   vendedor_nome: string;
   autor_nome: string | null;
+  /** Nulo em remoção (não há aviso) ou enquanto o banco não tem a coluna. */
+  whatsapp_situacao?: SituacaoWhatsapp | null;
+  whatsapp_em?: string | null;
+  whatsapp_motivo?: string | null;
 }
 
 export interface ResultadoDistribuicao {
@@ -126,4 +141,104 @@ export function motivoFilaParada(p: Pick<PainelRodizio, "ativo" | "vendedores">)
 
 export function plural(n: number, um: string, varios: string): string {
   return `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
+}
+
+const HORA = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
+const DIA = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
+
+/** "13:57" no mesmo dia da atribuição; "10/11 13:57" em outro dia. */
+function quando(em: Date, referencia: Date): string {
+  const dia = DIA.format(em);
+  return dia === DIA.format(referencia) ? HORA.format(em) : `${dia} ${HORA.format(em)}`;
+}
+
+/** "5 min depois", "5 h depois": só quando o aviso demorou a sair. */
+function atraso(em: Date, atribuido: Date): string | null {
+  const min = Math.round((em.getTime() - atribuido.getTime()) / 60_000);
+  if (min < 10) return null;
+  if (min < 60) return `${min} min depois`;
+  return `${Math.round(min / 60)} h depois`;
+}
+
+/** Motivo do banco (avisos_vendedor.erro) em linguagem da equipe. */
+const MOTIVO: Record<string, string> = {
+  "lead passou para outro vendedor": "o lead mudou de vendedor antes do envio",
+  "vendedor inativo ou sem telefone": "vendedor inativo ou sem WhatsApp",
+  "lead excluído ou de teste": "o lead foi excluído",
+  "expirou na fila": "ficou mais de 24 h na fila",
+  "resumo da qualificação já enviado": "a Sophia já mandou o resumo",
+};
+
+/**
+ * Etiqueta do WhatsApp de uma linha do histórico: se o vendedor foi avisado,
+ * quando, e por que não. Nulo quando não se aplica (remoção).
+ */
+export function descreverWhatsapp(
+  a: Pick<Atribuicao, "criado_em" | "whatsapp_situacao" | "whatsapp_em" | "whatsapp_motivo">,
+): { rotulo: string; tom: Tone; dica: string } | null {
+  const situacao = a.whatsapp_situacao;
+  if (!situacao) return null;
+  const atribuido = new Date(a.criado_em);
+  const em = a.whatsapp_em ? new Date(a.whatsapp_em) : null;
+  const motivo = a.whatsapp_motivo ? (MOTIVO[a.whatsapp_motivo] ?? a.whatsapp_motivo) : null;
+
+  switch (situacao) {
+    case "enviado":
+    case "resumo": {
+      const hora = em ? ` às ${quando(em, atribuido)}` : "";
+      const demora = em ? atraso(em, atribuido) : null;
+      return {
+        rotulo: `${situacao === "resumo" ? "Resumo da Sophia" : "WhatsApp enviado"}${hora}${demora ? ` · ${demora}` : ""}`,
+        tom: "success",
+        dica:
+          situacao === "resumo"
+            ? "O vendedor recebeu o resumo da qualificação feito pela Sophia, que substitui o aviso."
+            : "O vendedor recebeu o aviso do lead no WhatsApp, pelo número da empresa.",
+      };
+    }
+    case "pendente":
+      return {
+        rotulo: "WhatsApp na fila",
+        tom: "info",
+        dica: "O aviso sai em até 1 a 2 minutos.",
+      };
+    case "erro":
+      return {
+        rotulo: "WhatsApp falhou",
+        tom: "danger",
+        dica: motivo ? `Não foi enviado: ${motivo}` : "Não foi enviado depois de 3 tentativas.",
+      };
+    case "cancelado":
+      return {
+        rotulo: "WhatsApp não enviado",
+        tom: "neutral",
+        dica: motivo ? `Não foi enviado: ${motivo}.` : "O aviso foi cancelado.",
+      };
+    case "proprio":
+      return {
+        rotulo: "Pegou para si",
+        tom: "neutral",
+        dica: "O próprio vendedor pegou o lead no painel: não há o que avisar.",
+      };
+    case "sem_telefone":
+      return {
+        rotulo: "Vendedor sem WhatsApp",
+        tom: "warning",
+        dica: "Cadastre o WhatsApp do vendedor na fila acima para ele receber os avisos.",
+      };
+    case "nao_enviado":
+      return {
+        rotulo: "WhatsApp não enviado",
+        tom: "warning",
+        dica: "Nenhuma mensagem saiu para o vendedor nesta atribuição.",
+      };
+  }
 }
