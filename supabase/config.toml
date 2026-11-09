@@ -6,6 +6,9 @@ project_id = "mokgxoygbjvtketoyraf"
 [functions.processar-fila-mensagens]
 verify_jwt = false
 
+[functions.avisar-vendedor]
+verify_jwt = false
+
 [functions.whatsapp-webhook]
 verify_jwt = false
 
