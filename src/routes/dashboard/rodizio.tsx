@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Bloco } from "@/components/ds/bloco";
@@ -105,11 +105,18 @@ function Rodizio() {
                 valor={painel.total}
                 detalhe="desde o início do histórico"
               />
-              <Indicador
-                rotulo="Leads em espera"
-                valor={painel.em_espera}
-                detalhe="sem vendedor, últimos 30 dias"
-              />
+              <Link
+                to="/dashboard/crm"
+                search={{ vendedor: "sem" }}
+                className="rounded-xl transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title="Abrir no CRM os leads sem vendedor"
+              >
+                <Indicador
+                  rotulo="Leads em espera"
+                  valor={painel.em_espera}
+                  detalhe="sem vendedor, últimos 30 dias · ver no CRM"
+                />
+              </Link>
             </div>
           </Reveal>
 

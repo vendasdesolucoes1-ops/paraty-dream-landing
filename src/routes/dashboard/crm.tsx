@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -70,8 +70,16 @@ export const Route = createFileRoute("/dashboard/crm")({
   }),
   // ?lead=<id> abre a ficha daquele lead. É o que permite ir da tela inicial,
   // da busca (⌘K) e das notificações direto para a pessoa certa.
-  validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
+  // ?vendedor=<id> (gestão) mostra só a carteira daquele vendedor, como ele vê
+  // ao entrar; ?vendedor=sem mostra os leads ainda sem vendedor. É o que a tela
+  // Rodízio abre ao clicar num corretor.
+  validateSearch: (search: Record<string, unknown>): { lead?: string; vendedor?: string } => ({
     lead: typeof search.lead === "string" && search.lead ? search.lead : undefined,
+    vendedor:
+      typeof search.vendedor === "string" &&
+      (search.vendedor === "sem" || /^[0-9a-f-]{36}$/i.test(search.vendedor))
+        ? search.vendedor
+        : undefined,
   }),
   component: CrmPage,
 });
@@ -319,8 +327,23 @@ function CrmPage() {
   const queryClient = useQueryClient();
   const { profile } = useProfile();
   const isVendedor = profile?.role === "vendedor";
-  const vendedorId = isVendedor ? (profile?.vendedor_id ?? null) : null;
+  const { lead: leadDaUrl, vendedor: vendedorDaUrl } = Route.useSearch();
+  // Gestão pode abrir a carteira de um vendedor pela URL (?vendedor=<id>).
+  const carteiraDe = !isVendedor && vendedorDaUrl && vendedorDaUrl !== "sem" ? vendedorDaUrl : null;
+  const vendedorId = isVendedor ? (profile?.vendedor_id ?? null) : carteiraDe;
   const habilitado = !isVendedor || !!profile?.vendedor_id;
+  const { data: nomeDaCarteira } = useQuery({
+    queryKey: ["vendedor-nome", carteiraDe],
+    enabled: !!carteiraDe,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("vendedores")
+        .select("nome")
+        .eq("id", carteiraDe!)
+        .maybeSingle();
+      return (data?.nome as string | undefined) ?? "este vendedor";
+    },
+  });
 
   // Cada evento realtime mexe só no lead que mudou (ver use-kanban-leads.ts).
   useLeadsRealtime();
@@ -362,7 +385,10 @@ function CrmPage() {
   const [busca, setBusca] = useState("");
   const [origemFiltro, setOrigemFiltro] = useState<string>("todas");
   // Gestão: mostra só quem ainda não tem vendedor, para entregar à mão.
-  const [soSemVendedor, setSoSemVendedor] = useState(false);
+  const [soSemVendedor, setSoSemVendedor] = useState(vendedorDaUrl === "sem");
+  useEffect(() => {
+    if (vendedorDaUrl === "sem") setSoSemVendedor(true);
+  }, [vendedorDaUrl]);
   // Respostas do Formulário Meta: quem quer visitar / compra em até 3 meses.
   const [interesse, setInteresse] = useState<FiltroInteresse | null>(null);
   // A busca vai para o banco (as colunas são paginadas lá), então espera a
@@ -417,7 +443,6 @@ function CrmPage() {
   );
   const contagemAnimada = useContagem(contagens.data ? totalVisivel : null);
 
-  const { lead: leadDaUrl } = Route.useSearch();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leadDaUrl ?? null);
   // Abrir outro lead pela URL com a página já aberta (ex.: pela busca).
   useEffect(() => {
@@ -558,6 +583,21 @@ function CrmPage() {
       </Reveal>
 
       <Reveal ordem={1} className="space-y-3">
+        {carteiraDe ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info-soft px-4 py-2.5 text-[0.875rem]">
+            <span>
+              Mostrando só a carteira de{" "}
+              <strong className="font-semibold">{nomeDaCarteira ?? "…"}</strong>: é o que ele vê ao
+              entrar no sistema.
+            </span>
+            <Link
+              to="/dashboard/crm"
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Ver todos os leads
+            </Link>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           <div className="relative w-full sm:w-72">
             <Search
@@ -628,7 +668,7 @@ function CrmPage() {
                 Compra em até 3 meses
               </Chip>
             ) : null}
-            {!isVendedor && (resumo.data?.semVendedor ?? 0) > 0 ? (
+            {!isVendedor && !carteiraDe && (resumo.data?.semVendedor ?? 0) > 0 ? (
               <Chip
                 ativo={soSemVendedor}
                 onClick={() => setSoSemVendedor((v) => !v)}
