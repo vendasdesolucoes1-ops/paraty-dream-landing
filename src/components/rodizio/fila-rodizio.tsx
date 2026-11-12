@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, Loader2, Pencil, RotateCcw } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowDown, ArrowUp, ArrowUpRight, Loader2, Pencil, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -111,7 +112,6 @@ function LinhaVendedor({
     v.limite_diario ? `hoje ${v.hoje}/${v.limite_diario}` : `hoje ${v.hoje} · sem limite`,
     `${plural(v.total, "lead recebido", "leads recebidos")}`,
     v.ultima ? `último ${tempoRelativo(v.ultima)}` : null,
-    `${plural(v.carteira_aberta, "lead em aberto", "leads em aberto")}`,
   ].filter(Boolean);
 
   return (
@@ -130,7 +130,14 @@ function LinhaVendedor({
 
       <div className="min-w-0 flex-1 basis-60">
         <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium leading-snug">
-          {v.nome}
+          <Link
+            to="/dashboard/crm"
+            search={{ vendedor: v.id }}
+            className="underline-offset-4 hover:underline"
+            title={`Abrir o CRM com os leads de ${v.nome}`}
+          >
+            {v.nome}
+          </Link>
           {v.vez === 1 ? <Pill tone="info">Próximo</Pill> : null}
           <span title={s.dica}>
             <Pill tone={s.tom} dot>
@@ -140,7 +147,15 @@ function LinhaVendedor({
           {v.login === "sem_login" ? <Pill tone="warning">Sem login no painel</Pill> : null}
         </p>
         <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
-          {detalhes.join(" · ")}
+          {detalhes.join(" · ")} ·{" "}
+          <Link
+            to="/dashboard/crm"
+            search={{ vendedor: v.id }}
+            className="inline-flex items-center gap-0.5 font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {plural(v.carteira_aberta, "lead em aberto", "leads em aberto")}
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         </p>
         {v.limite_diario ? (
           <div className="mt-2 h-1 w-full max-w-56 overflow-hidden rounded-full bg-muted">
