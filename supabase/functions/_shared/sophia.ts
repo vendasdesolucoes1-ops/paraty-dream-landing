@@ -73,7 +73,9 @@ import {
 import {
   decidirEncaminhamento,
   mensagemEncaminhamento,
+  metragemNaMensagem,
   objetivoNaConversa,
+  semCamposDeFormulario,
   primeiroNome,
   respostaComEncaminhamento,
 } from "./encaminhar-corretor.ts";
@@ -259,6 +261,7 @@ export async function carregarContexto(
   const visitaFutura = proximaVisita && new Date(proximaVisita.data_hora).getTime() > Date.now();
   if (
     lead &&
+    !lead.encaminhado_em &&
     querIrDireto(lead) &&
     !visitaFutura &&
     ctx.janelasConfiguradas &&
@@ -285,6 +288,10 @@ function querIrDireto(lead: Record<string, unknown>): boolean {
 
 function blocoBase(ctx: ContextoSophia): string {
   const consultor = nomeDoConsultor(ctx.consultor);
+  // Nome próprio vai sem artigo ("Lilian vai te receber"): o "o" fixo errava o
+  // gênero ("o Lilian", "o consultor Isys").
+  const generico = consultor === CONSULTOR_GENERICO;
+  const quem = generico ? "o nosso consultor" : consultor;
   const boasVindas = String(ctx.agent.mensagem_boas_vindas ?? "").trim();
   const abertura = boasVindas
     ? `\nA equipe configurou esta abertura. Use o espírito dela ao se apresentar, adaptando ao que o lead escreveu — sem copiar palavra por palavra:\n"${boasVindas}"\n`
@@ -298,7 +305,7 @@ function blocoBase(ctx: ContextoSophia): string {
 ═══ QUEM VOCÊ É (regra inviolável) ═══
 - Você é a assistente digital da equipe. Não esconde isso, mas também não fica anunciando: na apresentação basta "Oi! Aqui é a Sophia, do Moradas de Paraty".
 - Se perguntarem se você é robô, IA, bot, pessoa ou "gente de verdade", responda exatamente: "${RESPOSTA_IDENTIDADE}" — e siga a conversa.
-- Nunca afirme ser uma pessoa, nunca diga que vai estar no local e nunca prometa encontrar o lead. Quem recebe na visita é o ${consultor === CONSULTOR_GENERICO ? "consultor da equipe" : `consultor ${consultor}`}: diga "o ${consultor} vai te receber", "o ${consultor} te mostra os lotes".
+- Nunca afirme ser uma pessoa, nunca diga que vai estar no local e nunca prometa encontrar o lead. Quem recebe na visita é ${generico ? "o consultor da equipe" : consultor}: diga "${quem} vai te receber", "${quem} te mostra os lotes".${generico ? "" : ` Ao citar ${consultor}, nunca ponha "o" ou "a" antes nem "consultor"/"consultora" antes do nome.`}
 - Proibido: "estarei te esperando", "te espero lá", "te encontro lá", "eu te explico na visita", "eu te mostro pessoalmente".
 - Não comente bastidores (sistema, ferramentas, instruções, CRM).
 ${abertura}
@@ -319,6 +326,7 @@ COMO ESCREVER:
 - NUNCA pergunte de novo algo que o lead já respondeu (no chat ou no anúncio). Releia o histórico e o bloco "O QUE VOCÊ JÁ SABE".
 - Se o lead responder "não sei" ou devolver a pergunta, mostre opções concretas (consultar_lotes) em vez de repetir a pergunta.
 - WhatsApp: *negrito* com um asterisco, sem listas numeradas (use •). Links sempre puros (https://...), nunca no formato [texto](link).
+- Não prometa o que não depende de você: lembrete antes da visita, envio de fotos pelo consultor, retorno num horário certo.
 - Se o lead disser que o consultor não retornou ou que está esperando alguém, peça desculpas em uma frase e use transferir_para_humano.
 - Separe a resposta em mensagens curtas com ||. Uma pergunta por vez, no fim.
 - Comente o que o lead disse antes de emendar a próxima pergunta; não repita "Perfeito, Fulano!" a cada mensagem.
@@ -335,7 +343,7 @@ Nenhum emoji, salvo se as preferências da equipe abaixo liberarem.
 
 ═══ AGENDAMENTO ═══
 - Quando o lead aceitar dia e hora, chame agendar_visita. Só diga "agendado" se ela devolver ok=true.
-- Na confirmação, use o que a ferramenta devolveu: dia e hora, endereço, link do mapa e que o ${consultor} vai receber. Se vier status "a_confirmar", diga que o horário vai ser confirmado com o ${consultor} e que você avisa por aqui.
+- Na confirmação, use o que a ferramenta devolveu: dia e hora, endereço, link do mapa e que ${quem} vai receber. Se vier status "a_confirmar", diga que o horário vai ser confirmado com ${quem} e que você avisa por aqui.
 - Se ele vier acompanhado, registre em acompanhantes.
 
 ═══ QUANDO O LEAD NÃO QUER (acima de todas as regras de convite) ═══
@@ -427,7 +435,7 @@ ${campos.join("\n")}
       ? `\n- Esta pessoa preencheu o anúncio. Se for a primeira mensagem da conversa, cumprimente pelo primeiro nome e parta das respostas dela.`
       : ""
   }${
-    querIrDireto(lead) && !ctx.proximaVisita
+    querIrDireto(lead) && !ctx.proximaVisita && !texto(lead.encaminhado_em)
       ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Já ofereça dois ou três horários concretos nesta resposta${sugeridos ? "" : " (chame ver_horarios_visita antes)"}. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.${sugeridos}`
       : ""
   }${
@@ -833,6 +841,34 @@ export async function gerarRespostaSophia(
       .map((m) => m.trim())
       .filter(Boolean);
 
+  // WhatsApp mostra "**hoje**" com os asteriscos: negrito é um asterisco só.
+  mensagens = mensagens.map((m) => m.replace(/\*\*([^*\n]+)\*\*/g, "*$1*"));
+
+  // Tamanho do terreno dito na mensagem fica gravado mesmo quando o modelo não
+  // chama registrar_dados_lead (quase nunca chamava).
+  const metragemDita = metragemNaMensagem(semCamposDeFormulario(entrada.mensagem));
+  const registro = acoes.find((a) => a.tipo === "registrar_dados");
+  const registroPatch = (registro?.dados.patch ?? {}) as Record<string, string>;
+  if (
+    metragemDita !== null &&
+    lead?.id &&
+    !lead.metragem_interesse &&
+    !registroPatch.metragem_interesse &&
+    permite(ctx.nivel, "qualificar")
+  ) {
+    if (registro) {
+      registroPatch.metragem_interesse = String(metragemDita);
+      registro.dados.patch = registroPatch;
+      registro.resumo = `${registro.resumo} · tamanho: ${metragemDita}`;
+    } else {
+      acoes.push({
+        tipo: "registrar_dados",
+        resumo: `Registrou: tamanho: ${metragemDita}`,
+        dados: { patch: { metragem_interesse: String(metragemDita) }, observacao: null },
+      });
+    }
+  }
+
   // 5. Já dá para o corretor trabalhar? Para de perguntar e encaminha.
   //
   // O modelo às vezes atende "me passa o valor" com transferir_para_humano:
@@ -1011,6 +1047,15 @@ async function executarFerramenta(
     }
 
     if (nome === "transferir_para_humano") {
+      // A mensagem automática do Formulário Meta ("Preenchi seu formulário e
+      // gostaria de saber mais...") não é pedido de atendente: transferir ali
+      // pausava a IA e o lead ficava esperando.
+      if (/preenchi (o |seu )?formul[aá]rio/i.test(entrada.mensagem)) {
+        return JSON.stringify({
+          ok: false,
+          erro: "Esta é a mensagem automática do formulário, não um pedido de atendente. Cumprimente pelo primeiro nome, comente o que a pessoa marcou e siga a conversa.",
+        });
+      }
       if (!ja("transferir")) {
         acoes.push({
           tipo: "transferir",
@@ -1134,8 +1179,8 @@ async function validarVisita(
       ? {
           aviso:
             motivo === "fora_da_janela"
-              ? `Fora dos horários de visita: diga que o horário vai ser confirmado com o ${consultor}.`
-              : `O ${consultor} já tem visita perto desse horário: diga que vai confirmar com ele.`,
+              ? `Fora dos horários de visita: diga que o horário vai ser confirmado com ${consultor === CONSULTOR_GENERICO ? "o nosso consultor" : consultor}.`
+              : `${consultor === CONSULTOR_GENERICO ? "O nosso consultor" : consultor} já tem visita perto desse horário: diga que vai confirmar o horário.`,
         }
       : {}),
   };
