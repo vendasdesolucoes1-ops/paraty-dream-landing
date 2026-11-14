@@ -46,6 +46,7 @@ export const chavesKanban = {
   resumoTodos: ["leads", "kanban", "resumo"] as const,
   resumo: (vendedorId: string | null, mostrarTestes: boolean) =>
     ["leads", "kanban", "resumo", vendedorId, mostrarTestes] as const,
+  chips: (filtros: FiltrosKanban) => ["leads", "kanban", "resumo", "chips", filtros] as const,
   fichaTodas: ["leads", "ficha"] as const,
   ficha: (id: string | null) => ["leads", "ficha", id] as const,
 };
@@ -190,6 +191,43 @@ export function useResumoKanban(
   });
 }
 
+export interface ContagemChips {
+  todas: number;
+  porOrigem: Record<string, number>;
+  semVendedor: number;
+  queroVisitar: number;
+  compra3Meses: number;
+}
+
+/**
+ * O número de cada chip com os OUTROS filtros já aplicados: o que o quadro
+ * mostraria se aquele chip fosse escolhido agora. Antes os chips contavam a
+ * base inteira (Meta 134 + Sem vendedor 355 e o quadro mostrava 101).
+ */
+export function useContagemChips(filtros: FiltrosKanban, enabled: boolean) {
+  return useQuery({
+    queryKey: chavesKanban.chips(filtros),
+    queryFn: async (): Promise<ContagemChips> => {
+      const [todas, semVendedor, queroVisitar, compra3Meses, ...origens] = await Promise.all([
+        contar((q) => aplicarFiltros(q, { ...filtros, origem: null })),
+        contar((q) => aplicarFiltros(q, { ...filtros, semVendedor: true })),
+        contar((q) => aplicarFiltros(q, { ...filtros, interesse: "quer_visitar" })),
+        contar((q) => aplicarFiltros(q, { ...filtros, interesse: "compra_3_meses" })),
+        ...ORIGENS.map((o) => contar((q) => aplicarFiltros(q, { ...filtros, origem: o.value }))),
+      ]);
+      return {
+        todas,
+        semVendedor,
+        queroVisitar,
+        compra3Meses,
+        porOrigem: Object.fromEntries(ORIGENS.map((o, i) => [o.value, origens[i]])),
+      };
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
 /** O lead já carregado em alguma coluna (de qualquer combinação de filtros). */
 function procurarNoCache(queryClient: QueryClient, id: string): Lead | undefined {
   for (const [, coluna] of queryClient.getQueriesData<ColunaKanban>({
@@ -284,6 +322,9 @@ export function aplicarLeadNoCache(
     versaoAnterior.is_teste !== novo.is_teste ||
     versaoAnterior.origem !== novo.origem ||
     versaoAnterior.vendedor_id !== novo.vendedor_id ||
+    versaoAnterior.quer_visitar !== novo.quer_visitar ||
+    versaoAnterior.prazo_compra !== novo.prazo_compra ||
+    String(versaoAnterior.canais_entrada ?? "") !== String(novo.canais_entrada ?? "") ||
     !!versaoAnterior.deletado_em !== !!novo.deletado_em;
 
   return { contagensIncertas, resumoMudou };

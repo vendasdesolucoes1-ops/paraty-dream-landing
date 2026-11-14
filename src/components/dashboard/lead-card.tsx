@@ -175,11 +175,13 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
             Atendimento humano
           </Pill>
         ) : null}
+        {/* Quando o lead ENTROU (a ordem da coluna). Antes mostrava a última
+            atualização: lead de 3 semanas tocado pela campanha aparecia "há 1 dia". */}
         <span
           className="ml-auto text-[0.72rem] tabular-nums text-muted-foreground"
-          title={`Atualizado em ${new Date(lead.updated_at).toLocaleString("pt-BR")}`}
+          title={`Entrou em ${new Date(lead.entrada_em ?? lead.created_at).toLocaleString("pt-BR")} · atualizado em ${new Date(lead.updated_at).toLocaleString("pt-BR")}`}
         >
-          {tempoRelativo(lead.updated_at)}
+          entrou {tempoRelativo(lead.entrada_em ?? lead.created_at)}
         </span>
       </div>
     </div>

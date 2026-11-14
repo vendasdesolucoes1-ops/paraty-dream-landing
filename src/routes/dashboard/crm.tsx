@@ -48,6 +48,7 @@ import {
   useContagensKanban,
   useLeadFicha,
   useLeadsRealtime,
+  useContagemChips,
   useResumoKanban,
 } from "@/hooks/use-kanban-leads";
 
@@ -387,7 +388,9 @@ function CrmPage() {
   // Gestão: mostra só quem ainda não tem vendedor, para entregar à mão.
   const [soSemVendedor, setSoSemVendedor] = useState(vendedorDaUrl === "sem");
   useEffect(() => {
+    // Carteira de um vendedor (?vendedor=<id>) e "Sem vendedor" juntos dão zero.
     if (vendedorDaUrl === "sem") setSoSemVendedor(true);
+    else if (vendedorDaUrl) setSoSemVendedor(false);
   }, [vendedorDaUrl]);
   // Respostas do Formulário Meta: quem quer visitar / compra em até 3 meses.
   const [interesse, setInteresse] = useState<FiltroInteresse | null>(null);
@@ -430,6 +433,9 @@ function CrmPage() {
   );
 
   const contagens = useContagensKanban(filtros, habilitado);
+  // O número de cada chip com os outros filtros aplicados (a presença do chip
+  // continua vindo do resumo da carteira inteira).
+  const chips = useContagemChips(filtros, habilitado);
   const contagensPorEtapa = useMemo(
     () =>
       new Map<string, number>(
@@ -639,7 +645,7 @@ function CrmPage() {
               <Chip
                 ativo={origemAtiva === "todas"}
                 onClick={() => setOrigemFiltro("todas")}
-                contagem={resumo.data?.todas}
+                contagem={chips.data?.todas ?? resumo.data?.todas}
               >
                 Todas
               </Chip>
@@ -648,7 +654,7 @@ function CrmPage() {
                   key={o.value}
                   ativo={origemAtiva === o.value}
                   onClick={() => setOrigemFiltro(o.value)}
-                  contagem={o.total}
+                  contagem={chips.data?.porOrigem[o.value] ?? o.total}
                 >
                   {o.label}
                 </Chip>
@@ -661,7 +667,7 @@ function CrmPage() {
               <Chip
                 ativo={interesse === "quer_visitar"}
                 onClick={() => setInteresse((v) => (v === "quer_visitar" ? null : "quer_visitar"))}
-                contagem={resumo.data?.queroVisitar}
+                contagem={chips.data?.queroVisitar ?? resumo.data?.queroVisitar}
               >
                 Quer visitar
               </Chip>
@@ -672,16 +678,18 @@ function CrmPage() {
                 onClick={() =>
                   setInteresse((v) => (v === "compra_3_meses" ? null : "compra_3_meses"))
                 }
-                contagem={resumo.data?.compra3Meses}
+                contagem={chips.data?.compra3Meses ?? resumo.data?.compra3Meses}
               >
                 Compra em até 3 meses
               </Chip>
             ) : null}
-            {!isVendedor && !carteiraDe && (resumo.data?.semVendedor ?? 0) > 0 ? (
+            {!isVendedor &&
+            !carteiraDe &&
+            ((resumo.data?.semVendedor ?? 0) > 0 || soSemVendedor) ? (
               <Chip
                 ativo={soSemVendedor}
                 onClick={() => setSoSemVendedor((v) => !v)}
-                contagem={resumo.data?.semVendedor}
+                contagem={chips.data?.semVendedor ?? resumo.data?.semVendedor}
               >
                 Sem vendedor
               </Chip>
