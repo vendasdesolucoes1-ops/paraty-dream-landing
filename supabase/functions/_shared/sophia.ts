@@ -834,7 +834,19 @@ export async function gerarRespostaSophia(
       .filter(Boolean);
 
   // 5. Já dá para o corretor trabalhar? Para de perguntar e encaminha.
-  if (!estado.substituir && mensagens.length && podeEncaminhar(ctx, acoes, leituras)) {
+  //
+  // O modelo às vezes atende "me passa o valor" com transferir_para_humano:
+  // a conversa pausava e o aviso ia para o consultor reserva, sem corretor do
+  // rodízio. Com sinais de interesse, a transferência vira encaminhamento.
+  // (Pedido explícito de uma pessoa já saiu antes do modelo, no passo 2.)
+  const transferiu = acoes.some((a) => a.tipo === "transferir");
+  const semTransferencia = acoes.filter((a) => a.tipo !== "transferir");
+  const sobrouSoTransferencia = transferiu && semTransferencia.every((a) => a.tipo !== "bloquear");
+  if (
+    (!estado.substituir || sobrouSoTransferencia) &&
+    (mensagens.length || transferiu) &&
+    podeEncaminhar(ctx, semTransferencia, leituras)
+  ) {
     const registrado = acoes.find((a) => a.tipo === "registrar_dados")?.dados.patch as
       | Record<string, unknown>
       | undefined;
@@ -854,7 +866,10 @@ export async function gerarRespostaSophia(
         metragem: decisao.metragem,
         pediuPreco: decisao.pediuPreco,
       });
-      mensagens = respostaComEncaminhamento(mensagens, texto);
+      mensagens = respostaComEncaminhamento(transferiu ? [] : mensagens, texto);
+      if (transferiu) {
+        acoes.splice(0, acoes.length, ...semTransferencia);
+      }
       acoes.push({
         tipo: "encaminhar",
         resumo: `Encaminhou ao corretor (${decisao.motivo})`,
