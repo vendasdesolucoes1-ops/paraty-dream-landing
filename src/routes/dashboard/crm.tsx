@@ -575,7 +575,16 @@ function CrmPage() {
           description="Arraste os cartões entre as etapas do funil ou clique para abrir a ficha do lead."
           action={
             <>
-              <ExportarLeads filtros={{ busca, origem: origemAtiva, mostrarTestes }} />
+              <ExportarLeads
+                filtros={{
+                  busca,
+                  origem: origemAtiva,
+                  mostrarTestes,
+                  vendedorId,
+                  semVendedor: semVendedorAtivo,
+                  interesse,
+                }}
+              />
               <LeadFormDialog />
             </>
           }

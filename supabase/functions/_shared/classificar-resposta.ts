@@ -8,6 +8,7 @@ import { fetchComRetry } from "./http.ts";
 import { notificarResponsaveis } from "./notificar.ts";
 import { registrarChamadaIA } from "./telemetria.ts";
 import { MODELOS } from "./modelos.ts";
+import { chaveOpenAI } from "./chave-openai.ts";
 import {
   acaoDaIntencao,
   decidirIntencao,
@@ -52,7 +53,7 @@ export async function classificarRespostaFollowUp(
     }
 
     let doModelo: Classificacao | null = null;
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    const apiKey = chaveOpenAI();
     if (apiKey) {
       const inicio = Date.now();
       let erro: string | null = null;

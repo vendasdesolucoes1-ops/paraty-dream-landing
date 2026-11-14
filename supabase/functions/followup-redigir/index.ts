@@ -13,6 +13,7 @@ import { exigirChamador, PAPEIS_GESTAO } from "../_shared/auth.ts";
 import { fetchComRetry } from "../_shared/http.ts";
 import { registrarChamadaIA } from "../_shared/telemetria.ts";
 import { MODELOS } from "../_shared/modelos.ts";
+import { chaveOpenAI } from "../_shared/chave-openai.ts";
 import {
   FORMATO_REDACAO,
   lerRedacao,
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       .map((m) => `${m.from_me ? "Nós" : "Lead"}: ${String(m.content).slice(0, 400)}`)
       .join("\n");
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    const apiKey = chaveOpenAI();
     if (!apiKey) return json({ partes: template, motivo: "IA indisponível: mantido o template." });
 
     const inicio = Date.now();
