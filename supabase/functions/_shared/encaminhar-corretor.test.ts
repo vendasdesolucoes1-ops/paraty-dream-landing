@@ -96,7 +96,7 @@ test("mensagem de encaminhamento", () => {
       metragem: 360,
       pediuPreco: false,
     }),
-    "Carlos, vou passar seu contato para o Renan, nosso corretor, que te chama aqui mesmo com as opções de lotes de 360 m² e os valores.",
+    "Carlos, vou passar seu contato para Renan, da nossa equipe de corretores, que te chama aqui mesmo com as opções de lotes de 360 m² e os valores.",
   );
   assert.equal(
     mensagemEncaminhamento({
@@ -133,6 +133,14 @@ test("objetivo inferido da conversa", () => {
   assert.equal(objetivoNaConversa(["é pra investir"]), "investimento");
   assert.equal(objetivoNaConversa(["pra usar nas férias"]), "temporada");
   assert.equal(objetivoNaConversa(["oi"]), null);
+});
+
+test("campos do formulário não contam como pedido de preço", () => {
+  const msg =
+    "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nVocê pretende usar o lote para:: Morar\nComo prefere pagar?: Entrada + parcelas direto com a loteadora\nFull name: Ronaldo\nCity: Petrópolis";
+  const d = decidirEncaminhamento({ ...base, lead: { nome: "Ronaldo" }, mensagem: msg });
+  assert.equal(d.encaminhar, false);
+  assert.equal(d.pediuPreco, false);
 });
 
 test("primeiro nome", () => {

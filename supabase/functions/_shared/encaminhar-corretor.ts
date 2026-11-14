@@ -85,7 +85,23 @@ function nomeValido(v: unknown): boolean {
  * - pedido de preço + mais um sinal (interesse, tamanho, nome ou cidade); ou
  * - o preço pedido pela 2ª vez (a oferta de vídeo/visita já foi feita).
  */
-export function decidirEncaminhamento(e: EntradaEncaminhamento): DecisaoEncaminhamento {
+/**
+ * Tira os campos que o Formulário Meta cola na 1ª mensagem ("Como prefere
+ * pagar?: Entrada + parcelas"): eles não são o lead pedindo preço.
+ */
+export function semCamposDeFormulario(texto: string): string {
+  return String(texto ?? "")
+    .split("\n")
+    .filter((linha) => !/^[^:\n]{1,120}\??:{1,2}\s/.test(linha.trim()))
+    .join("\n");
+}
+
+export function decidirEncaminhamento(entrada: EntradaEncaminhamento): DecisaoEncaminhamento {
+  const e = {
+    ...entrada,
+    mensagem: semCamposDeFormulario(entrada.mensagem),
+    mensagensAnteriores: entrada.mensagensAnteriores.map(semCamposDeFormulario),
+  };
   const dados = { ...e.lead, ...e.registradoAgora };
   const metragem =
     metragemNaMensagem(e.mensagem) ??
@@ -122,7 +138,7 @@ export function mensagemEncaminhamento(opcoes: {
   pediuPreco: boolean;
 }): string {
   const quem = opcoes.corretor
-    ? `o ${opcoes.corretor}, nosso corretor,`
+    ? `${opcoes.corretor}, da nossa equipe de corretores,`
     : "um dos nossos corretores";
   const sobre = opcoes.pediuPreco
     ? `os valores e as condições${opcoes.metragem ? ` dos lotes de ${opcoes.metragem} m²` : ""}`
