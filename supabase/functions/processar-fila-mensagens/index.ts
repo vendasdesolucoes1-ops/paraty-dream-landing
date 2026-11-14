@@ -87,7 +87,7 @@ const TIPOS_FOLLOW_UP = new Set(["cadencia", "campanha"]);
 /** Texto do histórico do CRM para cada tipo de envio ativo. */
 const DESCRICAO_ENVIO: Record<string, string> = {
   primeiro_contato:
-    "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário do site.",
+    "Sophia iniciou a conversa por WhatsApp após o preenchimento do formulário (site ou Meta).",
   cadencia: "Mensagem de follow-up enviada pela cadência automática.",
   campanha: "Mensagem de campanha enviada por WhatsApp.",
 };
