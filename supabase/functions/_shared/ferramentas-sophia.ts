@@ -202,7 +202,7 @@ const TRANSFERIR_PARA_HUMANO = {
   function: {
     name: "transferir_para_humano",
     description:
-      "Passa a conversa para o consultor: a IA pausa nesta conversa e o consultor é avisado. Use quando o lead pedir uma pessoa, aceitar falar com o consultor ou quando o assunto fugir do que você pode resolver.",
+      "Passa a conversa para o consultor: a IA pausa nesta conversa e o consultor é avisado. Use quando o lead pedir uma pessoa, aceitar falar com o consultor ou quando o assunto fugir do que você pode resolver. Não use só porque o lead perguntou o preço: responda normalmente; o sistema passa o contato ao corretor.",
     strict: true,
     parameters: {
       type: "object",
@@ -310,7 +310,7 @@ export function blocoFerramentas(nivel: NivelAutonomia): string {
   }
   linhas.push(
     "- registrar_recusa: o lead recusou a visita ou disse que não quer seguir.",
-    "- transferir_para_humano: o lead quer falar com uma pessoa ou aceitou falar com o consultor. A mensagem de transferência é enviada automaticamente.",
+    "- transferir_para_humano: o lead quer falar com uma pessoa ou aceitou falar com o consultor. Pergunta de preço sozinha não é motivo: responda e o sistema passa ao corretor. A mensagem de transferência é enviada automaticamente.",
     "- bloquear_contato: o lead pediu para não receber mais mensagens. A despedida é enviada automaticamente; não escreva outra.",
   );
   linhas.push("");

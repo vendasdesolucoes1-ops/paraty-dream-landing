@@ -244,6 +244,23 @@ async function encaminhar(
   });
 }
 
+/** Lead sem vendedor ganha o próximo do rodízio (se ligado). */
+async function entregarAoRodizio(supabase: SupabaseClient, leadId: string) {
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("vendedor_id, is_teste")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead || lead.vendedor_id || lead.is_teste) return;
+  const { data: vendedor } = await supabase.rpc("get_next_round_robin_salesperson");
+  if (!vendedor) return;
+  await supabase
+    .from("leads")
+    .update({ vendedor_id: vendedor })
+    .eq("id", leadId)
+    .is("vendedor_id", null);
+}
+
 async function enviarMateriais(
   supabase: SupabaseClient,
   ctx: ContextoAcoes,
@@ -364,6 +381,9 @@ export async function executarAcoes(
           break;
         case "transferir":
           await pauseAI(supabase, ctx.sessionId, ctx.agentId, "transferencia");
+          // Sem dono, o lead vai para o carrossel antes do aviso: quem atende é
+          // um corretor, não o consultor reserva.
+          if (ctx.instancia) await entregarAoRodizio(supabase, ctx.leadId);
           await avisarConsultor(supabase, ctx, {
             tipo: "handoff",
             titulo: "Lead quer falar com o consultor",
