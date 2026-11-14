@@ -276,7 +276,22 @@ export async function handleLeadQualification(
     if (statusError) throw statusError;
   }
 
-  if (jaNotificado) return;
+  if (jaNotificado) {
+    // Já avisado antes, mas pode ter perdido o vendedor depois (devolução,
+    // vendedor inativado): sem dono, volta para o rodízio.
+    if (!lead.vendedor_id) {
+      const { data: proximo } = await supabase.rpc("get_next_round_robin_salesperson");
+      if (proximo) {
+        const { error } = await supabase
+          .from("leads")
+          .update({ vendedor_id: proximo })
+          .eq("id", lead.id)
+          .is("vendedor_id", null);
+        if (error) throw error;
+      }
+    }
+    return;
+  }
 
   // Best-effort: falha aqui não pode impedir atribuição nem notificação.
   const extraido = await extrairDadosQualificacao(supabase, lead.id, openaiKey);
