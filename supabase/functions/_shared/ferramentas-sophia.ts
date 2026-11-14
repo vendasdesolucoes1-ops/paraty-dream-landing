@@ -95,7 +95,8 @@ const REGISTRAR_DADOS_LEAD = {
         },
         metragem_interesse: nulo({
           type: "string",
-          description: 'Tamanho em m², com número: "360", "12x30", "entre 300 e 450". Sem número, não preencha.',
+          description:
+            'Tamanho em m², com número: "360", "12x30", "entre 300 e 450". Sem número, não preencha.',
         }),
         canal_origem: nulo({
           type: "string",

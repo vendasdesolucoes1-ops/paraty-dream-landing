@@ -294,7 +294,10 @@ test("conversa 36b: metragem vira número; texto sem número não é gravado", (
   assert.equal(metragemEmNumero("1.000 m²"), 1000);
   assert.equal(metragemEmNumero("menor disponível"), null);
   assert.equal(metragemEmNumero("2 lotes"), null);
-  const p = patchDoLead({ metragem_interesse: "menor disponível", cidade: "Taubaté" }, { nome: "Ana" });
+  const p = patchDoLead(
+    { metragem_interesse: "menor disponível", cidade: "Taubaté" },
+    { nome: "Ana" },
+  );
   assert.equal(p.metragem_interesse, undefined);
   assert.equal(p.cidade, "Taubaté");
 });
