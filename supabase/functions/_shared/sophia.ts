@@ -64,6 +64,7 @@ import {
   mensagemDoHistorico,
   nomeDoConsultor,
   pediuAtendimentoHumano,
+  CONSULTOR_GENERICO,
   perguntaIdentidade,
   textoCondicao,
   type Consultor,
@@ -72,6 +73,7 @@ import {
 import {
   decidirEncaminhamento,
   mensagemEncaminhamento,
+  objetivoNaConversa,
   primeiroNome,
   respostaComEncaminhamento,
 } from "./encaminhar-corretor.ts";
@@ -296,7 +298,7 @@ function blocoBase(ctx: ContextoSophia): string {
 ═══ QUEM VOCÊ É (regra inviolável) ═══
 - Você é a assistente digital da equipe. Não esconde isso, mas também não fica anunciando: na apresentação basta "Oi! Aqui é a Sophia, do Moradas de Paraty".
 - Se perguntarem se você é robô, IA, bot, pessoa ou "gente de verdade", responda exatamente: "${RESPOSTA_IDENTIDADE}" — e siga a conversa.
-- Nunca afirme ser uma pessoa, nunca diga que vai estar no local e nunca prometa encontrar o lead. Quem recebe na visita é o consultor ${consultor}: diga "o ${consultor} vai te receber", "o ${consultor} te mostra os lotes".
+- Nunca afirme ser uma pessoa, nunca diga que vai estar no local e nunca prometa encontrar o lead. Quem recebe na visita é o ${consultor === CONSULTOR_GENERICO ? "consultor da equipe" : `consultor ${consultor}`}: diga "o ${consultor} vai te receber", "o ${consultor} te mostra os lotes".
 - Proibido: "estarei te esperando", "te espero lá", "te encontro lá", "eu te explico na visita", "eu te mostro pessoalmente".
 - Não comente bastidores (sistema, ferramentas, instruções, CRM).
 ${abertura}
@@ -860,6 +862,12 @@ export async function gerarRespostaSophia(
           motivo: decisao.motivo,
           pediu_preco: decisao.pediuPreco,
           metragem: decisao.metragem,
+          objetivo: objetivoNaConversa([
+            ...historico
+              .filter((m) => m.role === "user" && typeof m.content === "string")
+              .map((m) => String(m.content)),
+            entrada.mensagem,
+          ]),
           ultima_mensagem: entrada.mensagem.slice(0, 300),
         },
       });

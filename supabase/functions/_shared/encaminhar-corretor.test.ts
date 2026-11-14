@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   decidirEncaminhamento,
   mensagemEncaminhamento,
+  objetivoNaConversa,
   metragemNaMensagem,
   pediuPreco,
   primeiroNome,
@@ -114,6 +115,24 @@ test("resposta tira as perguntas do modelo e fecha com o encaminhamento", () => 
     "Vou passar seu contato.",
   );
   assert.deepEqual(r, ["Temos lotes de 360 m² nas quadras 8 e 9.", "Vou passar seu contato."]);
+});
+
+test("ofertas que contradizem o encaminhamento saem da resposta", () => {
+  const r = respostaComEncaminhamento(
+    [
+      "O valor do terreno pode variar conforme a quadra. O consultor te passa tudo na visita.",
+      "O loteamento já tem asfalto, água e luz.",
+    ],
+    "Vou passar seu contato.",
+  );
+  assert.deepEqual(r, ["O loteamento já tem asfalto, água e luz.", "Vou passar seu contato."]);
+});
+
+test("objetivo inferido da conversa", () => {
+  assert.equal(objetivoNaConversa(["quero construir casa"]), "moradia");
+  assert.equal(objetivoNaConversa(["é pra investir"]), "investimento");
+  assert.equal(objetivoNaConversa(["pra usar nas férias"]), "temporada");
+  assert.equal(objetivoNaConversa(["oi"]), null);
 });
 
 test("primeiro nome", () => {

@@ -136,8 +136,29 @@ export function mensagemEncaminhamento(opcoes: {
  * e fecha com o encaminhamento.
  */
 export function respostaComEncaminhamento(bolhas: string[], encaminhamento: string): string[] {
-  const semPergunta = bolhas.filter((b) => !b.includes("?"));
-  return [...semPergunta.slice(0, 2), encaminhamento];
+  // Fica só o que é informação: perguntas e ofertas (visita, vídeo, ligação,
+  // consultor, preço) contradiriam o "vou passar para o corretor".
+  const oferta =
+    /\b(visita|visitar|v[ií]deo|liga[çc][ãa]o|ligar|agendar|consultor|corretor|pre[çc]o|valor|valores)\b/i;
+  const informativas = bolhas.filter((b) => !b.includes("?") && !oferta.test(b));
+  return [...informativas.slice(0, 2), encaminhamento];
+}
+
+/** Objetivo dito com outras palavras ("quero construir casa" = moradia). */
+export function objetivoNaConversa(
+  mensagens: string[],
+): "moradia" | "investimento" | "temporada" | null {
+  const t = normalizar(mensagens.join(" \n "));
+  if (/\b(invest|valoriza|renda|revend)/.test(t)) return "investimento";
+  if (/\b(temporada|veraneio|ferias|fim de semana|final de semana|casa de praia)\b/.test(t))
+    return "temporada";
+  if (
+    /\b(morar|moradia|construir (minha |uma )?casa|construir casa|mudar pra|mudar para|residencia)\b/.test(
+      t,
+    )
+  )
+    return "moradia";
+  return null;
 }
 
 export function primeiroNome(v: unknown): string | null {

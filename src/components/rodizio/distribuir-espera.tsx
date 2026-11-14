@@ -41,8 +41,9 @@ export function DistribuirEspera({ emEspera }: { emEspera: number }) {
           <DialogHeader>
             <DialogTitle>Distribuir leads em espera</DialogTitle>
             <DialogDescription>
-              Leads sem vendedor, em aberto, que chegaram nos últimos 30 dias. Seguem a ordem da
-              fila e o limite de cada um. Cada vendedor é avisado no sino.
+              Leads sem vendedor, em aberto: os novos dos últimos 30 dias e os qualificados de
+              qualquer data. Seguem a ordem da fila e o limite de cada um. Cada vendedor é avisado
+              no sino.
             </DialogDescription>
           </DialogHeader>
 
