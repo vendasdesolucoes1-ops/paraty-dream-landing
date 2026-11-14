@@ -213,6 +213,9 @@ async function encaminhar(
   if (!lead.metragem_interesse && typeof dados.metragem === "number") {
     patch.metragem_interesse = dados.metragem;
   }
+  if (!lead.objetivo && typeof dados.objetivo === "string") {
+    patch.objetivo = dados.objetivo;
+  }
   if (["novo", "nutricao", "perdido"].includes(lead.status_crm ?? "novo")) {
     patch.status_crm = "qualificado";
   }

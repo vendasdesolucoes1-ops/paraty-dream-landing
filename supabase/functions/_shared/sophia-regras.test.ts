@@ -95,8 +95,8 @@ test("consultor", () => {
   );
   assert.equal(lerConsultor("{}"), null);
   assert.equal(nomeDoConsultor({ nome: "Fernando Silva" }), "Fernando");
-  assert.equal(nomeDoConsultor(null), "um consultor da equipe");
-  assert.equal(nomeDoConsultor({ nome: "Sophia" }), "um consultor da equipe");
+  assert.equal(nomeDoConsultor(null), "nosso consultor");
+  assert.equal(nomeDoConsultor({ nome: "Sophia" }), "nosso consultor");
 });
 
 test("visita: texto e instante", () => {

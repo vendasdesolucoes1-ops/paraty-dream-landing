@@ -14,7 +14,8 @@ export const MENSAGEM_OPT_OUT =
   "Pronto, não vou mais te enviar mensagens. Se mudar de ideia, é só chamar.";
 
 /** Texto padrão quando não há consultor cadastrado (não deve acontecer com a IA ligada). */
-export const CONSULTOR_GENERICO = "um consultor da equipe";
+// Sem nome de consultor: entra depois de "o" ("o nosso consultor vai te receber").
+export const CONSULTOR_GENERICO = "nosso consultor";
 
 export interface Consultor {
   vendedor_id?: string | null;
