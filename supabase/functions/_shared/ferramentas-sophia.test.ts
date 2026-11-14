@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  espalhar,
   blocoFerramentas,
   ferramentasDoNivel,
   horariosLivres,
@@ -113,4 +114,10 @@ test("registro: só o que veio, sem trocar nome real por apelido", () => {
     },
   );
   assert.deepEqual(patchDoLead({ objetivo: "outro" as never }, { nome: "X" }), {});
+});
+
+test("horários oferecidos ficam espalhados pelo dia", () => {
+  const dia = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
+  assert.deepEqual(espalhar(dia, 4), ["09:00", "11:00", "14:00", "16:00"]);
+  assert.deepEqual(espalhar(["09:00", "10:00"], 4), ["09:00", "10:00"]);
 });
