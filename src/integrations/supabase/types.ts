@@ -3783,6 +3783,7 @@ export type Database = {
         Args: { p_cadencia_id: string; p_lead_id: string; p_visita_id?: string }
         Returns: string
       }
+      abertura_formulario_meta: { Args: { p_lead_id: string }; Returns: Json }
       acerto_classificador: {
         Args: never
         Returns: {
