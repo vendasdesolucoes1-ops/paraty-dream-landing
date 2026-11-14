@@ -114,7 +114,7 @@ function Rodizio() {
                 <Indicador
                   rotulo="Leads em espera"
                   valor={painel.em_espera}
-                  detalhe="sem vendedor, últimos 30 dias · ver no CRM"
+                  detalhe="novos dos últimos 30 dias e qualificados, sem vendedor · ver no CRM"
                 />
               </Link>
             </div>

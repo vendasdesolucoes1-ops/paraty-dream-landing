@@ -372,8 +372,9 @@ export function MetricasFollowup() {
           isEmpty={(d) => d.enviadas === 0 && d.respondidas === 0}
           empty={
             <p className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-              Nenhuma pesquisa enviada ainda. Ligue a &quot;Pesquisa pós-atendimento&quot; ou a
-              &quot;Pesquisa pós-visita&quot; na aba Cadências.
+              Nenhuma pesquisa enviada ainda. Com a pesquisa ligada, ela sai 1 dia depois de o lead
+              ser entregue a um corretor (ou da visita realizada). Com o envio automático desligado,
+              cada uma espera na aba Aprovação.
             </p>
           }
         >
