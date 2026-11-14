@@ -286,6 +286,23 @@ function querIrDireto(lead: Record<string, unknown>): boolean {
   return /^sim/i.test(texto(lead.quer_visitar)) || /3 meses/i.test(texto(lead.prazo_compra));
 }
 
+/** "Quer agendar uma visita...?: Ainda não" do formulário, ou dito com outras palavras. */
+function recusouVisitaNoTexto(texto: string): boolean {
+  return (
+    /visita[^:\n]{0,60}\?*:{1,2}\s*(ainda\s+)?n[aã]o/i.test(texto) ||
+    /\b(ainda\s+)?n[aã]o\s+(quero|vou|pretendo)\s+(visitar|ir|agendar)/i.test(texto)
+  );
+}
+
+/** O lead está pedindo visita ou horários nesta mensagem. */
+function pediuVisita(texto: string): boolean {
+  return /\b(visita|visitar|hor[aá]rio|agendar|marcar|conhecer o (lote|loteamento|local))/i.test(
+    texto,
+  );
+}
+
+const CONVITE_VISITA = /\b(visita|visitar|agendar|hor[aá]rios?|chamada de v[ií]deo)\b/i;
+
 function naoQuerVisitarAinda(lead: Record<string, unknown>): boolean {
   return /^(n[aã]o|ainda n[aã]o)/i.test(texto(lead.quer_visitar));
 }
@@ -503,9 +520,13 @@ Nenhum lote marcado como disponível no cadastro. Apresente o empreendimento pel
     (g) =>
       `- ${String(g.metragem_m2).replace(".", ",")}m² (${g.tipo}) — ${g.disponiveis} disponível(is), quadra(s) ${g.quadras.join(", ")}`,
   );
+  const tamanhos = grupos.map((g) => Number(g.metragem_m2)).filter((n) => Number.isFinite(n));
+  const faixa = tamanhos.length
+    ? `\nFaixa disponível hoje: de ${String(Math.min(...tamanhos)).replace(".", ",")}m² a ${String(Math.max(...tamanhos)).replace(".", ",")}m². Ao falar da faixa de tamanhos, use ESTA, não a da base de conhecimento (que inclui lotes já vendidos).`
+    : "";
   return `---
 LOTES DISPONÍVEIS AGORA (tempo real — única fonte sobre o que está livre)
-Só confirme um tamanho se ele aparecer aqui; se não aparecer, ofereça o mais próximo. Nunca cite número de lote.
+Só confirme um tamanho se ele aparecer aqui; se não aparecer, ofereça o mais próximo. Nunca cite número de lote.${faixa}
 
 ${linhas.join("\n")}`;
 }
@@ -854,6 +875,26 @@ export async function gerarRespostaSophia(
       .split("||")
       .map((m) => m.trim())
       .filter(Boolean);
+
+  // Quem disse que ainda não quer visitar (no formulário colado na mensagem ou
+  // na ficha) não recebe convite de visita, salvo se pedir agora.
+  const falasDoLead = [
+    ...historico
+      .filter((m) => m.role === "user" && typeof m.content === "string")
+      .map((m) => String(m.content)),
+    entrada.mensagem,
+  ];
+  if (
+    !estado.substituir &&
+    (naoQuerVisitarAinda((lead ?? {}) as Record<string, unknown>) ||
+      falasDoLead.some(recusouVisitaNoTexto)) &&
+    // A própria mensagem do formulário diz "visita": ali é recusa, não pedido.
+    !(pediuVisita(entrada.mensagem) && !recusouVisitaNoTexto(entrada.mensagem)) &&
+    !acoes.some((a) => a.tipo === "agendar_visita")
+  ) {
+    const semConvite = mensagens.filter((m) => !CONVITE_VISITA.test(m));
+    if (semConvite.length) mensagens = semConvite;
+  }
 
   // No máximo 4 mensagens seguidas: a resposta ao formulário saía em 10.
   if (!estado.substituir && mensagens.length > MAX_BOLHAS) {
