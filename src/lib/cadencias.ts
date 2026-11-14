@@ -15,7 +15,13 @@ import { diaEmSaoPaulo, type ReferenciaEtapa } from "@/lib/cadencias-formato";
 
 // ── Tipos ───────────────────────────────────────────────────────────────
 
-export type GatilhoCadencia = "manual" | "primeiro_contato" | "visita_agendada" | "campanha";
+export type GatilhoCadencia =
+  | "manual"
+  | "primeiro_contato"
+  | "visita_agendada"
+  | "campanha"
+  | "pos_atendimento"
+  | "pos_visita";
 export type ModoEtapa = "template" | "ia_aprovacao";
 export type StatusInscricao =
   | "ativa"
@@ -56,6 +62,8 @@ export interface Cadencia {
   gatilho: GatilhoCadencia;
   ativa: boolean;
   pausa_ao_responder: boolean;
+  /** Desligado: cada mensagem vai para a aba Aprovação antes de sair. */
+  envio_automatico: boolean;
   status_crm_validos: LeadStatus[] | null;
   pausada_em: string | null;
   motivo_pausa: string | null;
@@ -185,13 +193,29 @@ export const GATILHOS: {
     label: "Visita agendada",
     dica: "Lembretes contados a partir da data da visita.",
   },
+  {
+    value: "pos_atendimento",
+    label: "Pesquisa pós-atendimento",
+    dica: "Entra quando o lead é entregue a um corretor. Pergunta se foi chamado, a nota (1 a 5) e se ficou dúvida.",
+  },
+  {
+    value: "pos_visita",
+    label: "Pesquisa pós-visita",
+    dica: "Entra quando a visita é marcada como realizada. Pergunta como foi a experiência e se ficou dúvida.",
+  },
 ];
+
+export function ehPesquisa(gatilho: GatilhoCadencia): boolean {
+  return gatilho === "pos_atendimento" || gatilho === "pos_visita";
+}
 
 export const GATILHO_LABEL: Record<GatilhoCadencia, string> = {
   manual: "Manual",
   primeiro_contato: "Primeiro contato",
   visita_agendada: "Visita agendada",
   campanha: "Campanha",
+  pos_atendimento: "Pesquisa pós-atendimento",
+  pos_visita: "Pesquisa pós-visita",
 };
 
 export const REFERENCIAS: { value: ReferenciaEtapa; label: string }[] = [
@@ -280,7 +304,7 @@ export const chaveFollowup = ["followup"] as const;
 
 const COLUNAS_ETAPA =
   "id, cadencia_id, ordem, referencia, deslocamento, hora_fixa, modo, template, midia, ativa";
-const COLUNAS_CADENCIA = `id, nome, descricao, gatilho, ativa, pausa_ao_responder, status_crm_validos, pausada_em, motivo_pausa, instance_id, criado_em, etapas:cadencia_etapas(${COLUNAS_ETAPA})`;
+const COLUNAS_CADENCIA = `id, nome, descricao, gatilho, ativa, pausa_ao_responder, envio_automatico, status_crm_validos, pausada_em, motivo_pausa, instance_id, criado_em, etapas:cadencia_etapas(${COLUNAS_ETAPA})`;
 
 // ── Cadências ───────────────────────────────────────────────────────────
 
@@ -342,6 +366,7 @@ export interface CadenciaForm {
   gatilho: Exclude<GatilhoCadencia, "campanha">;
   ativa: boolean;
   pausa_ao_responder: boolean;
+  envio_automatico: boolean;
   status_crm_validos: LeadStatus[] | null;
   instance_id: string | null;
   etapas: EtapaForm[];
@@ -361,6 +386,7 @@ export async function salvarCadencia(form: CadenciaForm): Promise<string> {
       gatilho: form.gatilho,
       ativa: form.ativa,
       pausa_ao_responder: form.pausa_ao_responder,
+      envio_automatico: form.envio_automatico,
       status_crm_validos: form.status_crm_validos ?? [],
       instance_id: form.instance_id,
     },
@@ -756,5 +782,80 @@ export function useCancelarCampanha() {
   return useMutation({
     mutationFn: (id: string) => rpc<void>("cancelar_campanha", { p_cadencia_id: id }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: chaveFollowup }),
+  });
+}
+
+// ── Pesquisa de atendimento e respostas ─────────────────────────────────
+
+export interface PesquisaRecente {
+  lead_id: string;
+  lead: string | null;
+  vendedor: string | null;
+  gatilho: GatilhoCadencia;
+  nota: number | null;
+  foi_atendido: boolean | null;
+  tem_duvida: boolean;
+  comentario: string | null;
+  respondida_em: string;
+}
+
+export interface ResumoPesquisas {
+  enviadas: number;
+  respondidas: number;
+  media: number | null;
+  nao_atendidos: number;
+  com_duvida: number;
+  por_vendedor: { nome: string; respostas: number; media: number | null; nao_atendidos: number }[];
+  recentes: PesquisaRecente[];
+}
+
+/** Notas da pesquisa de atendimento (últimos 90 dias). */
+export function useResumoPesquisas() {
+  return useQuery({
+    queryKey: [...chaveFollowup, "pesquisas"],
+    ...TENTATIVAS,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<ResumoPesquisas> => {
+      const d =
+        (await rpc<Record<string, unknown> | null>("pesquisas_resumo", { p_dias: 90 })) ?? {};
+      return {
+        enviadas: num(d.enviadas),
+        respondidas: num(d.respondidas),
+        media: d.media == null ? null : Number(d.media),
+        nao_atendidos: num(d.nao_atendidos),
+        com_duvida: num(d.com_duvida),
+        por_vendedor: ((d.por_vendedor as Record<string, unknown>[]) ?? []).map((v) => ({
+          nome: String(v.nome ?? ""),
+          respostas: num(v.respostas),
+          media: v.media == null ? null : Number(v.media),
+          nao_atendidos: num(v.nao_atendidos),
+        })),
+        recentes: (d.recentes as PesquisaRecente[]) ?? [],
+      };
+    },
+  });
+}
+
+export interface RespostaFollowup {
+  lead_id: string;
+  lead: string | null;
+  telefone: string | null;
+  vendedor: string | null;
+  origem: string;
+  resposta: string;
+  respondida_em: string;
+  intencao: string | null;
+}
+
+/** O que os leads responderam a cadências e campanhas (últimos 7 dias). */
+export function useRespostasFollowup(dias = 7) {
+  return useQuery({
+    queryKey: [...chaveFollowup, "respostas", dias],
+    ...TENTATIVAS,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<RespostaFollowup[]> =>
+      ((await rpc<RespostaFollowup[] | null>("followup_respostas", { p_dias: dias })) ?? []).sort(
+        (a, b) => b.respondida_em.localeCompare(a.respondida_em),
+      ),
   });
 }

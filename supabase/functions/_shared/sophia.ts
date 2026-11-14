@@ -162,6 +162,8 @@ export interface ContextoSophia {
   nivel: NivelAutonomia;
   /** Horários livres já lidos, para quem quer visitar (atalho do anúncio). */
   horariosSugeridos: string[];
+  /** Resposta à pesquisa de atendimento nos últimos 30 minutos. */
+  pesquisaRecente: { nota: number | null; tem_duvida: boolean } | null;
 }
 
 export async function carregarContexto(
@@ -202,6 +204,7 @@ export async function carregarContexto(
 
   let lead: Record<string, unknown> | null = null;
   let proximaVisita: ContextoSophia["proximaVisita"] = null;
+  let pesquisaRecente: ContextoSophia["pesquisaRecente"] = null;
   if (leadId) {
     const { data } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
     lead = (data as Record<string, unknown> | null) ?? null;
@@ -214,6 +217,15 @@ export async function carregarContexto(
       .limit(1)
       .maybeSingle();
     proximaVisita = (visita as ContextoSophia["proximaVisita"]) ?? null;
+    const { data: pesquisa } = await supabase
+      .from("pesquisas_satisfacao")
+      .select("nota, tem_duvida")
+      .eq("lead_id", leadId)
+      .gte("atualizada_em", new Date(Date.now() - 30 * 60_000).toISOString())
+      .order("atualizada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pesquisaRecente = (pesquisa as ContextoSophia["pesquisaRecente"]) ?? null;
   }
 
   const ctx: ContextoSophia = {
@@ -236,6 +248,7 @@ export async function carregarContexto(
     proximaVisita,
     nivel: nivelAutonomia(agent.autonomia),
     horariosSugeridos: [],
+    pesquisaRecente,
   };
 
   // Quem já disse que quer visitar recebe horários concretos na primeira
@@ -416,6 +429,10 @@ ${campos.join("\n")}
       ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Já ofereça dois ou três horários concretos nesta resposta${sugeridos ? "" : " (chame ver_horarios_visita antes)"}. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.${sugeridos}`
       : ""
   }${
+    ctx.pesquisaRecente
+      ? `\n- ESTA PESSOA ACABOU DE RESPONDER A PESQUISA DE ATENDIMENTO${ctx.pesquisaRecente.nota ? ` (nota ${ctx.pesquisaRecente.nota})` : ""}. Agradeça o retorno em uma frase curta. Se ela trouxe uma dúvida, responda; se não, não puxe assunto nem faça perguntas.`
+      : ""
+  }${
     texto(lead.encaminhado_em)
       ? `\n- ESTA PESSOA JÁ FOI PASSADA PARA O CORRETOR${lead.vendedor_id ? ` (${nomeDoConsultor(ctx.consultor)})` : ""}. Agora você só tira dúvidas: responda curto e objetivo o que ela perguntar, sem perguntas de qualificação e sem convidar para visita. Se ela perguntar do corretor ou do preço, diga que ele vai chamar por aqui com os valores. Se ela mesma pedir para marcar visita, pode agendar.`
       : ""
@@ -583,6 +600,7 @@ function podeEncaminhar(
   const lead = ctx.lead;
   if (!lead?.id || !permite(ctx.nivel, "qualificar")) return false;
   if (lead.encaminhado_em || lead.sem_interesse_em || lead.contato_bloqueado) return false;
+  if (ctx.pesquisaRecente) return false;
   if (["visitou", "proposta", "fechado"].includes(String(lead.status_crm ?? ""))) return false;
   const visitaFutura =
     ctx.proximaVisita &&
