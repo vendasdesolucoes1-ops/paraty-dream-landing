@@ -393,6 +393,15 @@ export function resumirLotes(lotes: LoteLinha[], filtro?: Partial<FiltroLotes>) 
 // Horários livres
 
 /** Horários livres (início de visita) nos próximos dias, dentro das janelas e sem conflito. */
+/** N horários espalhados pelo dia (manhã e tarde), não os N primeiros. */
+export function espalhar(lista: string[], n: number): string[] {
+  if (lista.length <= n) return lista;
+  if (n <= 1) return lista.slice(0, n);
+  const escolhidos = new Set<number>();
+  for (let i = 0; i < n; i++) escolhidos.add(Math.round((i * (lista.length - 1)) / (n - 1)));
+  return [...escolhidos].sort((a, b) => a - b).map((i) => lista[i]);
+}
+
 export function horariosLivres(
   agora: Date,
   janelas: JanelasVisita,
@@ -433,7 +442,7 @@ export function horariosLivres(
       saida.push({
         data: d.iso,
         dia_semana: d.diaSemana,
-        horarios: horarios.sort().slice(0, maxPorDia),
+        horarios: espalhar(horarios.sort(), maxPorDia),
       });
     }
     if (saida.length >= maxDias) break;

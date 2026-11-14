@@ -83,6 +83,7 @@ import {
 const DIAS_NO_CALENDARIO = 21;
 const LINHAS_DE_HISTORICO = 80;
 const MAX_RODADAS = 6;
+const MAX_BOLHAS = 4;
 const ETAPAS_QUE_QUALIFICAM = new Set(["novo", "nutricao"]);
 
 /** Material cadastrado na tela Configurações → Agente → Materiais. */
@@ -280,7 +281,13 @@ export async function carregarContexto(
 }
 
 function querIrDireto(lead: Record<string, unknown>): boolean {
+  // "Ainda não" para visitar vence o prazo curto: não empurra agenda.
+  if (naoQuerVisitarAinda(lead)) return false;
   return /^sim/i.test(texto(lead.quer_visitar)) || /3 meses/i.test(texto(lead.prazo_compra));
+}
+
+function naoQuerVisitarAinda(lead: Record<string, unknown>): boolean {
+  return /^(n[aã]o|ainda n[aã]o)/i.test(texto(lead.quer_visitar));
 }
 
 // ---------------------------------------------------------------------------
@@ -327,6 +334,9 @@ COMO ESCREVER:
 - Se o lead responder "não sei" ou devolver a pergunta, mostre opções concretas (consultar_lotes) em vez de repetir a pergunta.
 - WhatsApp: *negrito* com um asterisco, sem listas numeradas (use •). Links sempre puros (https://...), nunca no formato [texto](link).
 - Não prometa o que não depende de você: lembrete antes da visita, envio de fotos pelo consultor, retorno num horário certo.
+- Preço: nunca diga que o valor é passado "pessoalmente" ou "na visita". Diga que o corretor passa os valores por aqui.
+- No máximo 3 mensagens curtas por resposta. Não despeje tudo de uma vez (lotes, diferenciais e horários juntos).
+- Se a pessoa disse que ainda não quer visitar ou está só pesquisando, não ofereça visita nem horários, a menos que ela peça.
 - Se o lead disser que o consultor não retornou ou que está esperando alguém, peça desculpas em uma frase e use transferir_para_humano.
 - Separe a resposta em mensagens curtas com ||. Uma pergunta por vez, no fim.
 - Comente o que o lead disse antes de emendar a próxima pergunta; não repita "Perfeito, Fulano!" a cada mensagem.
@@ -445,6 +455,10 @@ ${campos.join("\n")}
   }${
     texto(lead.encaminhado_em)
       ? `\n- ESTA PESSOA JÁ FOI PASSADA PARA O CORRETOR${lead.vendedor_id ? ` (${nomeDoConsultor(ctx.consultor)})` : ""}. Agora você só tira dúvidas: responda curto e objetivo o que ela perguntar, sem perguntas de qualificação e sem convidar para visita. Se ela perguntar do corretor ou do preço, diga que ele vai chamar por aqui com os valores. Se ela mesma pedir para marcar visita, pode agendar.`
+      : ""
+  }${
+    naoQuerVisitarAinda(lead) && !ctx.proximaVisita
+      ? `\n- Ela marcou no anúncio que ainda não quer visitar: não ofereça visita nem horários, a menos que ela peça.`
       : ""
   }${
     texto(lead.sem_interesse_em)
@@ -840,6 +854,11 @@ export async function gerarRespostaSophia(
       .split("||")
       .map((m) => m.trim())
       .filter(Boolean);
+
+  // No máximo 4 mensagens seguidas: a resposta ao formulário saía em 10.
+  if (!estado.substituir && mensagens.length > MAX_BOLHAS) {
+    mensagens = [...mensagens.slice(0, MAX_BOLHAS - 1), mensagens[mensagens.length - 1]];
+  }
 
   // WhatsApp mostra "**hoje**" com os asteriscos: negrito é um asterisco só.
   mensagens = mensagens.map((m) => m.replace(/\*\*([^*\n]+)\*\*/g, "*$1*"));
