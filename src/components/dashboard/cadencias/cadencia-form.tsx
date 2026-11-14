@@ -68,6 +68,7 @@ function formVazio(): Omit<CadenciaForm, "etapas"> {
     gatilho: "manual",
     ativa: false,
     pausa_ao_responder: true,
+    envio_automatico: true,
     status_crm_validos: null,
     instance_id: null,
   };
@@ -128,6 +129,7 @@ export function CadenciaFormGaveta({
         gatilho: cadencia.gatilho === "campanha" ? "manual" : cadencia.gatilho,
         ativa: cadencia.ativa,
         pausa_ao_responder: cadencia.pausa_ao_responder,
+        envio_automatico: cadencia.envio_automatico ?? true,
         status_crm_validos: cadencia.status_crm_validos,
         instance_id: cadencia.instance_id,
       });
@@ -299,6 +301,18 @@ export function CadenciaFormGaveta({
           <Switch
             checked={base.pausa_ao_responder}
             onCheckedChange={(v) => setBase({ ...base, pausa_ao_responder: v })}
+          />
+        </label>
+        <label className="flex items-start justify-between gap-4 text-sm">
+          <span>
+            <span className="font-medium text-foreground">Envio automático</span>
+            <span className="block text-xs text-muted-foreground">
+              Desligado, cada mensagem espera na aba Aprovação até alguém da equipe liberar.
+            </span>
+          </span>
+          <Switch
+            checked={base.envio_automatico}
+            onCheckedChange={(v) => setBase({ ...base, envio_automatico: v })}
           />
         </label>
         <label className="flex items-start justify-between gap-4 text-sm">
@@ -494,8 +508,8 @@ export function CadenciaFormGaveta({
                   onChange={(v) => mudarEtapa(i, { template: v })}
                   variaveis={
                     base.gatilho === "visita_agendada"
-                      ? ["primeiro_nome", "data_visita", "hora_visita"]
-                      : ["primeiro_nome"]
+                      ? ["primeiro_nome", "data_visita", "hora_visita", "vendedor"]
+                      : ["primeiro_nome", "vendedor"]
                   }
                 />
               </Campo>

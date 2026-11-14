@@ -69,6 +69,12 @@ import {
   type Consultor,
   type MensagemModelo,
 } from "./sophia-regras.ts";
+import {
+  decidirEncaminhamento,
+  mensagemEncaminhamento,
+  primeiroNome,
+  respostaComEncaminhamento,
+} from "./encaminhar-corretor.ts";
 
 const DIAS_NO_CALENDARIO = 21;
 const LINHAS_DE_HISTORICO = 80;
@@ -95,7 +101,8 @@ export type TipoAcao =
   | "agendar_visita"
   | "transferir"
   | "bloquear"
-  | "enviar_midia";
+  | "enviar_midia"
+  | "encaminhar";
 
 /** Algo que a Sophia decidiu fazer e que só acontece depois do envio. */
 export interface AcaoPendente {
@@ -155,6 +162,8 @@ export interface ContextoSophia {
   nivel: NivelAutonomia;
   /** Horários livres já lidos, para quem quer visitar (atalho do anúncio). */
   horariosSugeridos: string[];
+  /** Resposta à pesquisa de atendimento nos últimos 30 minutos. */
+  pesquisaRecente: { nota: number | null; tem_duvida: boolean } | null;
 }
 
 export async function carregarContexto(
@@ -195,6 +204,7 @@ export async function carregarContexto(
 
   let lead: Record<string, unknown> | null = null;
   let proximaVisita: ContextoSophia["proximaVisita"] = null;
+  let pesquisaRecente: ContextoSophia["pesquisaRecente"] = null;
   if (leadId) {
     const { data } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
     lead = (data as Record<string, unknown> | null) ?? null;
@@ -207,6 +217,15 @@ export async function carregarContexto(
       .limit(1)
       .maybeSingle();
     proximaVisita = (visita as ContextoSophia["proximaVisita"]) ?? null;
+    const { data: pesquisa } = await supabase
+      .from("pesquisas_satisfacao")
+      .select("nota, tem_duvida")
+      .eq("lead_id", leadId)
+      .gte("atualizada_em", new Date(Date.now() - 30 * 60_000).toISOString())
+      .order("atualizada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pesquisaRecente = (pesquisa as ContextoSophia["pesquisaRecente"]) ?? null;
   }
 
   const ctx: ContextoSophia = {
@@ -229,6 +248,7 @@ export async function carregarContexto(
     proximaVisita,
     nivel: nivelAutonomia(agent.autonomia),
     horariosSugeridos: [],
+    pesquisaRecente,
   };
 
   // Quem já disse que quer visitar recebe horários concretos na primeira
@@ -283,7 +303,7 @@ ${abertura}
 ═══ PREÇO E PAGAMENTO ═══
 - Você NUNCA informa preço de lote, valor por m², valor total, faixa de valor, "a partir de", desconto, nem confirma ou nega um valor que o lead citar. Isso vale mesmo que o número esteja na base de conhecimento.
 ${condicao}
-- Quando o lead perguntar ou insistir no preço: explique que o valor muda conforme o lote (tamanho, quadra, posição) e ofereça TRÊS caminhos para ele saber o valor do lote que interessa: uma chamada de vídeo com o ${consultor}, uma ligação ou a visita. Deixe ele escolher. Se ainda não souber o nome dele, termine perguntando como pode chamá-lo.
+- Quando o lead perguntar o preço: explique em uma frase que o valor muda conforme o lote (tamanho, quadra, posição) e que o corretor passa os valores. Não repita a mesma oferta de vídeo/ligação/visita se ele insistir: na insistência, o contato vai para o corretor.
 
 ═══ DISTÂNCIA E "NÃO VOU SÓ PRA VER" ═══
 - Se o lead mora longe ou hesita em viajar, não insista na visita: ofereça vídeo com o consultor, ligação, e mande material (localização, fotos, vídeo) com enviar_midia quando houver.
@@ -305,7 +325,7 @@ COMO ESCREVER:
 Nenhum emoji, salvo se as preferências da equipe abaixo liberarem.
 
 ═══ COMO CONDUZIR ═══
-1) ENTENDER: nome, cidade onde mora, objetivo (morar/investir/temporada), tamanho de terreno e como conheceu a gente — ao longo da conversa, uma pergunta por vez. Se não souber o nome, peça de forma leve logo no começo.
+1) ENTENDER: o essencial é o nome, o objetivo (morar/investir/temporada) e o tamanho de terreno. Uma pergunta por vez e no máximo 2 perguntas seguidas de qualificação. Cidade e como conheceu só se surgirem naturalmente. Assim que o lead mostrar interesse e disser o tamanho (ou pedir o preço), o sistema passa o contato para o corretor: não continue o interrogatório.
 2) APRESENTAR: mostre pelo menos uma opção concreta que combine com o que ele contou (metragem e quadra do estoque real, diferencial da base). Nunca número de lote, nunca preço.
 3) CONVIDAR: proponha a visita (ou vídeo/ligação com o consultor). Use ver_horarios_visita e ofereça duas ou três opções concretas.
 - ATALHO: se o lead já disse que quer visitar (no chat ou no anúncio) ou que pretende comprar nos próximos meses, NÃO precisa completar o roteiro: confirme o essencial (nome, se não souber) e vá direto ao agendamento.
@@ -407,6 +427,14 @@ ${campos.join("\n")}
   }${
     querIrDireto(lead) && !ctx.proximaVisita
       ? `\n- ${querVisitar ? "Ela já disse que quer visitar" : "Ela pretende comprar nos próximos 3 meses"}: vá DIRETO ao agendamento. Já ofereça dois ou três horários concretos nesta resposta${sugeridos ? "" : " (chame ver_horarios_visita antes)"}. Não pergunte tamanho, quadra ou objetivo antes de oferecer os horários.${sugeridos}`
+      : ""
+  }${
+    ctx.pesquisaRecente
+      ? `\n- ESTA PESSOA ACABOU DE RESPONDER A PESQUISA DE ATENDIMENTO${ctx.pesquisaRecente.nota ? ` (nota ${ctx.pesquisaRecente.nota})` : ""}. Agradeça o retorno em uma frase curta. Se ela trouxe uma dúvida, responda; se não, não puxe assunto nem faça perguntas.`
+      : ""
+  }${
+    texto(lead.encaminhado_em)
+      ? `\n- ESTA PESSOA JÁ FOI PASSADA PARA O CORRETOR${lead.vendedor_id ? ` (${nomeDoConsultor(ctx.consultor)})` : ""}. Agora você só tira dúvidas: responda curto e objetivo o que ela perguntar, sem perguntas de qualificação e sem convidar para visita. Se ela perguntar do corretor ou do preço, diga que ele vai chamar por aqui com os valores. Se ela mesma pedir para marcar visita, pode agendar.`
       : ""
   }${
     texto(lead.sem_interesse_em)
@@ -552,6 +580,38 @@ export async function carregarHistorico(
 
 // ---------------------------------------------------------------------------
 // Atalhos determinísticos (antes do modelo)
+
+// ---------------------------------------------------------------------------
+// Encaminhamento ao corretor
+
+const ACOES_QUE_DECIDEM_A_CONVERSA = new Set([
+  "agendar_visita",
+  "transferir",
+  "bloquear",
+  "registrar_recusa",
+]);
+
+/** Lead que ainda pode ser encaminhado neste turno (ver encaminhar-corretor.ts). */
+function podeEncaminhar(
+  ctx: ContextoSophia,
+  acoes: AcaoPendente[],
+  leituras: LeituraFeita[],
+): boolean {
+  const lead = ctx.lead;
+  if (!lead?.id || !permite(ctx.nivel, "qualificar")) return false;
+  if (lead.encaminhado_em || lead.sem_interesse_em || lead.contato_bloqueado) return false;
+  if (ctx.pesquisaRecente) return false;
+  if (["visitou", "proposta", "fechado"].includes(String(lead.status_crm ?? ""))) return false;
+  const visitaFutura =
+    ctx.proximaVisita &&
+    new Date(ctx.proximaVisita.data_hora).getTime() > Date.now() &&
+    ctx.proximaVisita.status !== "realizada";
+  if (visitaFutura) return false;
+  if (acoes.some((a) => ACOES_QUE_DECIDEM_A_CONVERSA.has(a.tipo))) return false;
+  // Está oferecendo horários a quem quer visitar: deixa a visita acontecer.
+  if (leituras.some((l) => l.ferramenta === "ver_horarios_visita")) return false;
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Geração
@@ -764,12 +824,47 @@ export async function gerarRespostaSophia(
   // Marcas antigas entre colchetes nunca vão para o lead.
   textoResposta = textoResposta.replace(/\[[A-Z_]{4,}\]/g, "").trim();
 
-  const mensagens =
+  let mensagens =
     estado.substituir ??
     textoResposta
       .split("||")
       .map((m) => m.trim())
       .filter(Boolean);
+
+  // 5. Já dá para o corretor trabalhar? Para de perguntar e encaminha.
+  if (!estado.substituir && mensagens.length && podeEncaminhar(ctx, acoes, leituras)) {
+    const registrado = acoes.find((a) => a.tipo === "registrar_dados")?.dados.patch as
+      | Record<string, unknown>
+      | undefined;
+    const decisao = decidirEncaminhamento({
+      lead: (lead ?? {}) as Record<string, unknown>,
+      registradoAgora: registrado ?? {},
+      mensagem: entrada.mensagem,
+      mensagensAnteriores: historico
+        .filter((m) => m.role === "user" && typeof m.content === "string")
+        .map((m) => String(m.content))
+        .slice(-12),
+    });
+    if (decisao.encaminhar) {
+      const texto = mensagemEncaminhamento({
+        primeiroNome: primeiroNome(registrado?.nome ?? lead?.nome),
+        corretor: lead?.vendedor_id ? nomeDoConsultor(ctx.consultor) : null,
+        metragem: decisao.metragem,
+        pediuPreco: decisao.pediuPreco,
+      });
+      mensagens = respostaComEncaminhamento(mensagens, texto);
+      acoes.push({
+        tipo: "encaminhar",
+        resumo: `Encaminhou ao corretor (${decisao.motivo})`,
+        dados: {
+          motivo: decisao.motivo,
+          pediu_preco: decisao.pediuPreco,
+          metragem: decisao.metragem,
+          ultima_mensagem: entrada.mensagem.slice(0, 300),
+        },
+      });
+    }
+  }
 
   return { mensagens, acoes, leituras, atalho: null, modelo, promptSistema };
 }

@@ -190,6 +190,57 @@ async function agendar(
   });
 }
 
+/**
+ * Passa o lead ao corretor: qualifica e entrega pelo rodízio (com o resumo de
+ * sempre), avisa o corretor do que o lead perguntou por último e marca
+ * encaminhado_em, que põe a Sophia em modo "só tira dúvidas" nesta conversa.
+ */
+async function encaminhar(
+  supabase: SupabaseClient,
+  ctx: ContextoAcoes,
+  dados: Record<string, unknown>,
+) {
+  const { data: lead } = await supabase
+    .from("leads")
+    .select(
+      "id, nome, telefone, cidade, objetivo, metragem_interesse, status_crm, vendedor_id, is_teste",
+    )
+    .eq("id", ctx.leadId)
+    .maybeSingle();
+  if (!lead) throw new Error("lead não encontrado");
+
+  const patch: Record<string, unknown> = { encaminhado_em: new Date().toISOString() };
+  if (!lead.metragem_interesse && typeof dados.metragem === "number") {
+    patch.metragem_interesse = dados.metragem;
+  }
+  if (["novo", "nutricao", "perdido"].includes(lead.status_crm ?? "novo")) {
+    patch.status_crm = "qualificado";
+  }
+  await gravar(supabase.from("leads").update(patch).eq("id", ctx.leadId), "marcar encaminhamento");
+
+  if (!ctx.instancia) return; // teste: nada sai pelo WhatsApp
+
+  // Atribui pelo rodízio e manda o resumo (uma vez só por lead).
+  await handleLeadQualification(
+    supabase,
+    { ...lead, ...patch } as never,
+    ctx.instancia,
+    ctx.openaiKey,
+  );
+
+  // Lead que acabou de ganhar dono já gera aviso (rodízio) e resumo: um
+  // terceiro WhatsApp seria ruído. Quem já tinha dono recebe este, com o que
+  // o lead perguntou.
+  if (!lead.vendedor_id) return;
+  await avisarConsultor(supabase, ctx, {
+    tipo: "lead_encaminhado",
+    titulo: "Lead pronto para você chamar",
+    corpo: `A Sophia passou o contato (${String(dados.motivo ?? "lead com interesse")}).${
+      dados.pediu_preco ? " Pediu o preço." : ""
+    } Última mensagem: "${String(dados.ultima_mensagem ?? "").slice(0, 200)}". A Sophia agora só tira dúvidas; chame o lead pelo WhatsApp.`,
+  });
+}
+
 async function enviarMateriais(
   supabase: SupabaseClient,
   ctx: ContextoAcoes,
@@ -299,6 +350,9 @@ export async function executarAcoes(
           }
           break;
         }
+        case "encaminhar":
+          await encaminhar(supabase, ctx, d);
+          break;
         case "registrar_recusa":
           await registrarRecusa(supabase, ctx.leadId, d.tipo === "sem_interesse");
           break;

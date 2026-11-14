@@ -855,6 +855,7 @@ export type Database = {
           cidade: string | null;
           created_at: string;
           deletado_em: string | null;
+          encaminhado_em: string | null;
           email: string | null;
           forma_pagamento: string | null;
           id: string;
@@ -875,6 +876,7 @@ export type Database = {
           cidade?: string | null;
           created_at?: string;
           deletado_em?: string | null;
+          encaminhado_em?: string | null;
           email?: string | null;
           forma_pagamento?: string | null;
           id?: string;
@@ -895,6 +897,7 @@ export type Database = {
           cidade?: string | null;
           created_at?: string;
           deletado_em?: string | null;
+          encaminhado_em?: string | null;
           email?: string | null;
           forma_pagamento?: string | null;
           id?: string;

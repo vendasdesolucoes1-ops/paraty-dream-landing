@@ -30,6 +30,7 @@ import {
   blocoFerramentas,
   ferramentasDoNivel,
   horariosLivres,
+  metragemEmNumero,
   patchDoLead,
   resumirLotes,
 } from "./ferramentas-sophia.ts";
@@ -282,7 +283,23 @@ test("conversa 36: objetivo fora da lista é ignorado e campos vazios não apaga
   );
   assert.equal(p.objetivo, undefined);
   assert.equal(p.cidade, undefined);
-  assert.equal(p.metragem_interesse, "360m²");
+  assert.equal(p.metragem_interesse, "360");
+});
+
+test("conversa 36b: metragem vira número; texto sem número não é gravado", () => {
+  assert.equal(metragemEmNumero("360m²"), 360);
+  assert.equal(metragemEmNumero("uns 360 m2"), 360);
+  assert.equal(metragemEmNumero("12x30"), 360);
+  assert.equal(metragemEmNumero("entre 300 e 450m²"), 300);
+  assert.equal(metragemEmNumero("1.000 m²"), 1000);
+  assert.equal(metragemEmNumero("menor disponível"), null);
+  assert.equal(metragemEmNumero("2 lotes"), null);
+  const p = patchDoLead(
+    { metragem_interesse: "menor disponível", cidade: "Taubaté" },
+    { nome: "Ana" },
+  );
+  assert.equal(p.metragem_interesse, undefined);
+  assert.equal(p.cidade, "Taubaté");
 });
 
 // ---------------------------------------------------------------------------

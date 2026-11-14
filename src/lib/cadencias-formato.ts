@@ -110,12 +110,18 @@ export function descreverDeslocamento(
 
 // ── Template ────────────────────────────────────────────────────────────
 
-export const VARIAVEIS_TEMPLATE = ["primeiro_nome", "data_visita", "hora_visita"] as const;
+export const VARIAVEIS_TEMPLATE = [
+  "primeiro_nome",
+  "data_visita",
+  "hora_visita",
+  "vendedor",
+] as const;
 
 export const EXEMPLO_TEMPLATE: Record<(typeof VARIAVEIS_TEMPLATE)[number], string> = {
   primeiro_nome: "Maria",
   data_visita: "24/10",
   hora_visita: "15h",
+  vendedor: "Renan",
 };
 
 /** Partes do template, como o banco separa: por `||`, sem espaços nas pontas e sem partes vazias. */
@@ -139,6 +145,7 @@ export function previewTemplate(
   let texto = template.replace(/\s*\{\{primeiro_nome\}\}/g, nome ? ` ${nome}` : "");
   texto = texto.replace(/\{\{data_visita\}\}/g, valores.data_visita ?? "{{data_visita}}");
   texto = texto.replace(/\{\{hora_visita\}\}/g, valores.hora_visita ?? "{{hora_visita}}");
+  texto = texto.replace(/\{\{vendedor\}\}/g, valores.vendedor ?? "nosso corretor");
   return partesDoTemplate(texto);
 }
 

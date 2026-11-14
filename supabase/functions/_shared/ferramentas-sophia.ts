@@ -95,7 +95,8 @@ const REGISTRAR_DADOS_LEAD = {
         },
         metragem_interesse: nulo({
           type: "string",
-          description: 'Ex.: "360m²", "entre 300 e 450m²"',
+          description:
+            'Tamanho em m², com número: "360", "12x30", "entre 300 e 450". Sem número, não preencha.',
         }),
         canal_origem: nulo({
           type: "string",
@@ -455,6 +456,28 @@ export interface DadosLead {
 const OBJETIVOS = new Set(["moradia", "investimento", "temporada"]);
 
 /**
+ * Metragem em m² a partir do que o lead disse: "360m²" → 360, "12x30" → 360,
+ * "entre 300 e 450" → 300 (o menor da faixa), "1.000 m2" → 1000. Sem número
+ * plausível ("menor disponível", "grande") devolve null e nada é gravado.
+ */
+export function metragemEmNumero(valor: unknown): number | null {
+  const texto = String(valor ?? "").toLowerCase();
+  if (!texto.trim()) return null;
+  const dimensao = texto.match(/(\d+(?:[.,]\d+)?)\s*(?:x|por)\s*(\d+(?:[.,]\d+)?)/);
+  if (dimensao) {
+    const a = Number(dimensao[1].replace(",", "."));
+    const b = Number(dimensao[2].replace(",", "."));
+    const area = Math.round(a * b);
+    if (area >= 50 && area <= 100000) return area;
+  }
+  const numeros = [...texto.matchAll(/\d{1,3}(?:\.\d{3})+|\d+(?:,\d+)?/g)]
+    .map((m) => Number(m[0].replace(/\./g, "").replace(",", ".")))
+    .filter((n) => n >= 50 && n <= 100000);
+  if (!numeros.length) return null;
+  return Math.round(Math.min(...numeros));
+}
+
+/**
  * Patch para `leads` a partir do que o modelo pediu para gravar. Nome só
  * preenche quando o lead ainda não tem nome de verdade (não troca o nome do
  * formulário por um apelido); os outros campos acompanham o que ele disse por
@@ -479,8 +502,10 @@ export function patchDoLead(
   const cidade = limpo(dados.cidade, 80);
   if (cidade) patch.cidade = cidade;
   if (dados.objetivo && OBJETIVOS.has(dados.objetivo)) patch.objetivo = dados.objetivo;
-  const metragem = limpo(dados.metragem_interesse, 60);
-  if (metragem) patch.metragem_interesse = metragem;
+  // leads.metragem_interesse é numérica: texto ("360m²", "menor disponível")
+  // derrubava o registro inteiro, levando junto nome e cidade.
+  const metragem = metragemEmNumero(dados.metragem_interesse);
+  if (metragem !== null) patch.metragem_interesse = String(metragem);
   const canal = limpo(dados.canal_origem, 60);
   if (canal) patch.canal_origem = canal;
   return patch;

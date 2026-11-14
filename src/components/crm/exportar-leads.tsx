@@ -6,6 +6,7 @@ import { downloadCsv } from "@/lib/csv";
 import { ORIGEM_LABEL, STATUS_LABEL, rotuloOrigem } from "@/lib/lead-status";
 import { supabase } from "@/lib/supabase";
 import type { LeadOrigem, LeadStatus } from "@/lib/types";
+import { INTERESSE_PREFIXO, type FiltroInteresse } from "@/lib/kanban-leads";
 
 /** Os mesmos filtros que o quadro do CRM aplica na tela. */
 export interface FiltrosExportacao {
@@ -13,6 +14,12 @@ export interface FiltrosExportacao {
   /** "todas" ou o valor de leads.origem. */
   origem: string;
   mostrarTestes: boolean;
+  /** Carteira aberta (?vendedor=<id> ou a do próprio vendedor). */
+  vendedorId?: string | null;
+  /** Chip "Sem vendedor". */
+  semVendedor?: boolean;
+  /** Chip "Quer visitar" / "Compra em até 3 meses". */
+  interesse?: FiltroInteresse | null;
 }
 
 interface LeadExportado {
@@ -89,6 +96,13 @@ async function buscarLeads(filtros: FiltrosExportacao): Promise<LeadExportado[]>
     // Mesmo critério do quadro: "teve entrada pelo canal".
     if (filtros.origem !== "todas") {
       query = query.or(`origem.eq.${filtros.origem},canais_entrada.cs.{${filtros.origem}}`);
+    }
+    // Os demais filtros do quadro: sem eles o CSV trazia a base inteira.
+    if (filtros.vendedorId) query = query.eq("vendedor_id", filtros.vendedorId);
+    if (filtros.semVendedor) query = query.is("vendedor_id", null);
+    if (filtros.interesse) {
+      const { coluna, prefixo } = INTERESSE_PREFIXO[filtros.interesse];
+      query = query.ilike(coluna, `${prefixo}%`);
     }
 
     const { data, error } = await query;

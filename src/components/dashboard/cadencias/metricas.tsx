@@ -11,7 +11,16 @@ import {
 } from "@/components/ui/table";
 import { formatNumero, formatPorcento, tempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { GATILHO_LABEL, useFollowupMetricas, useSaudeFila, type SaudeFila } from "@/lib/cadencias";
+import { Link } from "@tanstack/react-router";
+import {
+  GATILHO_LABEL,
+  useFollowupMetricas,
+  useRespostasFollowup,
+  useResumoPesquisas,
+  useSaudeFila,
+  type ResumoPesquisas,
+  type SaudeFila,
+} from "@/lib/cadencias";
 
 function Indicador({ rotulo, valor, alerta }: { rotulo: string; valor: string; alerta?: boolean }) {
   return (
@@ -98,10 +107,165 @@ function CartaoSaude({ s }: { s: SaudeFila }) {
   );
 }
 
+function LinkLead({ id, nome }: { id: string; nome: string | null }) {
+  return (
+    <Link
+      to="/dashboard/crm"
+      search={{ lead: id }}
+      className="font-medium text-foreground underline-offset-2 hover:underline"
+    >
+      {nome || "Lead sem nome"}
+    </Link>
+  );
+}
+
+function Nota({ nota }: { nota: number | null }) {
+  if (nota == null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn(
+        "num font-semibold tabular-nums",
+        nota <= 2 ? "text-danger" : nota >= 4 ? "text-success" : "text-foreground",
+      )}
+    >
+      {nota}
+    </span>
+  );
+}
+
+function CartaoPesquisas({ p }: { p: ResumoPesquisas }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Indicador rotulo="Enviadas (90 dias)" valor={formatNumero(p.enviadas)} />
+        <Indicador rotulo="Respondidas" valor={formatNumero(p.respondidas)} />
+        <Indicador
+          rotulo="Nota média"
+          valor={p.media == null ? "—" : String(p.media).replace(".", ",")}
+          alerta={p.media != null && p.media < 3}
+        />
+        <Indicador
+          rotulo="Não foram chamados"
+          valor={formatNumero(p.nao_atendidos)}
+          alerta={p.nao_atendidos > 0}
+        />
+        <Indicador rotulo="Ficaram com dúvida" valor={formatNumero(p.com_duvida)} />
+      </div>
+      {p.por_vendedor.length ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Corretor</TableHead>
+              <TableHead className="text-right">Respostas</TableHead>
+              <TableHead className="text-right">Nota média</TableHead>
+              <TableHead className="text-right">Não chamou</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {p.por_vendedor.map((v) => (
+              <TableRow key={v.nome}>
+                <TableCell className="font-medium text-foreground">{v.nome}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatNumero(v.respostas)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Nota nota={v.media} />
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    "text-right tabular-nums",
+                    v.nao_atendidos > 0 ? "text-danger" : "text-muted-foreground",
+                  )}
+                >
+                  {formatNumero(v.nao_atendidos)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+      {p.recentes.length ? (
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {p.recentes.map((r) => (
+            <li key={`${r.lead_id}-${r.respondida_em}`} className="space-y-1 px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <LinkLead id={r.lead_id} nome={r.lead} />
+                <span className="text-muted-foreground">
+                  {r.vendedor ? `· ${r.vendedor}` : ""} · {tempoRelativo(r.respondida_em)}
+                </span>
+                <span className="ml-auto flex items-center gap-2">
+                  {r.foi_atendido === false ? <Pill tone="danger">não foi chamado</Pill> : null}
+                  {r.tem_duvida ? <Pill tone="accent">dúvida</Pill> : null}
+                  <span className="text-xs text-muted-foreground">nota</span>
+                  <Nota nota={r.nota} />
+                </span>
+              </div>
+              {r.comentario ? (
+                <p className="whitespace-pre-line text-muted-foreground">{r.comentario}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+const INTENCAO_LABEL: Record<string, string> = {
+  interessado: "interessado",
+  duvida: "dúvida",
+  objecao: "objeção",
+  quer_agendar: "quer agendar",
+  agora_nao: "agora não",
+  opt_out: "não quer mais",
+  fora_de_contexto: "fora do assunto",
+};
+
+/** Respostas dos leads às cadências e campanhas dos últimos 7 dias. */
+function RespostasLeads() {
+  const respostas = useRespostasFollowup(7);
+  return (
+    <QueryState
+      query={respostas}
+      skeleton={<SkeletonRows rows={4} />}
+      isEmpty={(d) => d.length === 0}
+      empty={
+        <p className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+          Nenhum lead respondeu a uma cadência ou campanha nos últimos 7 dias.
+        </p>
+      }
+    >
+      {(linhas) => (
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {linhas.map((r) => (
+            <li key={r.lead_id} className="space-y-1 px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <LinkLead id={r.lead_id} nome={r.lead} />
+                <span className="text-muted-foreground">
+                  · {r.origem}
+                  {r.vendedor ? ` · ${r.vendedor}` : " · sem corretor"} ·{" "}
+                  {tempoRelativo(r.respondida_em)}
+                </span>
+                {r.intencao ? (
+                  <Pill tone="accent" className="ml-auto">
+                    {INTENCAO_LABEL[r.intencao] ?? r.intencao}
+                  </Pill>
+                ) : null}
+              </div>
+              <p className="whitespace-pre-line text-foreground">{r.resposta}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </QueryState>
+  );
+}
+
 /** Aba "Métricas": saúde da fila e desempenho de cada etapa. Atualiza a cada minuto. */
 export function MetricasFollowup() {
   const saude = useSaudeFila();
   const metricas = useFollowupMetricas();
+  const pesquisas = useResumoPesquisas();
 
   return (
     <div className="space-y-10">
@@ -186,6 +350,34 @@ export function MetricasFollowup() {
               </TableBody>
             </Table>
           )}
+        </QueryState>
+      </Bloco>
+
+      <Bloco
+        divisor
+        titulo="Respostas dos leads"
+        descricao="A última mensagem de cada lead que respondeu a uma cadência ou campanha nos últimos 7 dias. Clique para abrir o lead."
+      >
+        <RespostasLeads />
+      </Bloco>
+
+      <Bloco
+        divisor
+        titulo="Pesquisa de atendimento"
+        descricao='Notas de 1 a 5 das pesquisas pós-atendimento e pós-visita. Nota até 2 ou "ninguém me chamou" avisa a gestão; dúvida avisa o corretor.'
+      >
+        <QueryState
+          query={pesquisas}
+          skeleton={<SkeletonRows rows={2} />}
+          isEmpty={(d) => d.enviadas === 0 && d.respondidas === 0}
+          empty={
+            <p className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+              Nenhuma pesquisa enviada ainda. Ligue a &quot;Pesquisa pós-atendimento&quot; ou a
+              &quot;Pesquisa pós-visita&quot; na aba Cadências.
+            </p>
+          }
+        >
+          {(p) => <CartaoPesquisas p={p} />}
         </QueryState>
       </Bloco>
     </div>

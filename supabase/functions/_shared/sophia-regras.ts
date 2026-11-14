@@ -46,7 +46,10 @@ export function lerConsultor(valor: unknown): Consultor | null {
 /** Primeiro nome do consultor, para a Sophia citar ("o Fernando vai te receber"). */
 export function nomeDoConsultor(c: Consultor | null | undefined): string {
   const nome = String(c?.nome ?? "").trim();
-  return nome ? nome.split(/\s+/)[0] : CONSULTOR_GENERICO;
+  // O consultor do plano B estava cadastrado como "Sophia", o nome da própria
+  // IA: ela dizia "a Sophia vai te receber". Nome da IA não é consultor.
+  if (!nome || /^sophia\b/i.test(nome)) return CONSULTOR_GENERICO;
+  return nome.split(/\s+/)[0];
 }
 
 // ---------------------------------------------------------------------------
