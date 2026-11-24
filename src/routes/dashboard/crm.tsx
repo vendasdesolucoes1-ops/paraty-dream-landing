@@ -36,7 +36,7 @@ import { ExportarLeads } from "@/components/crm/exportar-leads";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { useContagem } from "@/hooks/use-contagem";
 import { useMontado } from "@/hooks/use-montado";
-import { LeadCard, LeadCardView } from "@/components/dashboard/lead-card";
+import { LeadCard, LeadCardView, type VendedorDoCartao } from "@/components/dashboard/lead-card";
 import { LeadFormDialog } from "@/components/dashboard/lead-form-dialog";
 import { LeadDetailDrawer } from "@/components/dashboard/lead-detail-drawer";
 import { VisitaFormDialog } from "@/components/agenda/visita-form-dialog";
@@ -252,6 +252,7 @@ function ColunaDoQuadro({
   filtros,
   habilitada,
   total,
+  vendedores,
   podeArrastar,
   temAtendimentoHumano,
   semVisita,
@@ -262,6 +263,7 @@ function ColunaDoQuadro({
   filtros: FiltrosKanban;
   habilitada: boolean;
   total: number | undefined;
+  vendedores?: Map<string, VendedorDoCartao>;
   podeArrastar: (lead: Lead) => boolean;
   temAtendimentoHumano: (lead: Lead) => boolean;
   semVisita: (lead: Lead) => boolean;
@@ -311,6 +313,7 @@ function ColunaDoQuadro({
       {coluna.isLoading ? <CartoesEsqueleto quantidade={2} /> : null}
       {leads.map((lead, k) => (
         <LeadCard
+          vendedor={lead.vendedor_id ? vendedores?.get(lead.vendedor_id) : undefined}
           key={lead.id}
           lead={lead}
           indice={k % TAMANHO_PAGINA_KANBAN}
@@ -333,6 +336,19 @@ function CrmPage() {
   const carteiraDe = !isVendedor && vendedorDaUrl && vendedorDaUrl !== "sem" ? vendedorDaUrl : null;
   const vendedorId = isVendedor ? (profile?.vendedor_id ?? null) : carteiraDe;
   const habilitado = !isVendedor || !!profile?.vendedor_id;
+  const { data: vendedores } = useQuery({
+    queryKey: ["crm", "vendedores-dos-cartoes", profile?.vendedor_id, profile?.role],
+    enabled: !!profile && habilitado,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("vendedores").select("id, nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+    select: (rows) => new Map<string, VendedorDoCartao>(rows.map(({ id, nome }) => {
+      const matiz = parseInt(id.slice(0, 8), 16) % 360;
+      return [id, { nome: nome.trim(), cor: `hsl(${matiz} 68% 46%)` }];
+    })),
+  });
   const { data: nomeDaCarteira } = useQuery({
     queryKey: ["vendedor-nome", carteiraDe],
     enabled: !!carteiraDe,
@@ -772,6 +788,7 @@ function CrmPage() {
                     filtros={filtros}
                     habilitada={habilitado}
                     total={contagens.data?.[column.value]}
+                    vendedores={vendedores}
                     podeArrastar={canDrag}
                     temAtendimentoHumano={(lead) =>
                       !!lead.telefone && !!activeTakeoverPhones?.has(lead.telefone)
@@ -790,6 +807,7 @@ function CrmPage() {
               >
                 {leadArrastado ? (
                   <LeadCardView
+                    vendedor={leadArrastado.vendedor_id ? vendedores?.get(leadArrastado.vendedor_id) : undefined}
                     lead={leadArrastado}
                     modo="clone"
                     hasHumanTakeover={
