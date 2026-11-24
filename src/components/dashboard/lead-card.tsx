@@ -19,8 +19,11 @@ import { rotuloOrigem } from "@/lib/lead-status";
 import { cidadeValida, nomeExibicao, resumoRespostas } from "@/lib/lead-exibicao";
 import type { Lead } from "@/lib/types";
 
+export type VendedorDoCartao = { nome: string; cor: string };
+
 type VistaProps = {
   lead: Lead;
+  vendedor?: VendedorDoCartao;
   hasHumanTakeover?: boolean;
   /** Lead em "Agendado" sem visita marcada: o cartão avisa. */
   semVisita?: boolean;
@@ -31,7 +34,7 @@ type VistaProps = {
 
 /** O cartão em si, sem lógica de arrastar: serve ao Kanban e ao clone do arrasto. */
 export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function LeadCardView(
-  { lead, hasHumanTakeover, semVisita, draggable = true, modo = "normal", className, ...rest },
+  { lead, vendedor, hasHumanTakeover, semVisita, draggable = true, modo = "normal", className, ...rest },
   ref,
 ) {
   const origem = lead.origem ? rotuloOrigem(lead.origem) : null;
@@ -161,6 +164,16 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
             <Pill tone="info">+ {voltouPor}</Pill>
           </span>
         ) : null}
+        {vendedor && (
+          <span
+            title={`Responsável: ${vendedor.nome}`}
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-border px-1.5 text-[0.6875rem] font-medium leading-4 text-foreground"
+          >
+            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: vendedor.cor }} />
+            <span className="sr-only">Responsável: </span>
+            <span className="truncate">{vendedor.nome}</span>
+          </span>
+        )}
         {semVendedor ? (
           <span title="Ainda sem vendedor responsável. Abra a ficha para entregar a alguém.">
             <Pill tone="warning">
@@ -190,6 +203,7 @@ export const LeadCardView = forwardRef<HTMLDivElement, VistaProps>(function Lead
 
 export function LeadCard({
   lead,
+  vendedor,
   hasHumanTakeover,
   semVisita,
   onClick,
@@ -197,6 +211,7 @@ export function LeadCard({
   indice = 0,
 }: {
   lead: Lead;
+  vendedor?: VendedorDoCartao;
   hasHumanTakeover?: boolean;
   semVisita?: boolean;
   onClick?: () => void;
@@ -223,6 +238,7 @@ export function LeadCard({
   return (
     <div className="animate-swap" style={atraso(indice, 40, 360)}>
       <LeadCardView
+        vendedor={vendedor}
         ref={setNodeRef}
         lead={lead}
         hasHumanTakeover={hasHumanTakeover}
